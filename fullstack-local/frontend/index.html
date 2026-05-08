@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cognitive Nexus Local Fullstack</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Cognitive Nexus Local Fullstack</h1>
+    <div class="grid">
+      <section class="card">
+        <h2>Chat</h2>
+        <div id="chatBox" class="chat"></div>
+        <input id="messageInput" placeholder="Ask something..." />
+        <button id="sendBtn">Send</button>
+      </section>
+      <section class="card">
+        <h2>Image Generation</h2>
+        <input id="promptInput" placeholder="Describe an image..." />
+        <input id="styleInput" placeholder="Style (realistic, anime, watercolor...)" />
+        <button id="imageBtn">Generate Image</button>
+        <div id="imageResult"></div>
+      </section>
+    </div>
+  </div>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

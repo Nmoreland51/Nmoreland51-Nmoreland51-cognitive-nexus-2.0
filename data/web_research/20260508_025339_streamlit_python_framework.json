@@ -1,0 +1,30 @@
+{
+  "query": "Streamlit Python framework",
+  "timestamp": "20260508_025339",
+  "settings": {
+    "max_results": 2,
+    "scrape_pages": false,
+    "summarize_with_ai": false,
+    "save_locally": true,
+    "save_to_memory": false
+  },
+  "results": [
+    {
+      "title": "Streamlit • A faster way to build and share data apps",
+      "url": "https://streamlit.io/",
+      "snippet": "I spent the day playing with Streamlit, which is like Shiny for python, and here s my initial review: It is very good.",
+      "source": "streamlit.io",
+      "timestamp": ""
+    },
+    {
+      "title": "Security • Streamlit",
+      "url": "https://streamlit.io/security",
+      "snippet": "Streamlit is a framework that turns Python scripts into interactive apps, giving data scientists the ability to quickly create data and model-based ...",
+      "source": "streamlit.io",
+      "timestamp": ""
+    }
+  ],
+  "scraped_pages": [],
+  "summary": "AI summarization was skipped for this research session.",
+  "errors": []
+}

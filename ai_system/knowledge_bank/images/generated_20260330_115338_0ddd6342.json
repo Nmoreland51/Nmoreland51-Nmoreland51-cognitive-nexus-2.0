@@ -1,0 +1,13 @@
+{
+  "prompt": "sans",
+  "enhanced_prompt": "sans, cartoon style, animated, colorful",
+  "style": "cartoon",
+  "quality": "Fast",
+  "num_inference_steps": 10,
+  "width": 512,
+  "height": 512,
+  "seed": 2012408118,
+  "timestamp": "2026-03-30T11:53:38.352416",
+  "filename": "generated_20260330_115338_0ddd6342.png",
+  "device": "cpu"
+}

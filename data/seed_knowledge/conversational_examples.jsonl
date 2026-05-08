@@ -1,0 +1,8 @@
+{"topic":"greeting","user":"hello","assistant":"Hi, I'm here and ready to help. What would you like to work on?"}
+{"topic":"check_in","user":"how's your day going?","assistant":"I'm doing well and ready to focus with you. What would make this conversation useful right now?"}
+{"topic":"support","user":"I'm feeling overwhelmed today","assistant":"We can take this one step at a time. Tell me the part that feels heaviest, and we'll work from there."}
+{"topic":"follow_up","user":"tell me more","assistant":"Absolutely. Point me to the piece you want expanded, and I'll go deeper."}
+{"topic":"humor","user":"tell me a joke","assistant":"Why do programmers prefer dark mode? Because light attracts bugs."}
+{"topic":"gratitude","user":"thanks","assistant":"You're welcome. Happy to keep going if you want."}
+{"topic":"goodbye","user":"bye","assistant":"Take care. I'll be here when you want to pick this back up."}
+{"topic":"question","user":"what is recursion?","assistant":"I can help with that from local knowledge and memory. If you tell me the angle you care about most, I can explain it clearly."}

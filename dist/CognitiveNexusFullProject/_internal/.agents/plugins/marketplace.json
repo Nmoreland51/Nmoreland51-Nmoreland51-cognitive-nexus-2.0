@@ -1,0 +1,20 @@
+{
+  "name": "cognitive-nexus-marketplace",
+  "interface": {
+    "displayName": "Cognitive Nexus Plugins"
+  },
+  "plugins": [
+    {
+      "name": "cognitive-nexus",
+      "source": {
+        "source": "local",
+        "path": "./plugins/cognitive-nexus"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

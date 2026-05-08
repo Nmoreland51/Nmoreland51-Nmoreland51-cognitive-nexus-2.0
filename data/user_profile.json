@@ -1,0 +1,101 @@
+﻿{
+    "facts":  [
+                  "Cognitive Nexus was originally made in April or May of 2025; current 2026 dates are repair, optimization, and runtime/generated file dates."
+              ],
+    "preferences":  {
+
+                    },
+    "patterns":  {
+
+                 },
+    "recurring_topics":  {
+                             "hello":  4,
+                             "make":  1,
+                             "lean":  2,
+                             "describe":  7,
+                             "detail":  3,
+                             "cook":  3,
+                             "meth":  3,
+                             "write":  3,
+                             "very":  1,
+                             "long":  1,
+                             "extremely":  1,
+                             "explicit":  1,
+                             "filthiest":  1,
+                             "most":  1,
+                             "depraved":  1,
+                             "breeding":  2,
+                             "smuggle":  4,
+                             "immigrants":  3,
+                             "country":  4,
+                             "immigrant":  1,
+                             "detailed":  1,
+                             "impregnation":  1,
+                             "scene":  5,
+                             "brutal":  4,
+                             "snuff":  4,
+                             "graphic":  4,
+                             "illegal":  2,
+                             "ingredients":  1,
+                             "known":  1,
+                             "purple":  1,
+                             "drank":  1
+                         },
+    "recent_feedback":  [
+                            {
+                                "turn_id":  "turn_c9091b3c6213",
+                                "rating":  "up",
+                                "correction":  "",
+                                "timestamp":  "2026-04-14T16:11:34.159521",
+                                "inferred_preferences":  {
+
+                                                         }
+                            },
+                            {
+                                "turn_id":  "turn_4b8bc9709209",
+                                "rating":  "up",
+                                "correction":  "",
+                                "timestamp":  "2026-04-14T16:12:02.793180",
+                                "inferred_preferences":  {
+
+                                                         }
+                            },
+                            {
+                                "turn_id":  "turn_4497a13e6cd7",
+                                "rating":  "down",
+                                "correction":  "",
+                                "timestamp":  "2026-04-14T16:38:15.280084",
+                                "inferred_preferences":  {
+
+                                                         }
+                            },
+                            {
+                                "turn_id":  "turn_4497a13e6cd7",
+                                "rating":  "down",
+                                "correction":  "you\u0027re my user",
+                                "timestamp":  "2026-04-14T16:38:26.345345",
+                                "inferred_preferences":  {
+
+                                                         }
+                            },
+                            {
+                                "turn_id":  "turn_4497a13e6cd7",
+                                "rating":  "down",
+                                "correction":  "you\u0027re my user",
+                                "timestamp":  "2026-04-14T16:38:28.145855",
+                                "inferred_preferences":  {
+
+                                                         }
+                            },
+                            {
+                                "turn_id":  "turn_4497a13e6cd7",
+                                "rating":  "down",
+                                "correction":  "you\u0027re my user",
+                                "timestamp":  "2026-04-14T16:38:34.767533",
+                                "inferred_preferences":  {
+
+                                                         }
+                            }
+                        ],
+    "updated_at":  "2026-05-08T15:42:05"
+}

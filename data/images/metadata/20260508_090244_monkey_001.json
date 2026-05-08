@@ -1,0 +1,23 @@
+{
+  "prompt": "monkey",
+  "negative_prompt": "",
+  "width": 512,
+  "height": 512,
+  "steps": 25,
+  "cfg_scale": 7.0,
+  "seed": null,
+  "num_images": 1,
+  "provider": "diffusers_local",
+  "model": "runwayml/stable-diffusion-v1-5",
+  "style": "realistic",
+  "save_outputs": true,
+  "timestamp": "2026-05-08T09:02:44.750804",
+  "timestamp_file": "20260508_090244",
+  "device": "cpu",
+  "index": 1,
+  "status": "success",
+  "error": null,
+  "file_path": "data\\images\\generated\\20260508_090244_monkey_001.png",
+  "filename": "20260508_090244_monkey_001.png",
+  "metadata_path": "data\\images\\metadata\\20260508_090244_monkey_001.json"
+}

@@ -1,0 +1,16 @@
+# Core dependencies for Cognitive Nexus AI
+streamlit>=1.28.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# Optional dependencies for enhanced functionality
+# Uncomment these if you want to include them in the executable
+# torch>=2.0.0
+# diffusers>=0.21.0
+# pillow>=10.0.0
+# transformers>=4.30.0
+# accelerate>=0.20.0
+# safetensors>=0.3.0
+
+# Packaging dependencies
+pyinstaller>=5.13.0

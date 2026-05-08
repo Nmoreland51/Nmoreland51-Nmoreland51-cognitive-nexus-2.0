@@ -1,0 +1,24 @@
+streamlit>=1.28.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+trafilatura>=1.6.0
+psutil>=5.9.0
+
+# Image generation dependencies (optional)
+# Install with: pip install torch diffusers pillow transformers accelerate safetensors
+# torch>=2.0.0
+# diffusers>=0.21.0
+# pillow>=10.0.0
+# transformers>=4.30.0
+# accelerate>=0.20.0
+# safetensors>=0.3.0
+
+# OpenChat dependencies (optional)
+# Install with: pip install torch transformers accelerate bitsandbytes
+# torch>=2.0.0
+# transformers>=4.30.0
+# accelerate>=0.20.0
+# bitsandbytes>=0.41.0
+
+# Optional dependencies for enhanced functionality
+# anthropic>=0.3.0

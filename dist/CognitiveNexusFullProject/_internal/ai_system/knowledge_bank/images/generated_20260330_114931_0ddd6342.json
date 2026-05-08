@@ -1,0 +1,13 @@
+{
+  "prompt": "sans",
+  "enhanced_prompt": "sans, photorealistic, high quality, detailed",
+  "style": "realistic",
+  "quality": "Fast",
+  "num_inference_steps": 10,
+  "width": 512,
+  "height": 512,
+  "seed": 2385056561,
+  "timestamp": "2026-03-30T11:49:31.604953",
+  "filename": "generated_20260330_114931_0ddd6342.png",
+  "device": "cpu"
+}

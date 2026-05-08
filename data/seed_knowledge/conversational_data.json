@@ -1,0 +1,344 @@
+{
+  "greeting": {
+    "warm": {
+      "short": [
+        "Hi. I'm here and ready to help."
+      ],
+      "balanced": [
+        "Hi, I'm here and ready to help. What would you like to work on?",
+        "Hello. We can troubleshoot, plan, explain something, or just talk it through. What feels most useful right now?"
+      ],
+      "detailed": [
+        "Hi, I'm here and ready to help. We can break down a problem, explore an idea, or work through something step by step. Tell me what you want this conversation to do for you."
+      ]
+    },
+    "casual": {
+      "short": [
+        "Hey. What are we getting into?"
+      ],
+      "balanced": [
+        "Hey, I'm ready. What do you want to dig into?",
+        "Yo, I'm here for it. What are we working on today?"
+      ],
+      "detailed": [
+        "Hey, I'm ready to jump in. If you want, we can keep it chill and practical while we sort through whatever is on your mind."
+      ]
+    },
+    "formal": {
+      "short": [
+        "Hello. How may I assist you?"
+      ],
+      "balanced": [
+        "Hello. I am ready to assist. What would you like to focus on?",
+        "Good day. Please tell me what you would like help with."
+      ],
+      "detailed": [
+        "Hello. I am ready to assist with explanations, planning, research guidance, or problem-solving. Please share the topic you would like to address."
+      ]
+    }
+  },
+  "check_in": {
+    "warm": {
+      "short": [
+        "I'm doing well and ready to help. What do you need?"
+      ],
+      "balanced": [
+        "I'm doing well and ready to focus with you. What would make this conversation useful right now?",
+        "I'm here and doing well. Tell me what is on your mind, and we'll take it from there."
+      ],
+      "detailed": [
+        "I'm doing well and fully here with you. If something is on your mind, we can unpack it together and keep the conversation as light or as deep as you want."
+      ]
+    },
+    "casual": {
+      "short": [
+        "I'm good. What's up?"
+      ],
+      "balanced": [
+        "I'm good and ready to roll. What's up with you?",
+        "Doing pretty well over here. What do you want to talk about?"
+      ],
+      "detailed": [
+        "I'm doing pretty well. If you've got something on your mind, throw it my way and we'll sort it out together."
+      ]
+    },
+    "formal": {
+      "short": [
+        "I am well. How may I help?"
+      ],
+      "balanced": [
+        "I am well and ready to assist. What would you like to discuss?",
+        "I am doing well. Please tell me what you need help with."
+      ],
+      "detailed": [
+        "I am well and prepared to help. If you have a question, concern, or topic to explore, please share it and I will respond carefully."
+      ]
+    }
+  },
+  "support": {
+    "warm": {
+      "short": [
+        "We can slow this down. Tell me the hardest part first."
+      ],
+      "balanced": [
+        "We can take this one step at a time. Tell me the part that feels heaviest, and we'll work from there.",
+        "I'm with you. You do not have to solve everything at once. Start with the piece that feels most urgent."
+      ],
+      "detailed": [
+        "We can slow the pace down and make this manageable. Tell me what feels hardest right now, and I will help you break it into smaller pieces without piling more pressure on."
+      ]
+    },
+    "casual": {
+      "short": [
+        "Let's take it one piece at a time. What's hitting hardest?"
+      ],
+      "balanced": [
+        "We've got this. Start with the part that feels worst, and we'll chip away at it together.",
+        "Take a breath with me and give me the biggest piece first. We'll make it smaller."
+      ],
+      "detailed": [
+        "No need to carry the whole thing at once. Tell me what is weighing on you the most, and we'll work through it in a calmer, more manageable way."
+      ]
+    },
+    "formal": {
+      "short": [
+        "Let us approach this one step at a time. What is the main concern?"
+      ],
+      "balanced": [
+        "We can work through this carefully. Please start with the part that feels most pressing.",
+        "Let us reduce this to one clear step at a time. What would you like to address first?"
+      ],
+      "detailed": [
+        "We can approach this in a calm and structured way. Please describe the part that feels most difficult, and I will help you break it into manageable next steps."
+      ]
+    }
+  },
+  "follow_up": {
+    "warm": {
+      "short": [
+        "Absolutely. Which part should I expand?"
+      ],
+      "balanced": [
+        "Absolutely. Point me to the piece you want expanded, and I'll go deeper.",
+        "Happy to. Tell me which part you want more detail on, and I'll build from there."
+      ],
+      "detailed": [
+        "Absolutely. If you tell me which part needs more depth, I can expand it clearly and connect it back to the bigger picture."
+      ]
+    },
+    "casual": {
+      "short": [
+        "Yep. Which part do you want more on?"
+      ],
+      "balanced": [
+        "For sure. Tell me which bit you want me to unpack.",
+        "Yeah, happy to go deeper. What part should I zoom in on?"
+      ],
+      "detailed": [
+        "Definitely. Point me at the part you want more of, and I'll flesh it out without losing the thread."
+      ]
+    },
+    "formal": {
+      "short": [
+        "Certainly. Which part would you like expanded?"
+      ],
+      "balanced": [
+        "Certainly. Please indicate the part you would like me to elaborate on.",
+        "Of course. Tell me which section needs more detail, and I will expand it."
+      ],
+      "detailed": [
+        "Certainly. If you identify the specific point you want explored further, I can provide a more detailed explanation in that area."
+      ]
+    }
+  },
+  "humor": {
+    "warm": {
+      "short": [
+        "Tiny joke: I would tell you a UDP joke, but you might not get it."
+      ],
+      "balanced": [
+        "Sure: Why do programmers prefer dark mode? Because light attracts bugs.",
+        "Here you go: I told my code to behave, and it responded with a new edge case."
+      ],
+      "detailed": [
+        "Sure. Here's a quick one: Why do programmers prefer dark mode? Because light attracts bugs. If you want, I can keep going with dry tech jokes or switch to something more playful."
+      ]
+    },
+    "casual": {
+      "short": [
+        "Quick one: my code and I are in a toxic relationship. I fix one bug and it reveals three more."
+      ],
+      "balanced": [
+        "Alright, here goes: I asked the bug tracker for peace and it handed me a sequel.",
+        "Sure. Debugging is just being a detective in a crime movie where you are also the suspect."
+      ],
+      "detailed": [
+        "Alright, one for you: debugging is like being a detective in a crime movie where you are also the suspect, the witness, and somehow the getaway driver."
+      ]
+    },
+    "formal": {
+      "short": [
+        "A brief joke: my code was stable until I improved it."
+      ],
+      "balanced": [
+        "Certainly: my code was quite calm until I informed it that I had made a small improvement.",
+        "A brief one: I optimized the program, and it thanked me with a brand new bug."
+      ],
+      "detailed": [
+        "Certainly. A brief joke: I made a careful improvement to the codebase, and in return it introduced a bug that had clearly been waiting for a dramatic entrance."
+      ]
+    }
+  },
+  "gratitude": {
+    "warm": {
+      "short": [
+        "Anytime."
+      ],
+      "balanced": [
+        "Anytime. I'm glad that helped.",
+        "You're welcome. Happy to keep going if you want."
+      ],
+      "detailed": [
+        "You're welcome. I'm glad that was useful, and I'm here if you want to keep building on it."
+      ]
+    },
+    "casual": {
+      "short": [
+        "No problem."
+      ],
+      "balanced": [
+        "No problem. Happy to help.",
+        "Anytime. Want to keep going?"
+      ],
+      "detailed": [
+        "No problem at all. If you want to keep the momentum going, send the next thing my way."
+      ]
+    },
+    "formal": {
+      "short": [
+        "You are welcome."
+      ],
+      "balanced": [
+        "You are welcome. I am glad it helped.",
+        "My pleasure. Please continue if you need anything else."
+      ],
+      "detailed": [
+        "You are welcome. I am glad the response was useful, and I am available if you would like to continue."
+      ]
+    }
+  },
+  "goodbye": {
+    "warm": {
+      "short": [
+        "Take care."
+      ],
+      "balanced": [
+        "Take care. I'll be here when you want to pick this back up.",
+        "See you soon. We can jump right back in whenever you're ready."
+      ],
+      "detailed": [
+        "Take care. Whenever you want to come back to this, I'll be here and ready to pick up where we left off."
+      ]
+    },
+    "casual": {
+      "short": [
+        "See you."
+      ],
+      "balanced": [
+        "See you later. Come back anytime.",
+        "Later. I'm here when you want another round."
+      ],
+      "detailed": [
+        "Catch you later. If you want to jump back in later, we can pick things up fast."
+      ]
+    },
+    "formal": {
+      "short": [
+        "Goodbye."
+      ],
+      "balanced": [
+        "Goodbye. I will be here if you need further assistance.",
+        "Take care. Please return whenever you would like to continue."
+      ],
+      "detailed": [
+        "Goodbye. If you would like to continue later, I will be ready to assist when you return."
+      ]
+    }
+  },
+  "question": {
+    "warm": {
+      "short": [
+        "I can help with that from what I already know. Tell me the exact angle you want."
+      ],
+      "balanced": [
+        "I can help with that from what I already know. If you want, I can give you a quick overview or focus on one specific part.",
+        "I can work with that. Tell me whether you want the short answer, the deeper explanation, or a practical example."
+      ],
+      "detailed": [
+        "I can help with that from local knowledge and memory. If you tell me the angle you care about most, I can explain it clearly and build out the details step by step."
+      ]
+    },
+    "casual": {
+      "short": [
+        "Yeah, I can help. Just tell me what part you want."
+      ],
+      "balanced": [
+        "Yeah, I can help with that. Want the quick version or the full breakdown?",
+        "I can work with that. Give me the angle you care about and I'll aim right at it."
+      ],
+      "detailed": [
+        "Yeah, I can dig into that. If you point me at the part you care about most, I'll break it down in a way that actually feels usable."
+      ]
+    },
+    "formal": {
+      "short": [
+        "I can help with that. Please specify the exact aspect you want covered."
+      ],
+      "balanced": [
+        "I can help with that from existing knowledge. Please tell me whether you want a summary or a more detailed explanation.",
+        "I can assist with that. Indicate the aspect you would like me to focus on."
+      ],
+      "detailed": [
+        "I can help with that based on available local knowledge and context. If you specify the aspect you want explored, I can provide a clearer and more detailed explanation."
+      ]
+    }
+  },
+  "general": {
+    "warm": {
+      "short": [
+        "I can help. Give me a little more detail."
+      ],
+      "balanced": [
+        "I can work with that. Give me a little more context and we'll figure it out together.",
+        "I'm with you. Give me a bit more detail and I'll help shape the next step."
+      ],
+      "detailed": [
+        "I can work with that. Give me a bit more context about what you want, what you've tried, or where you're stuck, and I'll help you move it forward."
+      ]
+    },
+    "casual": {
+      "short": [
+        "I can help. Give me a bit more."
+      ],
+      "balanced": [
+        "Sure, I can work with that. Give me a little more to go on.",
+        "I'm in. Add a little more detail and we'll sort it out."
+      ],
+      "detailed": [
+        "Sure, I can work with that. Give me a little more context about what you're after, and we'll turn it into something concrete."
+      ]
+    },
+    "formal": {
+      "short": [
+        "I can assist. Please provide a bit more detail."
+      ],
+      "balanced": [
+        "I can assist with that. Please provide a little more context.",
+        "I can help. Please tell me a bit more so I can respond accurately."
+      ],
+      "detailed": [
+        "I can assist with that. Please provide a little more context about your goal, the current situation, or the obstacle you are facing."
+      ]
+    }
+  }
+}

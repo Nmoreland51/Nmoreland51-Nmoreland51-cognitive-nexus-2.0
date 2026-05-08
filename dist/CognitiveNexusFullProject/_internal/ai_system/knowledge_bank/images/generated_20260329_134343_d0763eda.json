@@ -1,0 +1,10 @@
+{
+  "prompt": "monkey",
+  "enhanced_prompt": "monkey, photorealistic, high quality, detailed",
+  "style": "realistic",
+  "width": 512,
+  "height": 512,
+  "seed": 4058545396,
+  "timestamp": "2026-03-29T13:43:43.413389",
+  "filename": "generated_20260329_134343_d0763eda.png"
+}

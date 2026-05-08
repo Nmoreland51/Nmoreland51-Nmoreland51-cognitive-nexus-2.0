@@ -1,0 +1,41 @@
+{
+  "name": "cognitive-nexus",
+  "version": "0.1.0",
+  "description": "Cognitive Nexus plugin metadata and subagent manifest scaffold.",
+  "author": {
+    "name": "Nathaniel",
+    "email": "",
+    "url": ""
+  },
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "keywords": [
+    "cognitive-nexus",
+    "assistant",
+    "delegation",
+    "review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Cognitive Nexus",
+    "shortDescription": "Adaptive AI workspace with specialized subagents.",
+    "longDescription": "Repo-local plugin metadata for Cognitive Nexus, including planning, review, debugging, and documentation subagents.",
+    "developerName": "Nathaniel",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write",
+      "Analyze"
+    ],
+    "websiteURL": "",
+    "privacyPolicyURL": "",
+    "termsOfServiceURL": "",
+    "defaultPrompt": [
+      "Plan a feature and identify the riskiest implementation steps.",
+      "Review this change for bugs, regressions, and missing tests.",
+      "Diagnose a build failure and propose the safest fix."
+    ],
+    "brandColor": "#1F6FEB"
+  }
+}
