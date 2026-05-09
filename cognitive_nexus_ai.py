@@ -39,6 +39,7 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 import psutil
 from functools import wraps
 import traceback
+from dataclasses import dataclass, field
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -430,8 +431,48 @@ class LearningSystem:
         
         return "\n".join(relevant_items[:max_items])
 
+@dataclass
+class AdaptivePolicy:
+    tone: str = "warm"
+    detail_level: str = "balanced"
+
+
+@dataclass
+class TurnSignals:
+    intent: str = ""
+    topic: str = ""
+
+
+@dataclass
+class ContextBundle:
+    policy: AdaptivePolicy = field(default_factory=AdaptivePolicy)
+    short_term_context: List[str] = field(default_factory=list)
+
+
+@dataclass
+class IntentDecision:
+    route: str
+    reason: str
+    search_query: str = ""
+
+
+@dataclass
+class ChatResult:
+    answer: str
+    used_web_search: bool = False
+    search_note: str = ""
+    route: str = "local_knowledge"
+    route_reason: str = ""
+    sources: List[Dict[str, Any]] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        return self.answer
+
+
 class FallbackResponseSystem:
-    def __init__(self):
+    def __init__(self, data_dir: Optional[Union[str, Path]] = None):
+        self.data_dir = Path(data_dir) if data_dir else Path("data")
+        self.seeded_responses: Dict[str, Any] = {}
         self.defaults = {
             "greeting": [
                 "Hello! I'm Cognitive Nexus AI, your comprehensive AI assistant.",
@@ -449,19 +490,55 @@ class FallbackResponseSystem:
                 "While I can't access current web information at the moment, I'm happy to help with questions based on my existing knowledge."
             ]
         }
+        self._load_seeded_responses()
 
-    def get_response(self, message: str, context: str = "") -> str:
+    def _load_seeded_responses(self):
+        path = self.data_dir / "seed_knowledge" / "conversational_data.json"
+        try:
+            if path.exists():
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(payload, dict):
+                    self.seeded_responses = payload
+        except Exception:
+            self.seeded_responses = {}
+
+    def _seeded_response(self, category: str, policy: Optional[AdaptivePolicy]) -> Optional[str]:
+        if not self.seeded_responses:
+            return None
+        policy = policy or AdaptivePolicy()
+        category_data = self.seeded_responses.get(category, {})
+        tone_data = category_data.get(policy.tone, {}) if isinstance(category_data, dict) else {}
+        candidates = tone_data.get(policy.detail_level) or tone_data.get("balanced")
+        if isinstance(candidates, list) and candidates:
+            return str(candidates[0])
+        return None
+
+    def get_response(self, message: str, context: str = "", policy: Optional[AdaptivePolicy] = None) -> str:
         message_lower = message.lower().strip()
         
         # Greeting patterns
         if any(greeting in message_lower for greeting in ['hello', 'hi', 'hey', 'greetings']):
+            seeded = self._seeded_response("greeting", policy)
+            if seeded:
+                return seeded
             return random.choice(self.defaults["greeting"])
+
+        if any(phrase in message_lower for phrase in ["how are you", "how's it going", "you good"]):
+            seeded = self._seeded_response("check_in", policy)
+            if seeded:
+                return seeded
         
         # Question patterns
         if message.endswith('?') or any(word in message_lower for word in ['what', 'how', 'when', 'where', 'why', 'who']):
+            seeded = self._seeded_response("question", policy)
+            if seeded:
+                return seeded
             return random.choice(self.defaults["search_fallback"])
         
         # General fallback
+        seeded = self._seeded_response("general", policy)
+        if seeded:
+            return seeded
         return random.choice(self.defaults["general"])
 
 class OpenChatService:
@@ -771,38 +848,135 @@ class CognitiveNexusCore:
         
         return False, ""
 
+    def determine_intent(self, message: str) -> IntentDecision:
+        """Route legacy chat messages without forcing every question through search."""
+
+        message_lower = message.lower().strip()
+        casual_terms = ["hello", "hi", "hey", "tell me a joke", "tell me more", "thanks", "thank you"]
+        if any(term in message_lower for term in casual_terms):
+            return IntentDecision(route="casual_chat", reason="casual_or_supportive_turn")
+
+        forced_patterns = [
+            "search the web for",
+            "search web for",
+            "web search for",
+            "search online for",
+            "look up",
+            "find online",
+            "do a web search for",
+        ]
+        for pattern in forced_patterns:
+            if message_lower.startswith(pattern):
+                return IntentDecision(
+                    route="forced_web_search",
+                    reason="explicit_search_request",
+                    search_query=message[len(pattern):].strip() or message.strip(),
+                )
+
+        time_sensitive = ["current", "latest", "recent", "today", "now", "breaking", "weather", "price", "news"]
+        if any(term in message_lower for term in time_sensitive):
+            return IntentDecision(route="web_search", reason="time_sensitive_request", search_query=message.strip())
+
+        return IntentDecision(route="local_knowledge", reason="local_or_general_knowledge")
+
+    def _ensure_chat_result(
+        self,
+        value: Union[str, ChatResult],
+        *,
+        route: str,
+        route_reason: str,
+        used_web_search: bool = False,
+        search_note: str = "",
+    ) -> ChatResult:
+        if isinstance(value, ChatResult):
+            result = value
+        else:
+            result = ChatResult(answer=str(value or ""))
+        if not result.route or (result.route == "local_knowledge" and route != "local_knowledge"):
+            result.route = route
+        result.route_reason = result.route_reason or route_reason
+        result.used_web_search = result.used_web_search or used_web_search
+        result.search_note = result.search_note or search_note
+        return result
+
+    def _add_identity_note(self, result: ChatResult) -> ChatResult:
+        identity = "Cognitive Nexus AI was created by Nathaniel Moreland."
+        if "Nathaniel" not in result.answer:
+            result.answer = f"{result.answer}\n\n{identity}".strip()
+        elif "Cognitive Nexus AI" not in result.answer:
+            result.answer = f"{result.answer}\n\nCognitive Nexus AI is Nathaniel's local assistant.".strip()
+        return result
+
     @healing_system.with_self_healing("message_processing")
-    def process_message(self, message: str, show_sources: bool = True, temperature: float = 0.7) -> str:
+    def process_message(
+        self,
+        message: str,
+        enable_search: bool = True,
+        show_sources: bool = True,
+        temperature: float = 0.7,
+    ) -> ChatResult:
         try:
             # Handle special commands
             if message.strip().lower() == "!refresh":
-                return self.learning_system.refresh_all_knowledge()
+                return ChatResult(answer=self.learning_system.refresh_all_knowledge(), route="command")
             
             # Get relevant context
-            context = self.learning_system.get_relevant_context(message)
-            
-            # Determine if web search is needed
-            should_search, search_query = self.should_use_web_search(message)
-            
-            if should_search and WEB_SEARCH_AVAILABLE:
-                response = self._handle_search_query(search_query, context)
+            if hasattr(self.learning_system, "get_relevant_context"):
+                context = self.learning_system.get_relevant_context(message)
             else:
-                response = self._handle_local_query(message, context, temperature)
+                context = ""
+            
+            decision = self.determine_intent(message)
+            
+            if decision.route in {"web_search", "forced_web_search"} and enable_search and WEB_SEARCH_AVAILABLE:
+                response = self._handle_search_query(
+                    decision.search_query or message,
+                    context,
+                    show_sources=show_sources,
+                    route=decision.route,
+                    route_reason=decision.reason,
+                )
+            elif decision.route in {"web_search", "forced_web_search"} and not enable_search:
+                note = "Live web search is turned off, so this answer is based on local knowledge."
+                local = self._handle_local_query(message, context, temperature)
+                response = self._ensure_chat_result(
+                    local,
+                    route=decision.route,
+                    route_reason=decision.reason,
+                    search_note=note,
+                )
+                response.answer = f"{note}\n\n{response.answer}"
+            else:
+                response = self._ensure_chat_result(
+                    self._handle_local_query(message, context, temperature),
+                    route=decision.route,
+                    route_reason=decision.reason,
+                )
             
             # Learn from conversation
-            self.learning_system.add_conversation(message, response)
+            response = self._add_identity_note(response)
+            self.learning_system.add_conversation(message, response.answer)
             return response
             
         except Exception as e:
             logger.error(f"Message processing error: {e}")
-            return "I apologize, but I encountered an issue processing your request. Please try again."
+            return ChatResult(answer="I encountered an issue processing your request. Please try again.", route="error")
 
-    def _handle_search_query(self, query: str, context: str) -> str:
+    def _handle_search_query(
+        self,
+        query: str,
+        context: str,
+        show_sources: bool = True,
+        route: str = "web_search",
+        route_reason: str = "time_sensitive_request",
+    ) -> ChatResult:
         try:
-            search_results = self.search_system.search_web(query, max_results=5)
+            search_payload = self.search_system.search_web(query, max_results=5)
+            search_results = search_payload.get("results", []) if isinstance(search_payload, dict) else search_payload
             
             if not search_results:
-                return self.fallback_system.get_response(query, context)
+                fallback = self.fallback_system.get_response(query, context)
+                return self._add_identity_note(ChatResult(answer=fallback, route=route, route_reason=route_reason))
             
             information_pieces = []
             sources_used = []
@@ -832,19 +1006,30 @@ class CognitiveNexusCore:
             
             # Combine information
             response_parts = []
+            note = "Web search used for current information."
+            response_parts.append(note)
             if information_pieces:
                 response_parts.append("Based on my search, here's what I found:")
                 response_parts.extend(information_pieces)
             
-            if sources_used:
+            if sources_used and show_sources:
                 response_parts.append("\n**Sources:**")
                 response_parts.extend(sources_used)
             
-            return "\n\n".join(response_parts)
+            return self._add_identity_note(
+                ChatResult(
+                    answer="\n\n".join(response_parts),
+                    used_web_search=True,
+                    search_note=note,
+                    route=route,
+                    route_reason=route_reason,
+                    sources=search_results,
+                )
+            )
             
         except Exception as e:
             logger.error(f"Search query handling error: {e}")
-            return self.fallback_system.get_response(query, context)
+            return ChatResult(answer=self.fallback_system.get_response(query, context), route=route, route_reason=route_reason)
 
     def _handle_local_query(self, message: str, context: str, temperature: float) -> str:
         provider = self._detect_best_provider()
@@ -1328,9 +1513,9 @@ def main():
                     nexus = get_cognitive_nexus()
                     response = nexus.process_message(prompt)
                 
-                st.markdown(response)
+                st.markdown(response.answer if isinstance(response, ChatResult) else response)
             
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.session_state.messages.append({"role": "assistant", "content": response.answer if isinstance(response, ChatResult) else response})
     
     with tab2:
         render_image_generation_tab()

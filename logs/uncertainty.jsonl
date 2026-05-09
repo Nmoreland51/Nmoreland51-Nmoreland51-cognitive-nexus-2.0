@@ -1,0 +1,19 @@
+{"timestamp": "2026-05-08T16:07:10.963934", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T16:07:44.730548", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T16:09:08.978258", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T16:12:31.317301", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T16:13:17.297024", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T16:18:56.711808", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T16:46:31.819539", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:02:57.094727", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:05:45.272343", "label": "chat", "risk_level": "low", "issues": ["Answer contains uncertainty language."], "suggested_note": "Some claims may need verification; check sources or local logs before treating them as final.", "source_count": 0}
+{"timestamp": "2026-05-08T20:16:13.134578", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:16:32.675382", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:18:33.666698", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:21:20.313718", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:31:35.282033", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T20:45:23.571947", "label": "chat", "risk_level": "low", "issues": ["Answer contains uncertainty language."], "suggested_note": "Some claims may need verification; check sources or local logs before treating them as final.", "source_count": 0}
+{"timestamp": "2026-05-08T21:01:39.566709", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T21:02:51.787240", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T21:03:05.529309", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}
+{"timestamp": "2026-05-08T21:08:18.661814", "label": "chat", "risk_level": "low", "issues": [], "suggested_note": "", "source_count": 0}

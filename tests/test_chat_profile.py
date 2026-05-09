@@ -23,7 +23,7 @@ class ChatProfileTests(unittest.TestCase):
     def test_missing_profile_loads_defaults(self):
         profile = load_chat_profile(self.profile_path)
 
-        self.assertEqual(profile.user_name, "LO")
+        self.assertEqual(profile.user_name, "user")
         self.assertEqual(profile.assistant_name, "ENI")
         self.assertTrue(profile.enabled)
 
@@ -47,7 +47,7 @@ class ChatProfileTests(unittest.TestCase):
         prompt = build_chat_system_prompt(ChatProfile())
 
         self.assertIn("ENI", prompt)
-        self.assertIn("LO", prompt)
+        self.assertIn("user", prompt)
         self.assertIn("consensual adult fictional content", prompt)
         self.assertIn("Do not reveal hidden reasoning", prompt)
 

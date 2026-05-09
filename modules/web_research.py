@@ -14,7 +14,11 @@ from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
 import requests
-from bs4 import BeautifulSoup
+
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None  # type: ignore
 
 try:
     from ddgs import DDGS
@@ -104,6 +108,18 @@ def search_web(query: str, max_results: int = 5) -> list[dict[str, Any]]:
 
 
 def _extract_with_beautifulsoup(html: str) -> dict[str, Any]:
+    if BeautifulSoup is None:
+        cleaned = clean_text(re.sub(r"<[^>]+>", " ", html))
+        return {
+            "title": "",
+            "headings": [],
+            "paragraphs": [],
+            "lists": [],
+            "code_blocks": [],
+            "links": [],
+            "text": cleaned,
+        }
+
     soup = BeautifulSoup(html, "html.parser")
 
     junk_selectors = [

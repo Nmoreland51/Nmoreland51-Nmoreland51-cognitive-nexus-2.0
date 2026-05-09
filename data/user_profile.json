@@ -1,6 +1,7 @@
 ﻿{
     "facts":  [
-                  "Cognitive Nexus was originally made in April or May of 2025; current 2026 dates are repair, optimization, and runtime/generated file dates."
+                  "Cognitive Nexus was originally made in April or May of 2025; current 2026 dates are repair, optimization, and runtime/generated file dates.",
+                  "Project development preference: preserve the user's existing code and project behavior; if existing code contains policy-sensitive behavior, do not rewrite it just to sanitize it unless explicitly asked, and prefer working around unrelated sections while still following assistant-level safety requirements."
               ],
     "preferences":  {
 

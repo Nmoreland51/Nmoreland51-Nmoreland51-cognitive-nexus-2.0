@@ -1,0 +1,11 @@
+-r core.txt
+beautifulsoup4>=4.12.0
+duckduckgo-search>=6.1.0
+ddgs>=9.0.0
+trafilatura>=1.6.0
+
+# Heavy optional local model/image backends. Install only when needed.
+# torch
+# transformers
+# diffusers
+# accelerate

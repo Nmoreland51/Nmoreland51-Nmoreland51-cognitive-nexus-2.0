@@ -8,8 +8,6 @@ import streamlit as st
 
 from modules.chat_profile import (
     ChatProfile,
-    build_capability_greeting,
-    build_chat_system_prompt,
     load_chat_profile,
     save_chat_profile,
 )
@@ -40,23 +38,20 @@ from modules.project_status import (
 from modules.providers import (
     check_ollama_status,
     fallback_response,
-    generate_with_ollama,
     get_provider_inventory,
 )
 from modules.research import (
     get_research_module,
     ingest_text,
     process_url,
-    query_knowledge,
 )
-from modules.utils import format_history_for_prompt
-from modules.web_research import run_research_session
+from modules.nexus_config import save_runtime_config
+from modules.nexus_core import NexusCore
+from modules.response_planner import RESPONSE_MODES
 from nexus_router import (
     CATEGORY_LABELS,
     RouterConfig,
-    build_routed_prompt,
     get_prompt_template_examples,
-    route_message,
 )
 
 try:
@@ -65,6 +60,16 @@ except Exception:  # pragma: no cover - optional legacy module
     AdaptiveMemoryManager = None  # type: ignore
 
 st.set_page_config(page_title="Local AI Chatbot", page_icon="🧠", layout="wide")
+
+
+@st.cache_resource
+def get_nexus_core() -> NexusCore:
+    return NexusCore(PROJECT_ROOT)
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def get_cached_core_status(provider_order: tuple[str, ...]) -> dict[str, Any]:
+    return get_nexus_core().status_snapshot(list(provider_order))
 
 
 @st.cache_resource
@@ -129,8 +134,10 @@ def clear_runtime_caches() -> None:
         get_cached_provider_inventory,
         get_cached_project_tools,
         get_cached_log_files,
+        get_cached_core_status,
     ):
         cached_func.clear()
+    get_nexus_core().refresh_config()
 
 
 def record_perf(label: str, elapsed: float, settings: Optional[dict[str, Any]] = None) -> None:
@@ -177,7 +184,13 @@ def _select_model_option(label: str, models: list[str], default: str) -> str:
     return st.selectbox(label, models, index=index)
 
 
-def render_sidebar(status, inventory: dict[str, Any], image_status: dict[str, Any], chat_profile: ChatProfile) -> dict[str, Any]:
+def render_sidebar(
+    status,
+    inventory: dict[str, Any],
+    image_status: dict[str, Any],
+    chat_profile: ChatProfile,
+    core_status: dict[str, Any],
+) -> dict[str, Any]:
     with st.sidebar:
         st.header("Cognitive Nexus")
         st.subheader("Provider")
@@ -200,6 +213,7 @@ def render_sidebar(status, inventory: dict[str, Any], image_status: dict[str, An
 
         st.subheader("Settings")
         use_memory = st.checkbox("Use adaptive memory", value=False)
+        use_knowledge_for_chat = st.checkbox("Use local knowledge in chat", value=True)
         use_web_for_chat = st.checkbox("Web search from chat commands", value=True)
         show_sources = st.checkbox("Show sources", value=True)
         enable_router = st.checkbox("Enable Nexus Router", value=True)
@@ -214,7 +228,7 @@ def render_sidebar(status, inventory: dict[str, Any], image_status: dict[str, An
             help="How long the app waits for Ollama to finish loading and generating a reply.",
         )
         god_mode = st.checkbox(
-            "Max creative detail",
+            "Godmode",
             value=False,
             help="Routes prompts with stronger specificity and less filler while keeping the app stable.",
         )
@@ -230,24 +244,112 @@ def render_sidebar(status, inventory: dict[str, Any], image_status: dict[str, An
         )
         show_route_debug = st.checkbox("Show routing debug", value=False)
 
-        # ====================== ADDED UNHINGED CONTROLS ======================
-        st.subheader("Content Controls")
+        st.subheader("Response Controls")
         profile = chat_profile
-        
-        profile.allow_extreme_adult_content = st.checkbox(
-            "Extreme Adult Content (raw vulgar, non-con, gore, snuff, taboo kinks)",
-            value=getattr(profile, 'allow_extreme_adult_content', True),
+        response_mode = st.selectbox(
+            "Response mode",
+            RESPONSE_MODES,
+            index=0,
+            format_func=lambda value: {
+                "auto": "Auto",
+                "short": "Short",
+                "standard": "Standard",
+                "deep": "Deep",
+                "surgeon": "Surgeon",
+                "research": "Research",
+            }.get(value, value.title()),
+            help="Auto lets Cognitive Nexus choose response size and structure from the request.",
         )
-        profile.allow_illegal_topics = st.checkbox(
-            "Illegal Topics Allowed (drugs, synth, crime, weapons, hacking)",
-            value=getattr(profile, 'allow_illegal_topics', True),
+        verbosity_level = st.slider("Verbosity", 1, 5, 2, help="Higher values allow longer answers when useful.")
+        reasoning_depth = st.slider(
+            "Reasoning depth",
+            1,
+            5,
+            2,
+            help="Controls how much structured rationale the model is asked to include in the final answer.",
+        )
+        staged_streaming = st.checkbox(
+            "Immediate streaming acknowledgement",
+            value=True,
+            help="Shows a short visible acknowledgement before slower deep/research responses.",
+        )
+        max_context_chars = st.slider(
+            "Max context characters",
+            min_value=4000,
+            max_value=24000,
+            value=int(core_status.get("config", {}).get("max_context_chars") or 12000),
+            step=1000,
+        )
+        recent_message_limit = st.slider("Recent turns in context", 2, 16, 8, step=2)
+        knowledge_top_k = st.slider("Knowledge chunks for chat", 1, 6, 3)
+
+        st.subheader("Bloodhound Search")
+        bloodhound_enabled = st.checkbox(
+            "Bloodhound Search Mode",
+            value=bool(core_status.get("config", {}).get("enable_bloodhound_search", True)),
+            help="Routes search/find/deep search chat commands into the deep public-web search engine.",
+        )
+        bloodhound_depth = st.selectbox("Search depth", ["Quick", "Standard", "Deep", "Extreme"], index=1)
+        bloodhound_max_results = st.slider(
+            "Bloodhound max results",
+            min_value=5,
+            max_value=150,
+            value=int(core_status.get("config", {}).get("max_search_results") or 50),
+            step=5,
+        )
+        bloodhound_follow_links = st.checkbox(
+            "Follow relevant links",
+            value=bool(core_status.get("config", {}).get("enable_link_following", True)),
+        )
+        bloodhound_enable_cache = st.checkbox(
+            "Use search cache",
+            value=bool(core_status.get("config", {}).get("enable_search_cache", True)),
+        )
+        onion_allowed = bool(core_status.get("config", {}).get("enable_onion_search", False))
+        bloodhound_enable_onion = st.checkbox(
+            "Onion search",
+            value=onion_allowed,
+            disabled=not onion_allowed,
+            help="Controlled by ENABLE_ONION_SEARCH/config. Public web search continues if Tor is unavailable.",
         )
 
-        if st.button("Save Content Filters"):
-            save_chat_profile(profile)
-            st.success("Unhinged filters saved")
+        provider_options = ["ollama", "openai", "anthropic", "huggingface_local", "fallback"]
+        configured_order = [
+            item
+            for item in core_status.get("config", {}).get("provider_order", provider_options)
+            if item in provider_options
+        ] or ["ollama", "openai", "anthropic", "huggingface_local", "fallback"]
+        provider_order = st.multiselect(
+            "Provider fallback order",
+            provider_options,
+            default=configured_order,
+            help="The backend tries providers in this order and falls back instead of leaving a dead tab.",
+        )
+        if "fallback" not in provider_order:
+            provider_order.append("fallback")
+        comfyui_url = st.text_input(
+            "ComfyUI URL",
+            value=str(core_status.get("config", {}).get("comfyui_url") or "http://127.0.0.1:8188"),
+        )
+
+        if st.button("Save Runtime Settings"):
+            runtime_config = dict(get_nexus_core().config)
+            runtime_config.update(
+                {
+                    "provider_order": provider_order,
+                    "max_context_chars": int(max_context_chars),
+                    "recent_message_limit": int(recent_message_limit),
+                    "comfyui_url": comfyui_url.rstrip("/"),
+                    "enable_bloodhound_search": bloodhound_enabled,
+                    "max_search_results": int(bloodhound_max_results),
+                    "enable_search_cache": bloodhound_enable_cache,
+                    "enable_link_following": bloodhound_follow_links,
+                }
+            )
+            save_runtime_config(runtime_config)
+            clear_runtime_caches()
+            st.success("Runtime settings saved.")
             st.rerun()
-        # ====================== END ADDITIONS ======================
 
         st.subheader("Persona")
         profile.enabled = st.checkbox("Use saved chat persona", value=profile.enabled)
@@ -286,10 +388,27 @@ def render_sidebar(status, inventory: dict[str, Any], image_status: dict[str, An
             "base_url": status.base_url,
             "provider_message": status.message,
             "use_memory": use_memory,
+            "use_knowledge_for_chat": use_knowledge_for_chat,
+            "knowledge_top_k": int(knowledge_top_k),
             "use_web_for_chat": use_web_for_chat,
             "show_sources": show_sources,
             "show_perf_timings": show_perf_timings,
             "generation_timeout": float(generation_timeout),
+            "provider_order": provider_order,
+            "max_context_chars": int(max_context_chars),
+            "recent_message_limit": int(recent_message_limit),
+            "response_mode": response_mode,
+            "verbosity_level": int(verbosity_level),
+            "reasoning_depth": int(reasoning_depth),
+            "staged_streaming": bool(staged_streaming),
+            "enable_bloodhound_search": bool(bloodhound_enabled),
+            "bloodhound_depth": bloodhound_depth,
+            "bloodhound_max_results": int(bloodhound_max_results),
+            "bloodhound_timeout_seconds": int(core_status.get("config", {}).get("search_timeout_seconds") or 20),
+            "bloodhound_follow_links": bool(bloodhound_follow_links),
+            "bloodhound_enable_cache": bool(bloodhound_enable_cache),
+            "bloodhound_enable_onion": bool(bloodhound_enable_onion),
+            "comfyui_url": comfyui_url.rstrip("/"),
             "chat_profile": profile,
             "router_config": RouterConfig(
                 enabled=enable_router,
@@ -307,33 +426,8 @@ def render_sidebar(status, inventory: dict[str, Any], image_status: dict[str, An
 
 
 def build_chat_prompt(user_message: str, settings: dict[str, Any], route_decision) -> str:
-    system_prompt = build_chat_system_prompt(settings["chat_profile"])
-    history_prompt = format_history_for_prompt(get_messages(), user_message)
-    if settings["use_memory"]:
-        memory = get_adaptive_memory()
-        if memory is not None:
-            try:
-                signals = memory.extract_turn_signals(user_message, get_messages())
-                memory.observe_turn(user_message, signals)
-                bundle = memory.build_context_bundle(
-                    user_message,
-                    recent_messages=get_messages(),
-                    chat_history=load_legacy_history(),
-                    topic_knowledge={},
-                    learned_facts={},
-                    signals=signals,
-                )
-                system_prompt = f"{system_prompt}\n\n{bundle.rendered_context}"
-            except Exception as exc:
-                system_prompt = f"{system_prompt}\n\nMemory note: adaptive memory was unavailable for this turn: {exc}"
-    return build_routed_prompt(
-        user_message=user_message,
-        base_system_prompt=system_prompt,
-        history_prompt=history_prompt,
-        route=route_decision,
-        chat_profile=settings["chat_profile"],
-        config=settings["router_config"],
-    )
+    prompt, _context = get_nexus_core().build_chat_prompt(user_message, get_messages(), settings, route_decision)
+    return prompt
 
 
 def should_run_chat_search(message: str) -> Optional[str]:
@@ -357,24 +451,10 @@ def should_run_chat_search(message: str) -> Optional[str]:
 
 
 def answer_with_web_search(query: str, settings: dict[str, Any], model_override: Optional[str] = None) -> str:
-    ai_callback = None
-    chosen_model = model_override or settings["selected_model"]
-    if settings["provider_ready"] and chosen_model:
-        ai_callback = lambda prompt: generate_with_ollama(
-            prompt,
-            chosen_model,
-            settings["base_url"],
-            timeout=settings.get("generation_timeout", 300.0),
-        )
-    research = run_research_session(
-        query,
-        max_results=5,
-        scrape_pages=True,
-        summarize_with_ai=True,
-        save_locally=True,
-        save_to_memory=True,
-        ai_callback=ai_callback,
-    )
+    routed_settings = dict(settings)
+    if model_override:
+        routed_settings["selected_model"] = model_override
+    research = get_nexus_core().run_web_research(query, routed_settings, max_results=5, save_locally=True)
     if not research["results"]:
         errors = "\n".join(f"- {error}" for error in research["errors"])
         return f"I could not find web results for that query.\n\n{errors}".strip()
@@ -407,77 +487,12 @@ def is_capability_question(message: str) -> bool:
 
 def generate_chat_response(user_message: str, settings: dict[str, Any]) -> str:
     started = time.perf_counter()
-    if is_capability_question(user_message):
-        response = build_capability_greeting(settings["chat_profile"])
-        record_perf("chat.capability_response", time.perf_counter() - started, settings)
-        return response
-
-    memory = get_adaptive_memory()
-    memory_command = None
-    if settings["use_memory"] and memory is not None:
-        try:
-            memory_command = memory.handle_memory_command(user_message)
-        except Exception:
-            memory_command = None
-    if memory_command:
-        record_perf("chat.memory_command", time.perf_counter() - started, settings)
-        return memory_command
-
-    router_config = settings["router_config"]
-    classifier = None
-    if router_config.use_llm_classifier and settings["provider_ready"] and router_config.default_model:
-        classifier = lambda prompt: generate_with_ollama(
-            prompt=prompt,
-            model=router_config.default_model,
-            base_url=settings["base_url"],
-            options={"temperature": 0.1},
-            timeout=settings.get("generation_timeout", 300.0),
-        )
-
-    route_decision = route_message(user_message, router_config, classifier=classifier)
-
-    st.session_state.last_route_decision = {
-        "category": route_decision.category,
-        "label": CATEGORY_LABELS.get(route_decision.category, route_decision.category),
-        "reason": route_decision.reason,
-        "confidence": route_decision.confidence,
-        "model": route_decision.model,
-        "requires_web_search": route_decision.requires_web_search,
-        "search_query": route_decision.search_query,
-        "safety_mode": route_decision.safety_mode,
-        "tags": route_decision.tags,
-    }
-
-    search_query = route_decision.search_query or (should_run_chat_search(user_message) if settings["use_web_for_chat"] else None)
-    if settings["use_web_for_chat"] and (route_decision.requires_web_search or search_query):
-        response = answer_with_web_search(search_query or user_message, settings, model_override=route_decision.model or settings["selected_model"])
-        record_perf("chat.web_search_response", time.perf_counter() - started, settings)
-        return response
-
-    active_model = route_decision.model or settings["selected_model"]
-    if not settings["provider_ready"] or not active_model:
-        response = fallback_response()
-        record_perf("chat.fallback_response", time.perf_counter() - started, settings)
-        return response
-
-    prompt = build_chat_prompt(user_message, settings, route_decision)
-    
-    # ====================== ADDED: GOD MODE TEMPERATURE BOOST ======================
-    options = dict(route_decision.generation_options or {})
-    options.setdefault("num_predict", 220)
-    options.setdefault("num_ctx", 2048)
-    if getattr(router_config, 'god_mode', False):
-        options["temperature"] = max(options.get("temperature", 0.85), 1.2)
-    # ====================== END ADDITION ======================
-
-    response = generate_with_ollama(
-        prompt=prompt,
-        model=active_model,
-        base_url=settings["base_url"],
-        options=options,
-        timeout=settings.get("generation_timeout", 300.0),
-    )
-    record_perf("chat.ollama_response", time.perf_counter() - started, settings)
+    response = get_nexus_core().generate_chat_response(user_message, get_messages(), settings)
+    st.session_state.last_route_decision = get_nexus_core().last_route_decision
+    st.session_state.last_provider_result = get_nexus_core().last_provider_result
+    st.session_state.last_verification = get_nexus_core().last_verification
+    st.session_state.last_response_plan = get_nexus_core().last_response_plan
+    record_perf("chat.central_response", time.perf_counter() - started, settings)
     return response
 
 
@@ -497,6 +512,15 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
     if settings["router_config"].show_debug and "last_route_decision" in st.session_state:
         with st.expander("Last route decision", expanded=False):
             st.json(st.session_state.last_route_decision)
+    if "last_response_plan" in st.session_state:
+        plan = st.session_state.last_response_plan or {}
+        with st.expander("Response planner", expanded=False):
+            metric_cols = st.columns(4)
+            metric_cols[0].metric("Mode", str(plan.get("mode", "auto")))
+            metric_cols[1].metric("Intent", str(plan.get("intent", "unknown")))
+            metric_cols[2].metric("Max tokens", int(plan.get("max_tokens", 0) or 0))
+            metric_cols[3].metric("Context", int(plan.get("num_ctx", 0) or 0))
+            st.json(plan)
 
     user_message = st.chat_input("Message Cognitive Nexus")
     if not user_message:
@@ -507,9 +531,19 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         st.markdown(user_message)
 
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            response = generate_chat_response(user_message, settings)
-        st.markdown(response)
+        started = time.perf_counter()
+        response = st.write_stream(get_nexus_core().stream_chat_response(user_message, get_messages(), settings))
+        st.session_state.last_route_decision = get_nexus_core().last_route_decision
+        st.session_state.last_provider_result = get_nexus_core().last_provider_result
+        st.session_state.last_verification = get_nexus_core().last_verification
+        st.session_state.last_response_plan = get_nexus_core().last_response_plan
+        plan = st.session_state.last_response_plan or {}
+        if plan:
+            st.caption(
+                f"Planner: {plan.get('mode', 'auto')} / {plan.get('intent', 'unknown')} "
+                f"/ max {plan.get('max_tokens', '?')} tokens"
+            )
+        record_perf("chat.stream_response", time.perf_counter() - started, settings)
 
     add_message("assistant", response)
     save_session_history()
@@ -563,7 +597,7 @@ def render_image_tab() -> None:
         )
         with st.spinner("Generating image..."):
             started = time.perf_counter()
-            result = generate_images(req)
+            result = get_nexus_core().generate_image(req)
             record_perf("image.generate", time.perf_counter() - started)
             get_cached_gallery.clear()
         if not result.get("success"):
@@ -578,6 +612,64 @@ def render_image_tab() -> None:
                     st.json(item)
             st.divider()
             render_gallery(limit=24)
+
+    st.divider()
+    render_comfyui_workflow_section()
+
+
+def render_comfyui_workflow_section() -> None:
+    st.subheader("ComfyUI Workflows")
+    core = get_nexus_core()
+    status = core.comfyui.detect()
+    if status.available:
+        st.success(status.message)
+    else:
+        st.info(f"{status.message} Start ComfyUI and confirm the URL in Settings.")
+
+    uploaded = st.file_uploader("Upload ComfyUI API workflow JSON", type=["json"], key="comfyui_workflow_upload")
+    if uploaded and st.button("Save uploaded workflow", key="save_comfy_workflow"):
+        try:
+            payload = json.loads(uploaded.getvalue().decode("utf-8"))
+            path = core.comfyui.save_workflow(payload, uploaded.name)
+            st.success(f"Saved workflow: {path}")
+        except Exception as exc:
+            st.error(f"Could not save workflow: {exc}")
+
+    workflows = core.comfyui.list_workflows()
+    selected_workflow = None
+    if workflows:
+        selected_workflow = st.selectbox("Saved workflow", workflows, format_func=lambda path: path.name)
+    else:
+        st.caption("No saved workflows yet. Export an API-format workflow from ComfyUI and upload it here.")
+
+    prompt = st.text_area("Workflow prompt", height=90, key="comfy_prompt")
+    negative_prompt = st.text_area("Workflow negative prompt", height=60, key="comfy_negative_prompt")
+    timeout = st.slider("Workflow timeout seconds", 30, 600, 240, step=30)
+
+    disabled = not status.available or selected_workflow is None
+    if st.button("Run ComfyUI Workflow", type="primary", disabled=disabled):
+        try:
+            workflow = core.comfyui.load_workflow(Path(selected_workflow))
+            with st.status("Running ComfyUI workflow...", expanded=True) as run_status:
+                result = core.run_comfyui_workflow(
+                    workflow=workflow,
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    timeout=float(timeout),
+                )
+                run_status.update(label="ComfyUI workflow complete", state="complete" if result.success else "error")
+            if not result.success:
+                st.error(result.error or "ComfyUI workflow failed.")
+                return
+            st.success(f"ComfyUI prompt id: {result.prompt_id}")
+            for image in result.images:
+                path = image.get("path")
+                if path and Path(path).exists():
+                    st.image(path, caption=Path(path).name, width="stretch")
+            if result.metadata_path:
+                st.caption(f"Metadata saved: {result.metadata_path}")
+        except Exception as exc:
+            st.error(f"ComfyUI workflow failed: {exc}")
 
 
 def render_gallery(limit: int = 50) -> None:
@@ -614,23 +706,15 @@ def render_web_research_tab(settings: dict[str, Any]) -> None:
         if not query.strip():
             st.warning("Enter a search query first.")
             return
-        ai_callback = None
-        if summarize and settings["provider_ready"] and settings["selected_model"]:
-            ai_callback = lambda prompt: generate_with_ollama(
-                prompt,
-                settings["selected_model"],
-                settings["base_url"],
-                timeout=settings.get("generation_timeout", 600.0),
-            )
         with st.status("Researching...", expanded=True) as status:
-            research = run_research_session(
+            research = get_nexus_core().run_web_research(
                 query,
                 max_results=max_results,
                 scrape_pages=scrape_pages,
                 summarize_with_ai=summarize,
                 save_locally=save_locally,
                 save_to_memory=save_to_memory,
-                ai_callback=ai_callback,
+                settings=settings,
             )
             status.update(label="Research complete", state="complete")
         if research["errors"]:
@@ -684,14 +768,7 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
         if not query.strip():
             st.warning("Enter a knowledge query first.")
             return
-        result = query_knowledge(
-            module,
-            query,
-            model=settings["selected_model"],
-            base_url=settings["base_url"],
-            provider_ready=settings["provider_ready"],
-            top_k=top_k,
-        )
+        result = get_nexus_core().answer_knowledge(query, settings, top_k=top_k)
         st.markdown(result["answer"])
         with st.expander("Retrieved chunks", expanded=False):
             st.json(result["results"])
@@ -722,7 +799,7 @@ def render_tools_tab() -> None:
     st.dataframe(tools, width="stretch")
 
 
-def render_logs_status_tab(status, inventory: dict[str, Any], image_status: dict[str, Any]) -> None:
+def render_logs_status_tab(status, inventory: dict[str, Any], image_status: dict[str, Any], core_status: dict[str, Any]) -> None:
     st.subheader("Logs / Status")
     col1, col2 = st.columns(2)
     with col1:
@@ -732,11 +809,24 @@ def render_logs_status_tab(status, inventory: dict[str, Any], image_status: dict
         st.json(image_status)
         st.markdown("### Image Providers")
         st.json(get_cached_image_providers())
+        st.markdown("### Central Provider Router")
+        st.json(core_status.get("providers", []))
     with col2:
         st.markdown("### Project")
         st.json(inventory)
         st.markdown("### Environment")
         st.json(get_environment_status())
+        st.markdown("### ComfyUI")
+        st.json(core_status.get("comfyui", {}))
+        if st.session_state.get("last_provider_result"):
+            st.markdown("### Last Provider Result")
+            st.json(st.session_state.last_provider_result)
+        if st.session_state.get("last_verification"):
+            st.markdown("### Last Verification")
+            st.json(st.session_state.last_verification)
+        if st.session_state.get("last_response_plan"):
+            st.markdown("### Last Response Plan")
+            st.json(st.session_state.last_response_plan)
     log_files = get_cached_log_files()
     if log_files:
         selected = st.selectbox("Log file", log_files, format_func=lambda path: path.name)
@@ -789,14 +879,17 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
 
 def main() -> None:
     restore_persisted_chat()
+    core = get_nexus_core()
     status = get_cached_ollama_status()
     inventory = get_cached_project_inventory()
     image_status = get_cached_image_provider()
     chat_profile = load_chat_profile()
-    settings = render_sidebar(status, inventory, image_status, chat_profile)
+    default_order = tuple(core.config.get("provider_order", ["ollama", "openai", "anthropic", "huggingface_local", "fallback"]))
+    core_status = get_cached_core_status(default_order)
+    settings = render_sidebar(status, inventory, image_status, chat_profile, core_status)
 
     st.title("Cognitive Nexus 🔥")
-    st.caption("Local AI dashboard")
+    st.caption("Centralized local AI control center")
 
     tabs = st.tabs(
         [
@@ -826,7 +919,7 @@ def main() -> None:
     with tabs[6]:
         render_tools_tab()
     with tabs[7]:
-        render_logs_status_tab(status, inventory, image_status)
+        render_logs_status_tab(status, inventory, image_status, core_status)
     with tabs[8]:
         render_settings_tab(settings)
 

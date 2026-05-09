@@ -7,6 +7,7 @@ import importlib.util
 import io
 import json
 import logging
+import os
 import random
 import re
 from dataclasses import asdict, dataclass
@@ -27,8 +28,8 @@ LEGACY_IMAGE_DIRS = [
 ]
 IMAGE_DIRS = [GENERATED_DIR, *LEGACY_IMAGE_DIRS]
 
-AUTOMATIC1111_URL = "http://127.0.0.1:7860"
-COMFYUI_URL = "http://127.0.0.1:8188"
+AUTOMATIC1111_URL = os.environ.get("AUTOMATIC1111_URL", "http://127.0.0.1:7860").rstrip("/")
+COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/")
 PROVIDER_DETECTION_TIMEOUT = 0.75
 
 STYLE_MODIFIERS = {
@@ -185,7 +186,7 @@ def detect_image_providers() -> list[dict[str, Any]]:
                     label="ComfyUI API",
                     available=True,
                     implemented=False,
-                    message="ComfyUI is reachable, but no workflow integration is configured yet.",
+                    message="ComfyUI is reachable. Use the ComfyUI Workflow section to run workflow JSON.",
                     url=COMFYUI_URL,
                 )
             )

@@ -1,0 +1,19 @@
+{
+  "provider_order": [
+    "ollama",
+    "openai",
+    "anthropic",
+    "huggingface_local",
+    "fallback"
+  ],
+  "ollama_url": "http://localhost:11434",
+  "openai_model": "gpt-4.1-mini",
+  "anthropic_model": "claude-sonnet-4-20250514",
+  "hf_local_model": "",
+  "comfyui_url": "http://127.0.0.1:8188",
+  "max_context_chars": 12000,
+  "recent_message_limit": 8,
+  "summary_message_limit": 18,
+  "provider_status_ttl_seconds": 45,
+  "enable_response_verification": true
+}

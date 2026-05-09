@@ -91,6 +91,7 @@ def query_knowledge(
     base_url: str,
     provider_ready: bool,
     top_k: int = 5,
+    ai_callback: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Retrieve chunks and answer with Ollama when available."""
 
@@ -98,7 +99,18 @@ def query_knowledge(
     if not results:
         return {"answer": "No matching knowledge was found. Add URLs or files first.", "results": []}
 
-    if provider_ready and model:
+    if ai_callback is not None:
+        context = "\n\n".join(
+            f"Source: {item.get('title') or item.get('url')}\n{item.get('text', '')[:900]}"
+            for item in results
+        )
+        prompt = (
+            "Answer the question using only the provided local knowledge. "
+            "If the answer is not in the context, say that the knowledge base does not contain it.\n\n"
+            f"Context:\n{context}\n\nQuestion: {query}\n\nAnswer:"
+        )
+        answer = ai_callback(prompt)
+    elif provider_ready and model:
         context = "\n\n".join(
             f"Source: {item.get('title') or item.get('url')}\n{item.get('text', '')[:900]}"
             for item in results
