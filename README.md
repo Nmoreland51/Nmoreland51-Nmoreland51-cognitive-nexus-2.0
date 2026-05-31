@@ -83,6 +83,22 @@ Then open:
 http://localhost:8501
 ```
 
+## Validate
+
+Run the import smoke test:
+
+```powershell
+python smoke_test.py
+```
+
+Run the full unittest suite:
+
+```powershell
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+The root-level `python -m unittest discover` command does not discover the full suite in this repo; use the command above.
+
 ## Ollama
 
 The app checks Ollama at:

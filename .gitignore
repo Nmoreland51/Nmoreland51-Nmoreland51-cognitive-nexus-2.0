@@ -1,0 +1,39 @@
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Runtime process and Streamlit logs
+*.pid
+streamlit_app.out.log
+streamlit_app.err.log
+streamlit_app_*.out.log
+streamlit_app_*.err.log
+streamlit_stdout.log
+streamlit_stderr.log
+
+# Runtime logs
+logs/*.log
+logs/*.jsonl
+
+# Private/generated local data
+data/chat_history.json
+data/user_profile.json
+data/search_cache/
+data/search_history/
+data/web_research/
+data/research_reports/
+data/images/
+data/knowledge_notes/
+
+# Generated knowledge indexes
+ai_system/knowledge_bank/web_research/embeddings.json
+ai_system/knowledge_bank/web_research/chunks.json
+ai_system/knowledge_bank/web_research/metadata.json
+
+# Audit/progress/build artifacts
+audit/
+progress/
+build/
+dist/
