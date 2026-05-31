@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Cognitive Nexus AI - Executable Wrapper
-This script is used by PyInstaller to create a standalone executable.
-It launches the Streamlit app exactly as if you ran 'streamlit run cognitive_nexus_ai.py'
+Cognitive Nexus - Launcher Script
+Launches the Streamlit app with optional demo mode
 """
 
 import sys
@@ -10,6 +9,7 @@ import os
 import subprocess
 import webbrowser
 import time
+import argparse
 from pathlib import Path
 import threading
 
@@ -34,7 +34,6 @@ def open_edge(url):
             return True
         except Exception as e:
             print(f"WARNING: Could not open Edge: {e}")
-            # Fallback to default browser
             webbrowser.open(url)
             return False
     else:
@@ -43,59 +42,69 @@ def open_edge(url):
         return False
 
 def main():
-    """Main entry point for the executable."""
+    """Main entry point"""
+    parser = argparse.ArgumentParser(description="Launch Cognitive Nexus")
+    parser.add_argument("--demo", action="store_true", help="Enable demo mode with sample data")
+    parser.add_argument("--port", type=int, default=8501, help="Port to run on (default: 8501)")
+    args = parser.parse_args()
+
     try:
-        # Get the directory where the executable is located
+        # Get the directory where the script is located
         if getattr(sys, 'frozen', False):
             # Running as compiled executable
             base_path = Path(sys._MEIPASS)
-            app_path = base_path / "cognitive_nexus_ai.py"
+            app_path = base_path / "app.py"
         else:
             # Running as script
             base_path = Path(__file__).parent
-            app_path = base_path / "cognitive_nexus_ai.py"
-        
+            app_path = base_path / "app.py"
+
         # Verify the main app file exists
         if not app_path.exists():
-            print(f"ERROR: cognitive_nexus_ai.py not found at {app_path}")
+            print(f"ERROR: app.py not found at {app_path}")
             input("Press Enter to exit...")
             sys.exit(1)
-        
+
         # Set the working directory to the app directory
         os.chdir(base_path)
-        
-        print("Starting Cognitive Nexus AI...")
-        print("Opening in browser: http://localhost:8501")
+
+        mode = "DEMO" if args.demo else "STANDARD"
+        print(f"Starting Cognitive Nexus ({mode} mode)...")
+        print(f"Opening in browser: http://localhost:{args.port}")
         print("Press Ctrl+C to stop the application")
         print("-" * 50)
 
-        # Open browser once after server startup delay.
+        # Set demo environment variable if demo mode
+        if args.demo:
+            os.environ["COGNITIVE_NEXUS_DEMO"] = "1"
+
+        # Open browser once after server startup delay
         def delayed_browser_open():
             time.sleep(4)
             try:
-                open_edge("http://localhost:8501")
+                open_edge(f"http://localhost:{args.port}")
             except Exception:
                 pass
 
         threading.Thread(target=delayed_browser_open, daemon=True).start()
 
-        # Run Streamlit in-process to avoid packaged EXE recursion.
+        # Run Streamlit
         from streamlit.web import bootstrap
         os.environ["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
         bootstrap.run(
             str(app_path),
             False,
             [
-                "--server.port=8501",
+                f"--server.port={args.port}",
                 "--server.address=localhost",
                 "--server.headless=true",
                 "--browser.gatherUsageStats=false",
             ],
             {},
         )
-        
+
     except KeyboardInterrupt:
-        print("\nShutting down Cognitive Nexus AI...")
+        print("\nShutting down Cognitive Nexus...")
         sys.exit(0)
     except Exception as e:
         print(f"ERROR starting Cognitive Nexus AI: {e}")

@@ -15,5 +15,18 @@
   "recent_message_limit": 8,
   "summary_message_limit": 18,
   "provider_status_ttl_seconds": 45,
-  "enable_response_verification": true
+  "enable_response_verification": true,
+  "enable_reality_grounding": true,
+  "show_grounding_notes": true,
+  "enable_reality_first_reasoning": true,
+  "enable_reality_research_agent": true,
+  "epistemic_mode": "strict_fact",
+  "enable_bloodhound_search": true,
+  "enable_onion_search": false,
+  "tor_socks_proxy": "127.0.0.1:9050",
+  "max_search_results": 50,
+  "search_timeout_seconds": 20,
+  "enable_search_cache": true,
+  "search_cache_ttl_hours": 24,
+  "enable_link_following": true
 }
