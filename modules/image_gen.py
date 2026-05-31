@@ -34,6 +34,10 @@ PROVIDER_DETECTION_TIMEOUT = 0.75
 
 STYLE_MODIFIERS = {
     "realistic": "photorealistic, high quality, detailed",
+    "cinematic": "cinematic lighting, film still, detailed composition",
+    "anime": "anime style, clean linework, expressive color",
+    "digital_art": "digital art, polished concept art, crisp details",
+    "fantasy": "fantasy art, imaginative atmosphere, richly detailed",
     "artistic": "artistic, painting style, creative",
     "cartoon": "cartoon style, animated, colorful",
     "abstract": "abstract art, modern, creative",
@@ -41,7 +45,10 @@ STYLE_MODIFIERS = {
     "futuristic": "futuristic, sci-fi, modern technology",
     "minimalist": "minimalist, clean, simple",
     "dramatic": "dramatic lighting, cinematic, high contrast",
+    "none": "",
 }
+
+IMAGE_STYLE_OPTIONS = tuple(STYLE_MODIFIERS.keys())
 
 
 @dataclass
@@ -331,6 +338,8 @@ class LocalStableDiffusionGenerator:
         else:
             self.pipe = StableDiffusionPipeline.from_pretrained(
                 self.model_id,
+                torch_dtype=torch.float32,
+                low_cpu_mem_usage=False,
                 safety_checker=None,
                 requires_safety_checker=False,
             )
@@ -618,3 +627,91 @@ def list_generated_images(limit: int = 100) -> List[Dict[str, Any]]:
 
     images.sort(key=lambda item: item["modified"], reverse=True)
     return images[:limit]
+
+
+def summarize_image_gallery(recent_limit: int = 8) -> Dict[str, Any]:
+    """Summarize saved image artifacts without loading image pixels."""
+
+    ensure_image_dirs()
+    unique_paths: dict[str, Path] = {}
+    directory_counts: dict[str, int] = {}
+    legacy_count = 0
+
+    for directory in IMAGE_DIRS:
+        if not directory.exists():
+            directory_counts[str(directory)] = 0
+            continue
+        paths = [path for path in directory.glob("*.png") if path.is_file()]
+        directory_counts[str(directory)] = len(paths)
+        if directory in LEGACY_IMAGE_DIRS:
+            legacy_count += len(paths)
+        for path in paths:
+            unique_paths[str(path.resolve())] = path
+
+    metadata_paths = [path for path in METADATA_DIR.glob("*.json") if path.is_file()]
+    total_bytes = 0
+    latest_path: Optional[Path] = None
+    latest_modified = 0.0
+
+    for path in unique_paths.values():
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        total_bytes += stat.st_size
+        if stat.st_mtime > latest_modified:
+            latest_modified = stat.st_mtime
+            latest_path = path
+
+    provider_counts: dict[str, int] = {}
+    style_counts: dict[str, int] = {}
+    missing_image_records = 0
+    invalid_metadata = 0
+
+    for metadata_path in metadata_paths:
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except Exception:
+            invalid_metadata += 1
+            continue
+
+        provider = str(metadata.get("provider") or "unknown")
+        style = str(metadata.get("style") or "unknown")
+        provider_counts[provider] = provider_counts.get(provider, 0) + 1
+        style_counts[style] = style_counts.get(style, 0) + 1
+
+        raw_path = metadata.get("file_path")
+        image_path = Path(raw_path) if raw_path else GENERATED_DIR / metadata_path.with_suffix(".png").name
+        if not image_path.exists():
+            missing_image_records += 1
+
+    recent = []
+    for item in list_generated_images(limit=recent_limit):
+        metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        path = item.get("path")
+        recent.append(
+            {
+                "name": item.get("name", ""),
+                "path": str(path) if path else "",
+                "size_bytes": item.get("size", 0),
+                "modified": item.get("modified", 0),
+                "provider": metadata.get("provider", ""),
+                "prompt": metadata.get("prompt", ""),
+            }
+        )
+
+    return {
+        "image_files": len(unique_paths),
+        "generated_images": directory_counts.get(str(GENERATED_DIR), 0),
+        "legacy_images": legacy_count,
+        "metadata_files": len(metadata_paths),
+        "missing_image_records": missing_image_records,
+        "invalid_metadata": invalid_metadata,
+        "total_bytes": total_bytes,
+        "latest_image": str(latest_path) if latest_path else "",
+        "latest_modified": latest_modified,
+        "providers": provider_counts,
+        "styles": style_counts,
+        "directories": directory_counts,
+        "recent_images": recent,
+    }

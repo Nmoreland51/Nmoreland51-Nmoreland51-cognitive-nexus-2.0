@@ -9,11 +9,13 @@ from modules import image_gen
 from modules.image_gen import (
     ImageGenerationRequest,
     detect_image_provider,
+    enhance_prompt,
     ensure_image_dirs,
     list_generated_images,
     save_generated_image,
     save_generation_metadata,
     slugify_text,
+    summarize_image_gallery,
 )
 
 
@@ -28,16 +30,23 @@ class ImageGenerationModuleTests(unittest.TestCase):
         self.assertIn("message", status)
         self.assertIn("label", status)
 
+    def test_enhance_prompt_supports_ui_styles(self):
+        self.assertIn("cinematic lighting", enhance_prompt("city skyline", "cinematic"))
+        self.assertIn("anime style", enhance_prompt("portrait", "anime"))
+        self.assertEqual(enhance_prompt("plain prompt", "none"), "plain prompt")
+
     def test_save_generated_image_and_metadata(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             original_base = image_gen.BASE_IMAGE_DIR
             original_generated = image_gen.GENERATED_DIR
             original_metadata = image_gen.METADATA_DIR
+            original_legacy_dirs = image_gen.LEGACY_IMAGE_DIRS
             original_dirs = image_gen.IMAGE_DIRS
             try:
                 image_gen.BASE_IMAGE_DIR = Path(temp_dir) / "images"
                 image_gen.GENERATED_DIR = image_gen.BASE_IMAGE_DIR / "generated"
                 image_gen.METADATA_DIR = image_gen.BASE_IMAGE_DIR / "metadata"
+                image_gen.LEGACY_IMAGE_DIRS = []
                 image_gen.IMAGE_DIRS = [image_gen.GENERATED_DIR]
 
                 dirs = ensure_image_dirs()
@@ -59,10 +68,17 @@ class ImageGenerationModuleTests(unittest.TestCase):
                 self.assertTrue(Path(metadata_path).exists())
                 self.assertEqual(json.loads(Path(metadata_path).read_text())["prompt"], "test prompt")
                 self.assertEqual(len(list_generated_images(limit=5)), 1)
+
+                summary = summarize_image_gallery()
+                self.assertEqual(summary["image_files"], 1)
+                self.assertEqual(summary["metadata_files"], 1)
+                self.assertEqual(summary["missing_image_records"], 0)
+                self.assertGreater(summary["total_bytes"], 0)
             finally:
                 image_gen.BASE_IMAGE_DIR = original_base
                 image_gen.GENERATED_DIR = original_generated
                 image_gen.METADATA_DIR = original_metadata
+                image_gen.LEGACY_IMAGE_DIRS = original_legacy_dirs
                 image_gen.IMAGE_DIRS = original_dirs
 
     def test_request_defaults(self):

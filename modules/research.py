@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,9 @@ import requests
 
 from modules.providers import generate_with_ollama
 from web_research_module import WebResearchModule
+
+
+KNOWLEDGE_NOTES_DIR = Path("data/knowledge_notes")
 
 
 def get_research_module() -> WebResearchModule:
@@ -81,6 +85,89 @@ def ingest_text(module: WebResearchModule, *, name: str, text: str, source_type:
         "chunks_count": len(chunks),
         "stored": stored,
     }
+
+
+def slugify_note_title(title: str) -> str:
+    """Create a compact filesystem-safe name for a local Markdown note."""
+
+    slug = re.sub(r"[^a-z0-9]+", "_", (title or "").lower()).strip("_")
+    return slug[:80] or "knowledge_note"
+
+
+def save_knowledge_note(
+    module: WebResearchModule,
+    *,
+    title: str,
+    text: str,
+    tags: str = "",
+    ingest: bool = True,
+    notes_dir: Path = KNOWLEDGE_NOTES_DIR,
+) -> Dict[str, Any]:
+    """Save a Markdown knowledge note and optionally ingest it into retrieval."""
+
+    cleaned_title = title.strip() or "Untitled knowledge note"
+    cleaned_text = text.strip()
+    if not cleaned_text:
+        return {"status": "error", "error": "No note text was provided.", "title": cleaned_title}
+
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now()
+    tag_values = [tag.strip() for tag in re.split(r"[,#]", tags or "") if tag.strip()]
+    tag_line = ", ".join(tag_values) if tag_values else "none"
+    file_name = f"{timestamp:%Y%m%d_%H%M%S}_{slugify_note_title(cleaned_title)}.md"
+    path = notes_dir / file_name
+    markdown = (
+        f"# {cleaned_title}\n\n"
+        f"Created: {timestamp.isoformat()}\n"
+        f"Tags: {tag_line}\n"
+        "Source: manual_knowledge_note\n\n"
+        f"{cleaned_text}\n"
+    )
+    path.write_text(markdown, encoding="utf-8")
+
+    result: Dict[str, Any] = {
+        "status": "success",
+        "title": cleaned_title,
+        "path": str(path),
+        "file_name": file_name,
+        "tags": tag_values,
+        "ingested": False,
+        "chunks_count": 0,
+    }
+    if ingest:
+        ingest_result = ingest_text(module, name=file_name, text=markdown, source_type="knowledge_note")
+        result["ingested"] = ingest_result.get("status") == "success"
+        result["chunks_count"] = int(ingest_result.get("chunks_count") or 0)
+        result["ingest_result"] = ingest_result
+    return result
+
+
+def list_knowledge_notes(notes_dir: Path = KNOWLEDGE_NOTES_DIR, limit: int = 20) -> List[Dict[str, Any]]:
+    """List saved Markdown notes for the Memory and Knowledge tabs."""
+
+    if not notes_dir.exists():
+        return []
+    notes: List[Dict[str, Any]] = []
+    for path in sorted(notes_dir.glob("*.md"), key=lambda item: item.stat().st_mtime, reverse=True)[:limit]:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        lines = text.splitlines()
+        title = next((line[2:].strip() for line in lines if line.startswith("# ")), path.stem)
+        tag_line = next((line.removeprefix("Tags:").strip() for line in lines if line.startswith("Tags:")), "")
+        body_lines = [line for line in lines if line and not line.startswith(("# ", "Created:", "Tags:", "Source:"))]
+        excerpt = " ".join(body_lines)[:240]
+        stat = path.stat()
+        notes.append(
+            {
+                "title": title,
+                "tags": tag_line,
+                "path": str(path),
+                "file_name": path.name,
+                "size_bytes": stat.st_size,
+                "modified": stat.st_mtime,
+                "excerpt": excerpt,
+            }
+        )
+    return notes
 
 
 def query_knowledge(

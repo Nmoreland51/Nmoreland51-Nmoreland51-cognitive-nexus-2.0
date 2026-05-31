@@ -13,8 +13,20 @@ import requests
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_GENERATE_TIMEOUT = float(os.environ.get("OLLAMA_GENERATE_TIMEOUT", "600"))
-FALLBACK_RESPONSE = "Fallback: I received your message but no provider was available."
+FALLBACK_RESPONSE = (
+    "Fallback: no working text provider returned an answer. Start Ollama with `ollama serve`, "
+    "install or select a local model, or configure OpenAI/Anthropic keys. Check Diagnostics for "
+    "the provider attempt log."
+)
 OLLAMA_SESSION = requests.Session()
+DEFAULT_OLLAMA_MODEL_PREFERENCES = (
+    "llama3.2:3b",
+    "llama3.2",
+    "llama3.1:8b",
+    "llama3.1",
+    "BlackHillsInfoSec/llama-3.1-8b-abliterated:latest",
+    "BlackHillsInfoSec/llama-3.1-8b-abliterated",
+)
 
 
 @dataclass
@@ -33,6 +45,45 @@ def get_ollama_base_url() -> str:
     return os.environ.get("OLLAMA_URL", DEFAULT_OLLAMA_URL).rstrip("/")
 
 
+def get_ollama_model_preferences() -> List[str]:
+    """Return preferred Ollama models, allowing local env overrides."""
+
+    configured = os.environ.get("OLLAMA_MODEL") or os.environ.get("OLLAMA_PREFERRED_MODEL") or ""
+    preferences: List[str] = []
+    if configured.strip():
+        preferences.append(configured.strip())
+    preferences.extend(DEFAULT_OLLAMA_MODEL_PREFERENCES)
+    deduped: List[str] = []
+    for model in preferences:
+        if model and model not in deduped:
+            deduped.append(model)
+    return deduped
+
+
+def rank_ollama_models(models: List[str]) -> List[str]:
+    """Put the locally preferred chat model first while preserving the rest."""
+
+    cleaned = [model for model in models if model]
+    if not cleaned:
+        return []
+
+    remaining = list(cleaned)
+    ranked: List[str] = []
+    for preferred in get_ollama_model_preferences():
+        matches = [
+            model
+            for model in remaining
+            if model == preferred or model.split(":", 1)[0] == preferred.split(":", 1)[0]
+        ]
+        for model in matches:
+            if model not in ranked:
+                ranked.append(model)
+                remaining.remove(model)
+
+    ranked.extend(remaining)
+    return ranked
+
+
 def check_ollama_status(base_url: Optional[str] = None, timeout: float = 2.5) -> ProviderStatus:
     """Check Ollama by calling GET /api/tags and returning installed models."""
 
@@ -42,7 +93,7 @@ def check_ollama_status(base_url: Optional[str] = None, timeout: float = 2.5) ->
         response.raise_for_status()
         data = response.json()
         models = [model.get("name", "") for model in data.get("models", [])]
-        models = [name for name in models if name]
+        models = rank_ollama_models([name for name in models if name])
 
         if not models:
             return ProviderStatus(
@@ -138,6 +189,8 @@ def get_provider_inventory() -> List[dict]:
     """Report detected provider-related integrations."""
 
     ollama = check_ollama_status(timeout=1.0)
+    hf_model = os.environ.get("HF_LOCAL_MODEL", "").strip()
+    hf_packages = optional_dependency_available("transformers") and optional_dependency_available("torch")
     return [
         {
             "name": "Ollama",
@@ -146,10 +199,14 @@ def get_provider_inventory() -> List[dict]:
             "details": ollama.message,
         },
         {
-            "name": "OpenChat-v3.5",
+            "name": "Hugging Face local",
             "type": "local_transformers",
-            "available": optional_dependency_available("transformers") and optional_dependency_available("torch"),
-            "details": "Detected by Python packages only; model loads on demand in the legacy app.",
+            "available": bool(hf_model) and hf_packages,
+            "details": (
+                f"Configured model: {hf_model}"
+                if hf_model and hf_packages
+                else "Optional local Transformers provider; set HF_LOCAL_MODEL and install transformers/torch to enable."
+            ),
         },
         {
             "name": "Anthropic",

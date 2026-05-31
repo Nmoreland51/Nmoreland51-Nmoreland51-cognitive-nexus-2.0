@@ -73,6 +73,7 @@ class ProviderRouter:
         self._status_cache: dict[str, tuple[float, ProviderInfo]] = {}
         self._hf_pipeline = None
         self._session = requests.Session()
+        self.last_stream_metadata: dict[str, Any] = {}
 
     def invalidate_status_cache(self) -> None:
         self._status_cache.clear()
@@ -130,18 +131,18 @@ class ProviderRouter:
 
     def _detect_huggingface_local(self) -> ProviderInfo:
         model = str(self.config.get("hf_local_model") or "").strip()
+        if not model:
+            return ProviderInfo(
+                name="huggingface_local",
+                available=False,
+                message="HF_LOCAL_MODEL is not configured; local Transformers will stay lazy-disabled.",
+            )
         packages = _optional_available("transformers") and _optional_available("torch")
         if not packages:
             return ProviderInfo(
                 name="huggingface_local",
                 available=False,
                 message="Optional transformers/torch packages are not installed.",
-            )
-        if not model:
-            return ProviderInfo(
-                name="huggingface_local",
-                available=False,
-                message="HF_LOCAL_MODEL is not configured; local Transformers will stay lazy-disabled.",
             )
         return ProviderInfo(
             name="huggingface_local",
@@ -157,6 +158,25 @@ class ProviderRouter:
         order = request.provider_order or list(self.config.get("provider_order", []))
         return order or ["ollama", "openai", "anthropic", "huggingface_local", "fallback"]
 
+    def _resolve_model(self, request: ProviderRequest, info: ProviderInfo) -> tuple[str, str]:
+        """Choose a usable model for a provider and explain stale selections."""
+
+        requested = str(request.model or "").strip()
+        if info.name == "ollama":
+            if requested and requested in info.models:
+                return requested, ""
+            if info.models:
+                selected = info.models[0]
+                if requested:
+                    return selected, f"Requested Ollama model '{requested}' is not installed; using '{selected}'."
+                return selected, ""
+            return "", "Ollama is running but no models are installed."
+        if requested:
+            return requested, ""
+        if info.models:
+            return info.models[0], ""
+        return "", ""
+
     def generate(self, request: ProviderRequest) -> ProviderResult:
         """Generate text using the first working provider in the configured order."""
 
@@ -169,15 +189,16 @@ class ProviderRouter:
                 continue
             try:
                 text = "".join(self.stream(request, preferred_provider=provider))
+                stream_meta = dict(self.last_stream_metadata or {})
                 elapsed = time.perf_counter() - started
                 if text.strip():
                     return ProviderResult(
                         text=text.strip(),
-                        provider=provider,
-                        model=request.model or (info.models[0] if info.models else ""),
+                        provider=str(stream_meta.get("provider") or provider),
+                        model=str(stream_meta.get("model") or request.model or (info.models[0] if info.models else "")),
                         success=True,
                         elapsed=elapsed,
-                        attempts=attempts,
+                        attempts=stream_meta.get("attempts", attempts),
                     )
                 attempts.append({"provider": provider, "success": False, "error": "Empty response."})
             except Exception as exc:
@@ -204,36 +225,104 @@ class ProviderRouter:
             order = self.provider_order(request)
 
         last_error = ""
+        attempts: list[dict[str, Any]] = []
+        self.last_stream_metadata = {
+            "provider": "",
+            "model": request.model,
+            "success": False,
+            "attempts": attempts,
+            "fallback_reason": "",
+        }
         for provider in order:
             if not provider:
                 continue
             info = self.detect_provider(provider)
             if not info.available:
                 last_error = info.message
+                attempts.append({"provider": provider, "success": False, "error": info.message})
                 continue
             try:
+                model, model_note = self._resolve_model(request, info)
                 if provider == "ollama":
-                    yield from self._stream_ollama(request, info)
+                    for chunk in self._stream_ollama(request, info, model):
+                        yield chunk
+                    attempt = {"provider": provider, "success": True}
+                    if model_note:
+                        attempt["note"] = model_note
+                    attempts.append(attempt)
+                    self.last_stream_metadata = {
+                        "provider": provider,
+                        "model": model,
+                        "success": True,
+                        "attempts": attempts,
+                        "fallback_reason": "",
+                        "model_note": model_note,
+                    }
                     return
                 if provider == "openai":
                     yield self._generate_openai(request, info)
+                    attempts.append({"provider": provider, "success": True})
+                    self.last_stream_metadata = {
+                        "provider": provider,
+                        "model": model or info.models[0],
+                        "success": True,
+                        "attempts": attempts,
+                        "fallback_reason": "",
+                        "model_note": model_note,
+                    }
                     return
                 if provider == "anthropic":
                     yield self._generate_anthropic(request, info)
+                    attempts.append({"provider": provider, "success": True})
+                    self.last_stream_metadata = {
+                        "provider": provider,
+                        "model": model or info.models[0],
+                        "success": True,
+                        "attempts": attempts,
+                        "fallback_reason": "",
+                        "model_note": model_note,
+                    }
                     return
                 if provider == "huggingface_local":
                     yield self._generate_hf_local(request, info)
+                    attempts.append({"provider": provider, "success": True})
+                    self.last_stream_metadata = {
+                        "provider": provider,
+                        "model": model or info.models[0],
+                        "success": True,
+                        "attempts": attempts,
+                        "fallback_reason": "",
+                        "model_note": model_note,
+                    }
                     return
                 if provider == "fallback":
                     yield FALLBACK_RESPONSE
+                    attempts.append({"provider": provider, "success": True})
+                    self.last_stream_metadata = {
+                        "provider": provider,
+                        "model": "",
+                        "success": True,
+                        "attempts": attempts,
+                        "fallback_reason": last_error,
+                        "model_note": model_note,
+                    }
                     return
             except Exception as exc:
                 last_error = f"{provider}: {exc}"
+                attempts.append({"provider": provider, "success": False, "error": str(exc)})
                 continue
+        self.last_stream_metadata = {
+            "provider": "fallback",
+            "model": "",
+            "success": False,
+            "attempts": attempts,
+            "fallback_reason": last_error,
+            "model_note": "",
+        }
         yield f"{FALLBACK_RESPONSE}\n\nProvider error: {last_error}".strip()
 
-    def _stream_ollama(self, request: ProviderRequest, info: ProviderInfo) -> Generator[str, None, None]:
-        model = request.model or (info.models[0] if info.models else "")
+    def _stream_ollama(self, request: ProviderRequest, info: ProviderInfo, model: str = "") -> Generator[str, None, None]:
+        model = model or self._resolve_model(request, info)[0]
         if not model:
             yield FALLBACK_RESPONSE
             return

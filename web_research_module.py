@@ -25,6 +25,8 @@ import re
 import json
 import time
 import hashlib
+import importlib.util
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
@@ -39,7 +41,12 @@ class WebResearchModule:
     Main Web Research Module for URL processing and knowledge storage
     """
     
-    def __init__(self, knowledge_base_path: str = "ai_system/knowledge_bank/web_research"):
+    def __init__(
+        self,
+        knowledge_base_path: str = "ai_system/knowledge_bank/web_research",
+        embedding_backend: Optional[str] = None,
+        embedding_model_name: Optional[str] = None,
+    ):
         """
         Initialize the Web Research Module
         
@@ -59,10 +66,73 @@ class WebResearchModule:
         self.embeddings = self._load_json_file(self.embeddings_file, {})
         self.metadata = self._load_json_file(self.metadata_file, {})
         
-        # Initialize embedding model (placeholder)
+        # Optional model handles; the default retrieval path is dependency-light.
         self.embedding_model = None
         self.llm_model = None
         self._embedding_cache = {}
+        self.embedding_backend = self._normalize_embedding_backend(
+            embedding_backend or os.environ.get("KNOWLEDGE_EMBEDDING_BACKEND", "hash")
+        )
+        self.embedding_model_name = (
+            embedding_model_name
+            or os.environ.get("KNOWLEDGE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+        )
+        self.embedding_dimensions = 384
+        self._embedding_backend_runtime = "hash"
+        self._embedding_backend_message = "Using lightweight local hash-vector embeddings."
+
+    def _normalize_embedding_backend(self, backend: str) -> str:
+        """Normalize configured embedding backend names."""
+
+        normalized = (backend or "hash").strip().lower().replace("-", "_")
+        if normalized in {"hash", "hash_vector", "local_hash"}:
+            return "hash"
+        if normalized in {"sentence_transformers", "sentence_transformer", "minilm", "all_minilm_l6_v2"}:
+            return "sentence_transformers"
+        return "hash"
+
+    def _sentence_transformers_available(self) -> bool:
+        return importlib.util.find_spec("sentence_transformers") is not None
+
+    def _load_sentence_transformer(self):
+        """Load the optional sentence-transformers model lazily."""
+
+        if self.embedding_model is not None:
+            return self.embedding_model
+        from sentence_transformers import SentenceTransformer
+
+        self.embedding_model = SentenceTransformer(self.embedding_model_name)
+        return self.embedding_model
+
+    def embedding_status(self) -> Dict[str, Any]:
+        """Return retrieval backend status for diagnostics."""
+
+        if self.embedding_backend == "sentence_transformers":
+            available = self._sentence_transformers_available()
+            if self._embedding_backend_runtime == "sentence_transformers":
+                message = f"Using sentence-transformers model {self.embedding_model_name}."
+            elif self._embedding_backend_message != "Using lightweight local hash-vector embeddings.":
+                message = self._embedding_backend_message
+            elif available:
+                message = f"Configured for sentence-transformers model {self.embedding_model_name}; loads on first embedding."
+            else:
+                message = "sentence-transformers is not installed; retrieval will fall back to hash-vector embeddings."
+            return {
+                "configured_backend": self.embedding_backend,
+                "runtime_backend": self._embedding_backend_runtime,
+                "model": self.embedding_model_name,
+                "available": available,
+                "dimensions": self.embedding_dimensions,
+                "message": message,
+            }
+        return {
+            "configured_backend": self.embedding_backend,
+            "runtime_backend": "hash",
+            "model": "local_token_hash",
+            "available": True,
+            "dimensions": self.embedding_dimensions,
+            "message": self._embedding_backend_message,
+        }
         
     def _load_json_file(self, file_path: Path, default: Any = None) -> Any:
         """Load JSON file with error handling"""
@@ -239,55 +309,97 @@ class WebResearchModule:
     
     def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate vector embedding for text (placeholder implementation)
-        
-        Args:
-            text: Text to embed
-            
-        Returns:
-            Vector embedding as list of floats
+        Generate an embedding vector for local retrieval.
+
+        The default backend is a lightweight deterministic token-hash vector.
+        When `KNOWLEDGE_EMBEDDING_BACKEND=sentence_transformers` is configured
+        and the optional package/model are available, this uses that local model.
+        Lexical scoring in `semantic_search` remains the primary ranking signal
+        so exact uploaded-file matches beat unrelated older research chunks.
         """
-        # PLACEHOLDER: Replace with actual embedding model
-        # Example implementations:
-        
-        # Option 1: Using sentence-transformers
-        # from sentence_transformers import SentenceTransformer
-        # if not self.embedding_model:
-        #     self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        # return self.embedding_model.encode(text).tolist()
-        
-        # Option 2: Using OpenAI embeddings
-        # import openai
-        # response = openai.Embedding.create(
-        #     input=text,
-        #     model="text-embedding-ada-002"
-        # )
-        # return response['data'][0]['embedding']
-        
-        # Option 3: Using Hugging Face
-        # from transformers import AutoTokenizer, AutoModel
-        # import torch
-        # if not self.embedding_model:
-        #     model_name = "sentence-transformers/all-MiniLM-L6-v2"
-        #     self.embedding_model = AutoModel.from_pretrained(model_name)
-        #     self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        # 
-        # inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
-        # with torch.no_grad():
-        #     outputs = self.embedding_model(**inputs)
-        #     embeddings = outputs.last_hidden_state.mean(dim=1).squeeze()
-        # return embeddings.tolist()
-        
+
         cache_key = hashlib.md5(text.encode("utf-8")).hexdigest()
         if cache_key in self._embedding_cache:
             return self._embedding_cache[cache_key]
 
-        # PLACEHOLDER: Return dummy embedding
-        import random
-        random.seed(int(cache_key[:8], 16))
-        embedding = [random.random() for _ in range(384)]  # 384-dimensional embedding
+        if self.embedding_backend == "sentence_transformers":
+            try:
+                model = self._load_sentence_transformer()
+                vector = model.encode(text or "", normalize_embeddings=True)
+                embedding = [float(value) for value in vector]
+                self.embedding_dimensions = len(embedding)
+                self._embedding_backend_runtime = "sentence_transformers"
+                self._embedding_backend_message = f"Using sentence-transformers model {self.embedding_model_name}."
+                self._embedding_cache[cache_key] = embedding
+                return embedding
+            except Exception as exc:
+                logger.info("sentence-transformers embeddings unavailable; falling back to hash vectors: %s", exc)
+                self._embedding_backend_runtime = "hash"
+                self._embedding_backend_message = f"sentence-transformers unavailable; using hash-vector fallback ({exc})."
+
+        dimensions = 384
+        embedding = [0.0 for _ in range(dimensions)]
+        for token in self._query_terms(text):
+            bucket = int(hashlib.md5(token.encode("utf-8")).hexdigest()[:8], 16) % dimensions
+            embedding[bucket] += 1.0
         self._embedding_cache[cache_key] = embedding
         return embedding
+
+    def _query_terms(self, text: str) -> List[str]:
+        """Extract useful query/content terms for fast local matching."""
+
+        stopwords = {
+            "a", "an", "and", "are", "as", "at", "be", "by", "can", "did",
+            "do", "does", "for", "from", "how", "i", "in", "is", "it", "me",
+            "of", "on", "or", "say", "says", "should", "that", "the", "this",
+            "to", "was", "what", "when", "where", "which", "who", "why", "with",
+            "about", "answer", "question",
+        }
+        terms = re.findall(r"[a-zA-Z0-9_@.-]{3,}", (text or "").lower())
+        return [term for term in terms if term not in stopwords]
+
+    def _lexical_score(self, query: str, text: str, title: str = "", url: str = "") -> float:
+        """Score exact and term-level relevance without external dependencies."""
+
+        query_terms = self._query_terms(query)
+        if not query_terms:
+            return 0.0
+
+        haystack = f"{title} {url} {text}".lower()
+        text_only = (text or "").lower()
+        matched = sum(1 for term in query_terms if term in haystack)
+        coverage = matched / max(len(query_terms), 1)
+        score = coverage
+
+        query_phrase = " ".join(query_terms)
+        if query_phrase and query_phrase in haystack:
+            score += 0.8
+        if any(term in (title or "").lower() for term in query_terms):
+            score += 0.25
+        if any(term in text_only[:800] for term in query_terms):
+            score += 0.15
+        return score
+
+    def _best_snippet(self, query: str, text: str, max_chars: int = 700) -> str:
+        """Return the most relevant local excerpt for a query."""
+
+        cleaned = self._clean_text(text or "")
+        if not cleaned:
+            return ""
+        query_terms = self._query_terms(query)
+        sentences = re.split(r"(?<=[.!?])\s+", cleaned)
+        ranked = []
+        for sentence in sentences:
+            lowered = sentence.lower()
+            hits = sum(1 for term in query_terms if term in lowered)
+            if hits:
+                ranked.append((hits, len(sentence), sentence))
+        if ranked:
+            ranked.sort(key=lambda item: (item[0], -item[1]), reverse=True)
+            snippet = " ".join(item[2] for item in ranked[:3])
+        else:
+            snippet = cleaned[:max_chars]
+        return snippet[:max_chars].strip()
     
     def store_chunks_and_embeddings(self, url: str, chunks: List[Dict[str, Any]]) -> bool:
         """
@@ -341,7 +453,7 @@ class WebResearchModule:
             List of relevant chunks with similarity scores
         """
         try:
-            # Generate query embedding
+            query_terms = self._query_terms(query)
             query_embedding = self.generate_embedding(query)
             
             results = []
@@ -349,19 +461,26 @@ class WebResearchModule:
             # Search across all URLs and chunks
             for url_hash, chunks in self.embeddings.items():
                 for chunk_id, chunk_embedding in chunks.items():
-                    # Calculate cosine similarity (placeholder)
-                    similarity = self._cosine_similarity(query_embedding, chunk_embedding)
-                    
                     # Get chunk metadata
                     chunk_data = self.chunks.get(url_hash, {}).get(chunk_id, {})
                     url_metadata = self.metadata.get(url_hash, {})
+                    text = chunk_data.get('text', '')
+                    title = url_metadata.get('title', '')
+                    url = url_metadata.get('url', '')
+                    lexical = self._lexical_score(query, text, title, url)
+                    vector_similarity = self._cosine_similarity(query_embedding, chunk_embedding)
+                    similarity = lexical + (vector_similarity * 0.15)
+                    if query_terms and lexical <= 0 and vector_similarity < 0.7:
+                        continue
                     
                     results.append({
                         'chunk_id': chunk_id,
-                        'text': chunk_data.get('text', ''),
+                        'text': text,
                         'similarity': similarity,
-                        'url': url_metadata.get('url', ''),
-                        'title': url_metadata.get('title', ''),
+                        'lexical_score': lexical,
+                        'vector_score': vector_similarity,
+                        'url': url,
+                        'title': title,
                         'chunk_index': chunk_data.get('chunk_index', 0)
                     })
             
@@ -388,7 +507,7 @@ class WebResearchModule:
     
     def generate_response(self, query: str, context_chunks: List[Dict[str, Any]]) -> str:
         """
-        Generate AI response using retrieved context (placeholder implementation)
+        Generate a fast extractive answer from retrieved local context.
         
         Args:
             query: User question
@@ -397,58 +516,48 @@ class WebResearchModule:
         Returns:
             Generated response
         """
-        # PLACEHOLDER: Replace with actual LLM call
-        # Example implementations:
-        
-        # Option 1: Using OpenAI
-        # import openai
-        # context = "\n\n".join([chunk['text'] for chunk in context_chunks])
-        # prompt = f"""Based on the following context, answer the user's question.
-        # 
-        # Context:
-        # {context}
-        # 
-        # Question: {query}
-        # 
-        # Answer:"""
-        # 
-        # response = openai.ChatCompletion.create(
-        #     model="gpt-3.5-turbo",
-        #     messages=[{"role": "user", "content": prompt}],
-        #     max_tokens=500
-        # )
-        # return response.choices[0].message.content
-        
-        # Option 2: Using local LLM (Ollama)
-        # import requests
-        # context = "\n\n".join([chunk['text'] for chunk in context_chunks])
-        # prompt = f"Context: {context}\n\nQuestion: {query}\n\nAnswer:"
-        # 
-        # response = requests.post('http://localhost:11434/api/generate',
-        #     json={'model': 'llama2', 'prompt': prompt, 'stream': False})
-        # return response.json()['response']
-        
-        # PLACEHOLDER: Return mock response
         if not context_chunks:
             return "I don't have enough information to answer that question. Please process some URLs first."
         
-        context_sources = [chunk['title'] for chunk in context_chunks if chunk['title']]
-        sources_text = f" (from {', '.join(set(context_sources))})" if context_sources else ""
-        
-        return f"""Based on the processed content{sources_text}, here's what I found:
+        ranked_chunks = sorted(
+            context_chunks,
+            key=lambda chunk: chunk.get("similarity", 0),
+            reverse=True,
+        )
+        best_score = float(ranked_chunks[0].get("lexical_score") or ranked_chunks[0].get("similarity") or 0)
+        threshold = max(0.75, best_score * 0.5) if best_score else 0
+        best_chunks = [
+            chunk
+            for chunk in ranked_chunks
+            if float(chunk.get("lexical_score") or chunk.get("similarity") or 0) >= threshold
+        ][:4]
+        excerpts = []
+        sources = []
+        for index, chunk in enumerate(best_chunks, 1):
+            snippet = self._best_snippet(query, chunk.get("text", ""))
+            title = chunk.get("title") or chunk.get("url") or f"Source {index}"
+            if snippet:
+                excerpts.append(f"{index}. **{title}**\n\n{snippet}")
+            sources.append(title)
 
-**Question:** {query}
+        if not excerpts:
+            return "I found potentially related local knowledge, but the stored text does not contain a clear answer to that question."
 
-**Answer:** This is a placeholder response. The actual implementation would use an LLM to generate a comprehensive answer based on the retrieved context chunks.
-
-**Sources used:** {len(context_chunks)} relevant sections from your processed URLs.
-
-*Note: This is a demo response. Replace the generate_response method with your preferred LLM integration.*"""
+        unique_sources = list(dict.fromkeys(sources))
+        source_text = ", ".join(unique_sources[:5])
+        return (
+            f"Based on the local knowledge store, the strongest matching source(s) are: {source_text}.\n\n"
+            f"**Question:** {query}\n\n"
+            "**Relevant local excerpts:**\n\n"
+            + "\n\n".join(excerpts)
+            + "\n\nIf you want a synthesized answer instead of excerpts, enable **AI synthesis for knowledge queries** in the sidebar."
+        )
     
     def get_processing_summary(self) -> Dict[str, Any]:
         """Get summary of processed URLs and stored content"""
         total_chunks = sum(len(chunks) for chunks in self.chunks.values())
         total_urls = len(self.metadata)
+        embedding_status = self.embedding_status()
         
         return {
             'total_urls': total_urls,
@@ -458,6 +567,10 @@ class WebResearchModule:
                 for url_chunks in self.chunks.values() 
                 for chunk in url_chunks.values()
             ),
+            'embedding_backend': embedding_status['runtime_backend'],
+            'embedding_configured_backend': embedding_status['configured_backend'],
+            'embedding_model': embedding_status['model'],
+            'embedding_status': embedding_status,
             'urls': list(self.metadata.values())
         }
 
@@ -652,10 +765,10 @@ if __name__ == "__main__":
            render_web_research_tab()
        ```
     
-    3. **Replace placeholder implementations:**
-       - Update `generate_embedding()` with your preferred embedding model
-       - Update `generate_response()` with your preferred LLM
-       - Configure vector database if needed
+    3. **Optional upgrades:**
+       - Swap `generate_embedding()` for a heavier embedding model if needed
+       - Enable provider-backed answer synthesis from the main app
+       - Configure a vector database if the knowledge base grows large
     
     4. **Customize as needed:**
        - Adjust chunk sizes and overlap

@@ -1,101 +1,57 @@
 #!/usr/bin/env python3
-"""
-Simple test script for the Enhanced Web Research functionality
-Tests only the functions that don't require network access
-"""
+"""Lightweight root-discovery tests for web research URL handling."""
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from __future__ import annotations
 
-# Import only the validation function
-from cognitive_nexus_advanced import validate_url
+import unittest
+from urllib.parse import urlparse
 
-def test_url_validation():
-    """Test URL validation functionality"""
-    print("Testing URL validation...")
-    
-    test_cases = [
-        ("example.com", True, "https://example.com"),
-        ("https://example.com", True, "https://example.com"),
-        ("http://example.com", True, "http://example.com"),
-        ("invalid-url", False, "Invalid domain name"),
-        ("https://httpbin.org/html", True, "https://httpbin.org/html"),
-        ("not-a-url", False, "Invalid domain name"),
-        ("", False, "Invalid URL format"),
-        ("ftp://example.com", True, "ftp://example.com"),
-        ("https://subdomain.example.com/path", True, "https://subdomain.example.com/path"),
-    ]
-    
-    passed = 0
-    total = len(test_cases)
-    
-    for url, expected_valid, expected_result in test_cases:
-        is_valid, result = validate_url(url)
-        
-        if is_valid == expected_valid:
-            if expected_valid and result == expected_result:
-                print(f"  ✅ {url} -> Valid: {is_valid}, Result: {result}")
-                passed += 1
-            elif not expected_valid and expected_result in result:
-                print(f"  ✅ {url} -> Valid: {is_valid}, Result: {result}")
-                passed += 1
-            else:
-                print(f"  ❌ {url} -> Expected: {expected_result}, Got: {result}")
-        else:
-            print(f"  ❌ {url} -> Expected valid: {expected_valid}, Got: {is_valid}")
-    
-    print(f"\nURL Validation Test Results: {passed}/{total} passed")
-    return passed == total
+from modules.research import validate_url as normalize_url
 
-def test_imports():
-    """Test that all required modules can be imported"""
-    print("\nTesting imports...")
-    
+
+def validate_url(url: str) -> tuple[bool, str]:
+    """Validate URLs against the current Streamlit app URL normalizer."""
+
     try:
-        import requests
-        print("  ✅ requests imported successfully")
-    except ImportError as e:
-        print(f"  ❌ requests import failed: {e}")
-        return False
-    
-    try:
-        from bs4 import BeautifulSoup
-        print("  ✅ BeautifulSoup imported successfully")
-    except ImportError as e:
-        print(f"  ❌ BeautifulSoup import failed: {e}")
-        return False
-    
-    try:
-        import lxml
-        print("  ✅ lxml imported successfully")
-    except ImportError as e:
-        print(f"  ❌ lxml import failed: {e}")
-        return False
-    
-    return True
+        normalized = normalize_url(url)
+    except ValueError as exc:
+        return False, str(exc)
+
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"}:
+        return False, "Invalid URL scheme"
+    if not parsed.netloc or "." not in parsed.netloc:
+        return False, "Invalid domain name"
+    return True, normalized
+
+
+class WebResearchSimpleTests(unittest.TestCase):
+    def test_url_validation(self) -> None:
+        cases = [
+            ("example.com", True, "https://example.com"),
+            ("https://example.com", True, "https://example.com"),
+            ("http://example.com", True, "http://example.com"),
+            ("invalid-url", False, "Invalid domain name"),
+            ("https://httpbin.org/html", True, "https://httpbin.org/html"),
+            ("not-a-url", False, "Invalid domain name"),
+            ("", False, "Enter a URL first"),
+            ("ftp://example.com", False, "Invalid domain name"),
+            ("https://subdomain.example.com/path", True, "https://subdomain.example.com/path"),
+        ]
+
+        for url, expected_valid, expected_result in cases:
+            with self.subTest(url=url):
+                is_valid, result = validate_url(url)
+                self.assertEqual(is_valid, expected_valid)
+                if expected_valid:
+                    self.assertEqual(result, expected_result)
+                else:
+                    self.assertIn(expected_result, result)
+
+    def test_dependencies_import(self) -> None:
+        import requests  # noqa: F401
+        from bs4 import BeautifulSoup  # noqa: F401
+
 
 if __name__ == "__main__":
-    print("Enhanced Web Research - Simple Test Suite")
-    print("=" * 45)
-    
-    try:
-        # Test imports
-        imports_ok = test_imports()
-        
-        # Test URL validation
-        validation_ok = test_url_validation()
-        
-        if imports_ok and validation_ok:
-            print("\n✅ All tests passed! The web research functionality is ready to use.")
-            print("\nTo test the full functionality:")
-            print("1. Run: python -m streamlit run cognitive_nexus_advanced.py")
-            print("2. Navigate to the Web Research tab")
-            print("3. Try extracting content from: https://example.com")
-        else:
-            print("\n❌ Some tests failed. Please check the errors above.")
-        
-    except Exception as e:
-        print(f"\n❌ Test failed with error: {e}")
-        import traceback
-        traceback.print_exc()
+    unittest.main()

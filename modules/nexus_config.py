@@ -28,6 +28,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "summary_message_limit": 18,
     "provider_status_ttl_seconds": 45,
     "enable_response_verification": True,
+    "enable_reality_grounding": True,
+    "show_grounding_notes": True,
+    "enable_reality_first_reasoning": True,
+    "enable_reality_research_agent": True,
+    "epistemic_mode": "auto",
     "enable_bloodhound_search": True,
     "enable_onion_search": False,
     "tor_socks_proxy": "127.0.0.1:9050",
@@ -83,6 +88,11 @@ def load_runtime_config(path: Path = DEFAULT_CONFIG_FILE) -> dict[str, Any]:
     config["hf_local_model"] = os.environ.get("HF_LOCAL_MODEL", str(config["hf_local_model"]))
     config["comfyui_url"] = os.environ.get("COMFYUI_URL", str(config["comfyui_url"])).rstrip("/")
     config["enable_bloodhound_search"] = _env_bool("ENABLE_BLOODHOUND_SEARCH", bool(config["enable_bloodhound_search"]))
+    config["enable_reality_grounding"] = _env_bool("ENABLE_REALITY_GROUNDING", bool(config["enable_reality_grounding"]))
+    config["show_grounding_notes"] = _env_bool("SHOW_GROUNDING_NOTES", bool(config["show_grounding_notes"]))
+    config["enable_reality_first_reasoning"] = _env_bool("ENABLE_REALITY_FIRST_REASONING", bool(config["enable_reality_first_reasoning"]))
+    config["enable_reality_research_agent"] = _env_bool("ENABLE_REALITY_RESEARCH_AGENT", bool(config["enable_reality_research_agent"]))
+    config["epistemic_mode"] = os.environ.get("EPISTEMIC_MODE", str(config["epistemic_mode"]))
     config["enable_onion_search"] = _env_bool("ENABLE_ONION_SEARCH", bool(config["enable_onion_search"]))
     config["tor_socks_proxy"] = os.environ.get("TOR_SOCKS_PROXY", str(config["tor_socks_proxy"]))
     config["max_search_results"] = _env_int("MAX_SEARCH_RESULTS", int(config["max_search_results"]))
