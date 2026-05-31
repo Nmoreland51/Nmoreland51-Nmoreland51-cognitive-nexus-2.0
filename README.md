@@ -15,6 +15,7 @@ app.py
 ## Features Exposed in the Browser
 
 - Centralized server-side backend in `modules/nexus_core.py`.
+- Reality-First Research Agent as the primary tab: deep search, claim extraction, source trust scoring, contradiction checks, memory save, and JSON/Markdown reports.
 - Chat with streaming output, route-aware prompts, adaptive response planning, long-context packing, and fallback mode.
 - Provider detection, model selection, and configurable fallback order.
 - Adaptive memory from `cognitive_nexus/adaptation.py`.
@@ -29,6 +30,9 @@ app.py
 - Project diagnostics, central provider router status, ComfyUI status, logs, commands, and skill inventory.
 - Response verification metadata logged to `logs/uncertainty.jsonl`.
 - Response planner diagnostics in the Chat and Logs / Status tabs, including mode, intent, token budget, and context window.
+- Reality Grounding audit for generated answers, including confidence, hallucination risk, speculation labels, source grounding, and extracted claims.
+- Reality-First Reasoning constraints that classify feasibility before generation and prevent fake procedural systems for impossible/speculative concepts.
+- Prompt Firewall / trust audit that separates trusted runtime instructions from user, quoted, uploaded, retrieved, and external content.
 
 ## Central Backend
 
@@ -43,7 +47,11 @@ Supporting backend pieces:
 - `modules/provider_router.py` - Ollama, OpenAI, Anthropic, local Transformers, and fallback routing.
 - `modules/context_manager.py` - recent turns, older summaries, persistent facts, memory, and knowledge trimming.
 - `modules/response_planner.py` - intent detection, response mode selection, token budgeting, streaming acknowledgement, and learned response-style preferences.
+- `modules/reality_research_agent.py` - signature source-grounded research workflow, trust scoring, claims, contradictions, report persistence, and memory handoff.
 - `search/bloodhound_search.py` - query expansion, multi-source public search, safe page fetching, ranking, dedupe, and search-history saves.
+- `core/reality_grounding/` - claim extraction, hallucination detection, confidence estimation, contradiction checks, uncertainty notes, and audit diagnostics.
+- `core/reality_grounding/prompt_firewall.py` - instruction hierarchy isolation, prompt-injection detection, provenance wrappers, and trust scoring.
+- `core/reasoning/` - pre-generation reality modeling, feasibility analysis, evidence classification, ontology validation, procedural hallucination checks, and generation constraints.
 - `modules/internal_prompts.py` - protected internal operating prompts kept separate from chat state.
 - `modules/comfyui_client.py` - ComfyUI workflow upload, queueing, polling, downloads, and metadata.
 - `modules/response_verifier.py` - lightweight uncertainty and unsupported-claim logging.
@@ -200,6 +208,34 @@ Each saved session includes:
 - JSON with query, settings, search results, scraped pages, summary, and errors.
 - Markdown with summary, sources, and scraped excerpts.
 
+## Reality-First Research Agent
+
+The first tab is the main product experience: Cognitive Nexus researches a topic, separates strong and weak evidence, extracts factual-looking claims, flags possible contradictions, and saves a grounded report.
+
+Useful prompts in Chat also route into this agent:
+
+```text
+research this deeply: local AI hallucination control
+verify whether this claim is true
+find contradictions about this topic
+trace sources for this statement
+search for exact phrase here
+```
+
+Saved reports live under:
+
+```text
+data/research_reports
+```
+
+Each report includes:
+
+- Source list with match strength and trust score.
+- Extracted claims with source URLs.
+- Potential contradiction records.
+- Search coverage and errors.
+- JSON and Markdown exports.
+
 ## Bloodhound Search Mode
 
 Bloodhound Search Mode runs from the normal Chat tab. Example commands:
@@ -221,9 +257,32 @@ Saved Bloodhound sessions live under:
 data/search_history
 ```
 
+## Reality Grounding
+
+Reality Grounding runs through the central backend for chat, web research, Bloodhound results, memory commands, and knowledge answers. It extracts factual-looking claims, flags suspicious jargon or unsupported citations, estimates confidence, labels speculation, checks simple contradictions, and can append a compact `Reality check` note when an answer is under-grounded.
+
+Reality-First Reasoning runs before generation. It classifies whether a request is established, theoretical, speculative, fictional, pseudoscientific, impossible under current science, or unknown. When feasibility is low, it tells the model to avoid step-by-step framing, component lists, fake roadmaps, and pretend engineering pathways.
+
+The Prompt Firewall runs before the model prompt is assembled. It wraps user, memory, retrieved, uploaded, quoted, and external text as untrusted content blocks, detects fake system/developer messages, fake policy dumps, role hijacking, serialized authority metadata, and ignore-instruction attacks, then records a trust audit without treating those blocks as runtime instructions.
+
+The Chat and Logs / Status tabs show:
+
+- Confidence level
+- Hallucination risk
+- Speculation category
+- Source grounding status
+- Extracted claim count
+- Prompt-injection trust level and detected signals
+- Reality-first feasibility and epistemic mode
+
 Relevant config/environment options:
 
 ```text
+ENABLE_REALITY_GROUNDING=true
+SHOW_GROUNDING_NOTES=true
+ENABLE_REALITY_FIRST_REASONING=true
+ENABLE_REALITY_RESEARCH_AGENT=true
+EPISTEMIC_MODE=auto
 ENABLE_BLOODHOUND_SEARCH=true
 ENABLE_ONION_SEARCH=false
 TOR_SOCKS_PROXY=127.0.0.1:9050
