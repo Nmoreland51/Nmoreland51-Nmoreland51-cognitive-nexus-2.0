@@ -24,7 +24,13 @@ from modules.reality_research_agent import (
     run_reality_research,
 )
 from modules.research import get_research_module, query_knowledge
-from modules.response_planner import ResponsePlan, plan_response, validate_response_against_plan
+from modules.response_planner import (
+    ResponsePlan,
+    analyze_intent_cached,
+    apply_auto_precision_settings,
+    plan_response,
+    validate_response_against_plan,
+)
 from modules.response_verifier import VerificationResult, log_verification, verify_response
 from modules.web_research import run_research_session
 from search.bloodhound_search import (
@@ -595,6 +601,23 @@ class NexusCore:
             yield answer
             return
 
+        route_start = time.perf_counter()
+        router_config: RouterConfig = settings["router_config"]
+        classifier = self._make_classifier(settings, router_config)
+        route_decision = route_message(user_message, router_config, classifier=classifier)
+        bloodhound_query = detect_bloodhound_query(user_message)
+        reality_research_query = detect_reality_research_query(user_message)
+        timings["routing"] = time.perf_counter() - route_start
+
+        if settings.get("auto_precision_mode", True):
+            pre_analysis = analyze_intent_cached(user_message, "")
+            precision_category = "web_research" if (bloodhound_query or reality_research_query or route_decision.category == "web_research") else route_decision.category
+            settings = apply_auto_precision_settings(
+                settings,
+                str(pre_analysis.get("intent") or "unknown"),
+                route_category=precision_category,
+            )
+
         memory_start = time.perf_counter()
         memory_context, memory_command = self._memory_context(user_message, messages, bool(settings.get("use_memory")))
         timings["memory_context"] = time.perf_counter() - memory_start
@@ -603,14 +626,6 @@ class NexusCore:
             self.last_provider_result = {"provider": "adaptive_memory", "elapsed": time.perf_counter() - started}
             yield memory_command
             return
-
-        route_start = time.perf_counter()
-        router_config: RouterConfig = settings["router_config"]
-        classifier = self._make_classifier(settings, router_config)
-        route_decision = route_message(user_message, router_config, classifier=classifier)
-        bloodhound_query = detect_bloodhound_query(user_message)
-        reality_research_query = detect_reality_research_query(user_message)
-        timings["routing"] = time.perf_counter() - route_start
 
         epistemic_start = time.perf_counter()
         if bool(settings.get("enable_reality_first_reasoning", self.config.get("enable_reality_first_reasoning", True))):
@@ -786,7 +801,7 @@ class NexusCore:
         if epistemic is not None:
             prompt_settings["_epistemic_instruction"] = epistemic.constraints.instruction
         prompt_start = time.perf_counter()
-        prompt, context = self.build_chat_prompt(user_message, messages, prompt_settings, route_decision, simple_mode=plan.intent == "casual_chat")
+        prompt, context = self.build_chat_prompt(user_message, messages, prompt_settings, route_decision, simple_mode=plan.intent == "simple_fact")
         prompt = self.build_planned_chat_prompt(prompt, plan)
         timings["prompt_build"] = time.perf_counter() - prompt_start
         retrieval_meta = dict(self.last_retrieval or {})
@@ -840,8 +855,8 @@ class NexusCore:
             log_verification(verification, "local_knowledge_fallback")
             yield answer
             return
-        # For simple chat, use shorter timeout
-        if plan.intent == "casual_chat":
+        # For simple answers, use shorter timeout
+        if plan.intent == "simple_fact" or plan.mode == "short":
             request.timeout = min(request.timeout, 60.0)
         chunks: list[str] = []
         if plan.acknowledge:

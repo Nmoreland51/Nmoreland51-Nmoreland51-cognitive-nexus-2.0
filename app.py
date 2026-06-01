@@ -4,6 +4,7 @@ import base64
 import html
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -92,6 +93,66 @@ SESSION_DIAGNOSTIC_KEYS = (
     "perf_timings",
     "demo_loaded",
 )
+
+TAB_LABELS = [
+    "Home / Overview",
+    "Chat",
+    "Reality-First Research",
+    "Web Research",
+    "Files / Knowledge",
+    "Memory",
+    "Image Generation",
+    "Gallery",
+    "Diagnostics",
+    "Settings",
+    "Tools / Utilities",
+]
+
+_WINDOWS_PATH_RE = re.compile(r"[A-Za-z]:\\[^\s`'\"<>|]+")
+_LOCAL_URL_RE = re.compile(r"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?[^\s`'\"<>)]*")
+_ENV_DETAIL_RE = re.compile(r"\b(?:OPENAI|ANTHROPIC|HF|HUGGINGFACE|API|TOKEN|SECRET|KEY)[A-Z0-9_]*\b", re.IGNORECASE)
+
+
+def is_demo_safe(settings: dict[str, Any] | None) -> bool:
+    return bool((settings or {}).get("demo_safe_mode"))
+
+
+def demo_safe_status(enabled: bool) -> str:
+    return "Demo Safe Mode: On" if enabled else "Demo Safe Mode: Off"
+
+
+def sanitize_demo_text(value: Any) -> str:
+    """Hide local paths and environment-specific details for demo surfaces."""
+    text = str(value or "")
+    if not text:
+        return ""
+    project_path = str(PROJECT_ROOT)
+    if project_path and project_path in text:
+        text = text.replace(project_path, "[project path hidden]")
+    text = _WINDOWS_PATH_RE.sub("[local path hidden]", text)
+    text = _LOCAL_URL_RE.sub("[local service hidden]", text)
+    text = _ENV_DETAIL_RE.sub("[environment detail hidden]", text)
+    return text
+
+
+def sanitize_demo_value(value: Any) -> Any:
+    if isinstance(value, Path):
+        return "[local path hidden]"
+    if isinstance(value, dict):
+        return {str(key): sanitize_demo_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_demo_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [sanitize_demo_value(item) for item in value]
+    if isinstance(value, str):
+        return sanitize_demo_text(value)
+    return value
+
+
+def sanitize_demo_rows(rows: list[dict[str, Any]], *, enabled: bool) -> list[dict[str, Any]]:
+    if not enabled:
+        return rows
+    return [sanitize_demo_value(row) for row in rows]
 
 
 @st.cache_resource
@@ -277,8 +338,16 @@ def render_sidebar(
             st.warning("Ollama running, no models")
         else:
             st.error("Ollama offline")
-        st.caption(status.message)
-        st.caption(f"Endpoint: {status.base_url}")
+        demo_safe_mode = st.checkbox(
+            "Demo Safe Mode",
+            value=False,
+            help="Hide local paths, raw private memory, environment details, and machine-specific diagnostics.",
+        )
+        st.caption(sanitize_demo_text(status.message) if demo_safe_mode else status.message)
+        if demo_safe_mode:
+            st.caption("Endpoint: local provider endpoint hidden")
+        else:
+            st.caption(f"Endpoint: {status.base_url}")
 
         selected_model = None
         if status.models:
@@ -288,153 +357,19 @@ def render_sidebar(
         else:
             st.info("Fallback mode is active.")
 
-        st.subheader("Settings")
-        use_memory = st.checkbox("Use adaptive memory", value=False)
-        use_knowledge_for_chat = st.checkbox("Use local knowledge in chat", value=True)
-        use_web_for_chat = st.checkbox("Web search from chat commands", value=True)
-        show_sources = st.checkbox("Show sources", value=True)
-        enable_router = st.checkbox("Enable Nexus Router", value=True)
-        show_perf_timings = st.checkbox("Show performance timings", value=False)
-        advanced_mode = st.checkbox("Advanced mode", value=False)
-        demo_mode = st.checkbox("Demo mode", value=False, help="Load sample data for demonstration")
-        generation_timeout = st.number_input(
-            "Model timeout (seconds)",
-            min_value=300,
-            max_value=1800,
-            value=600,
-            step=60,
-            key="ollama_generation_timeout_seconds_v2",
-            help="How long the app waits for Ollama to finish loading and generating a reply.",
-        )
-        god_mode = st.checkbox(
-            "Advanced routing",
-            value=False,
-            help="Routes prompts with stronger specificity and less filler while keeping the app stable.",
-        )
-        freedom_level = st.select_slider(
-            "Response detail",
-            options=["balanced", "bold", "max_capability"],
-            value="bold",
-        )
-        use_llm_classifier = st.checkbox(
-            "Use local model to refine route classification",
-            value=False,
-            disabled=not status.models,
-        )
-        show_route_debug = st.checkbox("Show routing debug", value=False)
-
-        st.subheader("Response Controls")
-        profile = chat_profile
-        response_mode = st.selectbox(
-            "Response mode",
-            RESPONSE_MODES,
-            index=0,
-            format_func=lambda value: {
-                "auto": "Auto",
-                "short": "Short",
-                "standard": "Standard",
-                "deep": "Deep",
-                "surgeon": "Surgeon",
-                "research": "Research",
-            }.get(value, value.title()),
-            help="Auto lets Cognitive Nexus choose response size and structure from the request.",
-        )
-        verbosity_level = st.slider("Verbosity", 1, 5, 2, help="Higher values allow longer answers when useful.")
-        staged_streaming = st.checkbox(
-            "Immediate streaming acknowledgement",
+        st.subheader("Answer Behavior")
+        auto_precision_mode = st.checkbox(
+            "Auto Precision Mode",
             value=True,
-            help="Shows a short visible acknowledgement before slower deep/research responses.",
+            help="Automatically chooses answer length, detail, memory, research, and diagnostics from the request.",
         )
-
-        with st.expander("Advanced response controls", expanded=advanced_mode):
-            reasoning_depth = st.slider(
-                "Reasoning depth",
-                1,
-                5,
-                2,
-                help="Controls how much structured rationale the model is asked to include in the final answer.",
-            )
-            enable_reality_grounding = st.checkbox(
-                "Reality grounding",
-                value=bool(core_status.get("config", {}).get("enable_reality_grounding", True)),
-                help="Audits generated answers for claims, hallucination risk, speculation, contradiction, and confidence.",
-            )
-            enable_reality_first_reasoning = st.checkbox(
-                "Reality-first reasoning",
-                value=bool(core_status.get("config", {}).get("enable_reality_first_reasoning", True)),
-                help="Applies feasibility and theory/fiction constraints before the model drafts an answer.",
-            )
-            epistemic_mode = st.selectbox(
-                "Epistemic mode",
-                ["auto", "strict_fact", "theoretical", "science_fiction", "research"],
-                index=["auto", "strict_fact", "theoretical", "science_fiction", "research"].index(
-                    str(core_status.get("config", {}).get("epistemic_mode") or "auto")
-                    if str(core_status.get("config", {}).get("epistemic_mode") or "auto") in ["auto", "strict_fact", "theoretical", "science_fiction", "research"]
-                    else "auto"
-                ),
-            )
-            show_grounding_notes = st.checkbox(
-                "Show grounding notes",
-                value=bool(core_status.get("config", {}).get("show_grounding_notes", True)),
-                disabled=not enable_reality_grounding,
-                help="Adds compact uncertainty notes to risky answers.",
-            )
-            max_context_chars = st.slider(
-                "Max context characters",
-                min_value=4000,
-                max_value=24000,
-                value=int(core_status.get("config", {}).get("max_context_chars") or 12000),
-                step=1000,
-            )
-            recent_message_limit = st.slider("Recent turns in context", 2, 16, 8, step=2)
-            knowledge_top_k = st.slider("Knowledge chunks for chat", 1, 6, 3)
-            knowledge_use_ai = st.checkbox(
-                "AI synthesis for knowledge queries",
-                value=False,
-                help="Off is faster and uses extractive answers from stored sources. Turn on for slower model-written synthesis.",
-            )
-
-        with st.expander("Advanced search controls", expanded=advanced_mode):
-            st.subheader("Bloodhound Search")
-            reality_research_enabled = st.checkbox(
-                "Reality-First Research Agent",
-                value=bool(core_status.get("config", {}).get("enable_reality_research_agent", True)),
-                help="Routes deep research, verify, trace sources, and search-style chat commands into the source-grounded research agent.",
-            )
-            reality_research_depth = st.selectbox(
-                "Research agent depth",
-                ["Quick", "Standard", "Deep", "Extreme"],
-                index=1,
-                help="Controls how broadly the signature research agent searches and follows leads.",
-            )
-            bloodhound_enabled = st.checkbox(
-                "Bloodhound Search Mode",
-                value=bool(core_status.get("config", {}).get("enable_bloodhound_search", True)),
-                help="Routes search/find/deep search chat commands into the deep public-web search engine.",
-            )
-            bloodhound_depth = st.selectbox("Search depth", ["Quick", "Standard", "Deep", "Extreme"], index=1)
-            bloodhound_max_results = st.slider(
-                "Bloodhound max results",
-                min_value=5,
-                max_value=150,
-                value=int(core_status.get("config", {}).get("max_search_results") or 50),
-                step=5,
-            )
-            bloodhound_follow_links = st.checkbox(
-                "Follow relevant links",
-                value=bool(core_status.get("config", {}).get("enable_link_following", True)),
-            )
-            bloodhound_enable_cache = st.checkbox(
-                "Use search cache",
-                value=bool(core_status.get("config", {}).get("enable_search_cache", True)),
-            )
-            onion_allowed = bool(core_status.get("config", {}).get("enable_onion_search", False))
-            bloodhound_enable_onion = st.checkbox(
-                "Onion search",
-                value=onion_allowed,
-                disabled=not onion_allowed,
-                help="Controlled by ENABLE_ONION_SEARCH/config. Public web search continues if Tor is unavailable.",
-            )
+        last_plan = st.session_state.get("last_response_plan") or {}
+        current_mode = (
+            f"{last_plan.get('intent', 'auto')} / {last_plan.get('mode', 'auto')}"
+            if last_plan
+            else ("Auto Precision ready" if auto_precision_mode else "Manual overrides ready")
+        )
+        st.caption(f"Current answer mode: {current_mode}")
 
         provider_options = ["ollama", "openai", "anthropic", "huggingface_local", "fallback"]
         configured_order = normalize_provider_order(
@@ -445,14 +380,225 @@ def render_sidebar(
             ],
             provider_options,
         )
-        selected_provider_order = st.multiselect(
-            "Provider fallback order",
-            provider_options,
-            default=configured_order,
-            help="The backend tries providers in this order. Hugging Face stays local and lazy-disabled unless configured.",
-        )
-        provider_order = normalize_provider_order(selected_provider_order, provider_options)
-        st.caption(f"Active order: {' -> '.join(provider_order)}")
+        provider_order = configured_order
+        configured_comfyui_url = str(core_status.get("config", {}).get("comfyui_url") or "http://127.0.0.1:8188")
+        configured_hf_local_model = str(core_status.get("config", {}).get("hf_local_model") or "")
+        comfyui_url = configured_comfyui_url
+        hf_local_model = configured_hf_local_model
+
+        use_memory = False
+        use_knowledge_for_chat = True
+        use_web_for_chat = True
+        show_sources = True
+        enable_router = True
+        show_perf_timings = False
+        advanced_mode = False
+        demo_mode = False
+        generation_timeout = 600
+        god_mode = False
+        freedom_level = "bold"
+        use_llm_classifier = False
+        show_route_debug = False
+        response_mode = "auto"
+        verbosity_level = 2
+        staged_streaming = True
+        reasoning_depth = 2
+        enable_reality_grounding = bool(core_status.get("config", {}).get("enable_reality_grounding", True))
+        enable_reality_first_reasoning = bool(core_status.get("config", {}).get("enable_reality_first_reasoning", True))
+        epistemic_mode = str(core_status.get("config", {}).get("epistemic_mode") or "auto")
+        if epistemic_mode not in ["auto", "strict_fact", "theoretical", "science_fiction", "research"]:
+            epistemic_mode = "auto"
+        show_grounding_notes = bool(core_status.get("config", {}).get("show_grounding_notes", True))
+        max_context_chars = int(core_status.get("config", {}).get("max_context_chars") or 12000)
+        recent_message_limit = 8
+        knowledge_top_k = 3
+        knowledge_use_ai = False
+        reality_research_enabled = bool(core_status.get("config", {}).get("enable_reality_research_agent", True))
+        reality_research_depth = "Standard"
+        bloodhound_enabled = bool(core_status.get("config", {}).get("enable_bloodhound_search", True))
+        bloodhound_depth = "Standard"
+        bloodhound_max_results = int(core_status.get("config", {}).get("max_search_results") or 50)
+        bloodhound_follow_links = bool(core_status.get("config", {}).get("enable_link_following", True))
+        bloodhound_enable_cache = bool(core_status.get("config", {}).get("enable_search_cache", True))
+        bloodhound_enable_onion = bool(core_status.get("config", {}).get("enable_onion_search", False))
+
+        manual_disabled = bool(auto_precision_mode)
+        with st.expander("Advanced Overrides", expanded=not auto_precision_mode):
+            if auto_precision_mode:
+                st.caption("Turn off Auto Precision Mode to make these manual answer controls active.")
+            st.markdown("**Context and routing**")
+            use_memory = st.checkbox("Use adaptive memory", value=use_memory, disabled=manual_disabled)
+            use_knowledge_for_chat = st.checkbox("Use local knowledge in chat", value=use_knowledge_for_chat, disabled=manual_disabled)
+            use_web_for_chat = st.checkbox("Web search from chat commands", value=use_web_for_chat, disabled=manual_disabled)
+            show_sources = st.checkbox("Show sources", value=show_sources, disabled=manual_disabled)
+            enable_router = st.checkbox("Enable Nexus Router", value=enable_router, disabled=manual_disabled)
+            show_perf_timings = st.checkbox("Show performance timings", value=show_perf_timings, disabled=manual_disabled)
+            advanced_mode = st.checkbox("Advanced mode", value=advanced_mode, disabled=manual_disabled)
+            demo_mode = st.checkbox("Demo mode", value=demo_mode, help="Load sample data for demonstration")
+            generation_timeout = st.number_input(
+                "Model timeout (seconds)",
+                min_value=300,
+                max_value=1800,
+                value=int(generation_timeout),
+                step=60,
+                key="ollama_generation_timeout_seconds_v2",
+                help="How long the app waits for Ollama to finish loading and generating a reply.",
+            )
+            god_mode = st.checkbox(
+                "Advanced routing",
+                value=god_mode,
+                disabled=manual_disabled,
+                help="Routes prompts with stronger specificity and less filler while keeping the app stable.",
+            )
+            freedom_level = st.select_slider(
+                "Response detail",
+                options=["balanced", "bold", "max_capability"],
+                value=freedom_level,
+                disabled=manual_disabled,
+            )
+            use_llm_classifier = st.checkbox(
+                "Use local model to refine route classification",
+                value=use_llm_classifier,
+                disabled=manual_disabled or not status.models,
+            )
+            show_route_debug = st.checkbox("Show routing debug", value=show_route_debug, disabled=manual_disabled)
+
+            st.markdown("**Response controls**")
+            response_mode = st.selectbox(
+                "Response mode",
+                RESPONSE_MODES,
+                index=0,
+                disabled=manual_disabled,
+                format_func=lambda value: {
+                    "auto": "Auto",
+                    "short": "Short",
+                    "standard": "Standard",
+                    "deep": "Deep",
+                    "surgeon": "Surgeon",
+                    "research": "Research",
+                }.get(value, value.title()),
+                help="Auto lets Cognitive Nexus choose response size and structure from the request.",
+            )
+            verbosity_level = st.slider("Verbosity", 1, 5, int(verbosity_level), disabled=manual_disabled, help="Higher values allow longer answers when useful.")
+            staged_streaming = st.checkbox(
+                "Immediate streaming acknowledgement",
+                value=staged_streaming,
+                disabled=manual_disabled,
+                help="Shows a short visible acknowledgement before slower deep/research responses.",
+            )
+            reasoning_depth = st.slider(
+                "Reasoning depth",
+                1,
+                5,
+                int(reasoning_depth),
+                disabled=manual_disabled,
+                help="Controls how much structured rationale the model is asked to include in the final answer.",
+            )
+            enable_reality_grounding = st.checkbox(
+                "Reality grounding",
+                value=enable_reality_grounding,
+                disabled=manual_disabled,
+                help="Audits generated answers for claims, hallucination risk, speculation, contradiction, and confidence.",
+            )
+            enable_reality_first_reasoning = st.checkbox(
+                "Reality-first reasoning",
+                value=enable_reality_first_reasoning,
+                disabled=manual_disabled,
+                help="Applies feasibility and theory/fiction constraints before the model drafts an answer.",
+            )
+            epistemic_mode = st.selectbox(
+                "Epistemic mode",
+                ["auto", "strict_fact", "theoretical", "science_fiction", "research"],
+                index=["auto", "strict_fact", "theoretical", "science_fiction", "research"].index(epistemic_mode),
+                disabled=manual_disabled,
+            )
+            show_grounding_notes = st.checkbox(
+                "Show grounding notes",
+                value=show_grounding_notes,
+                disabled=manual_disabled or not enable_reality_grounding,
+                help="Adds compact uncertainty notes to risky answers.",
+            )
+            max_context_chars = st.slider("Max context characters", 4000, 24000, int(max_context_chars), step=1000, disabled=manual_disabled)
+            recent_message_limit = st.slider("Recent turns in context", 2, 16, int(recent_message_limit), step=2, disabled=manual_disabled)
+            knowledge_top_k = st.slider("Knowledge chunks for chat", 1, 6, int(knowledge_top_k), disabled=manual_disabled)
+            knowledge_use_ai = st.checkbox(
+                "AI synthesis for knowledge queries",
+                value=knowledge_use_ai,
+                disabled=manual_disabled,
+                help="Off is faster and uses extractive answers from stored sources. Turn on for slower model-written synthesis.",
+            )
+
+            st.markdown("**Research controls**")
+            reality_research_enabled = st.checkbox(
+                "Reality-First Research Agent",
+                value=reality_research_enabled,
+                disabled=manual_disabled,
+                help="Routes deep research, verify, trace sources, and search-style chat commands into the source-grounded research agent.",
+            )
+            reality_research_depth = st.selectbox("Research agent depth", ["Quick", "Standard", "Deep", "Extreme"], index=1, disabled=manual_disabled)
+            bloodhound_enabled = st.checkbox(
+                "Bloodhound Search Mode",
+                value=bloodhound_enabled,
+                disabled=manual_disabled,
+                help="Routes search/find/deep search chat commands into the deep public-web search engine.",
+            )
+            bloodhound_depth = st.selectbox("Search depth", ["Quick", "Standard", "Deep", "Extreme"], index=1, disabled=manual_disabled)
+            bloodhound_max_results = st.slider("Bloodhound max results", 5, 150, int(bloodhound_max_results), step=5, disabled=manual_disabled)
+            bloodhound_follow_links = st.checkbox("Follow relevant links", value=bloodhound_follow_links, disabled=manual_disabled)
+            bloodhound_enable_cache = st.checkbox("Use search cache", value=bloodhound_enable_cache, disabled=manual_disabled)
+            onion_allowed = bool(core_status.get("config", {}).get("enable_onion_search", False))
+            bloodhound_enable_onion = st.checkbox(
+                "Onion search",
+                value=bloodhound_enable_onion,
+                disabled=manual_disabled or not onion_allowed,
+                help="Controlled by ENABLE_ONION_SEARCH/config. Public web search continues if Tor is unavailable.",
+            )
+
+            st.markdown("**Provider and local service overrides**")
+            selected_provider_order = st.multiselect(
+                "Provider fallback order",
+                provider_options,
+                default=configured_order,
+                help="The backend tries providers in this order. Hugging Face stays local and lazy-disabled unless configured.",
+            )
+            provider_order = normalize_provider_order(selected_provider_order, provider_options)
+            st.caption(f"Active order: {' -> '.join(provider_order)}")
+            if demo_safe_mode:
+                st.caption("ComfyUI URL: local service hidden")
+                st.caption("HF local model: local model path hidden" if hf_local_model else "HF local model: not configured")
+            else:
+                comfyui_url = st.text_input("ComfyUI URL", value=configured_comfyui_url)
+                hf_local_model = st.text_input(
+                    "HF local model",
+                    value=configured_hf_local_model,
+                    help="Optional local Transformers model name/path. Leave blank to keep this provider disabled.",
+                )
+
+            if st.button("Save Runtime Settings"):
+                runtime_config = dict(get_nexus_core().config)
+                runtime_config.update(
+                    {
+                        "provider_order": provider_order,
+                        "max_context_chars": int(max_context_chars),
+                        "recent_message_limit": int(recent_message_limit),
+                        "comfyui_url": comfyui_url.rstrip("/"),
+                        "hf_local_model": hf_local_model.strip(),
+                        "enable_reality_grounding": enable_reality_grounding,
+                        "enable_reality_first_reasoning": enable_reality_first_reasoning,
+                        "epistemic_mode": epistemic_mode,
+                        "show_grounding_notes": show_grounding_notes,
+                        "enable_reality_research_agent": reality_research_enabled,
+                        "enable_bloodhound_search": bloodhound_enabled,
+                        "max_search_results": int(bloodhound_max_results),
+                        "enable_search_cache": bloodhound_enable_cache,
+                        "enable_link_following": bloodhound_follow_links,
+                    }
+                )
+                save_runtime_config(runtime_config)
+                clear_runtime_caches()
+                st.success("Runtime settings saved.")
+                st.rerun()
+
         provider_health = {
             str(provider.get("name")): bool(provider.get("available"))
             for provider in core_status.get("providers", [])
@@ -464,42 +610,9 @@ def render_sidebar(
         )
         if not primary_available:
             st.warning("No primary provider is currently available; chat will use fallback until a local or optional provider is ready.")
-        comfyui_url = st.text_input(
-            "ComfyUI URL",
-            value=str(core_status.get("config", {}).get("comfyui_url") or "http://127.0.0.1:8188"),
-        )
-        hf_local_model = st.text_input(
-            "HF local model",
-            value=str(core_status.get("config", {}).get("hf_local_model") or ""),
-            help="Optional local Transformers model name/path. Leave blank to keep this provider disabled.",
-        )
-
-        if st.button("Save Runtime Settings"):
-            runtime_config = dict(get_nexus_core().config)
-            runtime_config.update(
-                {
-                    "provider_order": provider_order,
-                    "max_context_chars": int(max_context_chars),
-                    "recent_message_limit": int(recent_message_limit),
-                    "comfyui_url": comfyui_url.rstrip("/"),
-                    "hf_local_model": hf_local_model.strip(),
-                    "enable_reality_grounding": enable_reality_grounding,
-                    "enable_reality_first_reasoning": enable_reality_first_reasoning,
-                    "epistemic_mode": epistemic_mode,
-                    "show_grounding_notes": show_grounding_notes,
-                    "enable_reality_research_agent": reality_research_enabled,
-                    "enable_bloodhound_search": bloodhound_enabled,
-                    "max_search_results": int(bloodhound_max_results),
-                    "enable_search_cache": bloodhound_enable_cache,
-                    "enable_link_following": bloodhound_follow_links,
-                }
-            )
-            save_runtime_config(runtime_config)
-            clear_runtime_caches()
-            st.success("Runtime settings saved.")
-            st.rerun()
 
         st.subheader("Persona")
+        profile = chat_profile
         profile.enabled = st.checkbox("Use saved chat persona", value=profile.enabled)
         st.caption(f"Chat voice: {profile.assistant_name} for {profile.user_name}")
 
@@ -548,6 +661,8 @@ def render_sidebar(
             "show_perf_timings": show_perf_timings,
             "advanced_mode": advanced_mode,
             "demo_mode": demo_mode,
+            "demo_safe_mode": demo_safe_mode,
+            "auto_precision_mode": auto_precision_mode,
             "generation_timeout": float(generation_timeout),
             "provider_order": provider_order,
             "max_context_chars": int(max_context_chars),
@@ -670,6 +785,7 @@ def generate_chat_response(user_message: str, settings: dict[str, Any]) -> str:
 
 
 def render_chat_tab(settings: dict[str, Any]) -> None:
+    demo_safe = is_demo_safe(settings)
     header_col, clear_col, reset_col = st.columns([5, 1, 1])
     with header_col:
         st.subheader("Chat")
@@ -712,6 +828,9 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
             st.markdown(message.get("content", ""))
 
     show_advanced_debug = settings.get("advanced_mode") or settings["router_config"].show_debug
+    if show_advanced_debug and demo_safe:
+        st.info("Advanced raw chat diagnostics are hidden in Demo Safe Mode.")
+        show_advanced_debug = False
     if show_advanced_debug and "last_route_decision" in st.session_state:
         with st.expander("Last route decision", expanded=False):
             st.json(st.session_state.last_route_decision)
@@ -836,7 +955,7 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
                 )
         record_perf("chat.stream_response", time.perf_counter() - started, settings)
 
-    if settings.get("show_perf_timings") and "last_provider_result" in st.session_state:
+    if settings.get("show_perf_timings") and "last_provider_result" in st.session_state and not demo_safe:
         timings = st.session_state.last_provider_result.get("timings", {})
         if timings:
             with st.expander("Performance Timings", expanded=False):
@@ -849,6 +968,7 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
 def render_reality_research_tab(settings: dict[str, Any]) -> None:
     st.subheader("Reality-First Research Agent")
     st.caption("Search deeply, extract claims, score source trust, detect contradictions, save a grounded report.")
+    demo_safe = is_demo_safe(settings)
 
     query = st.text_area(
         "Research question",
@@ -912,8 +1032,11 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
         metric_cols[4].metric("Errors", len(report.errors))
 
         if report.saved_paths:
-            st.success(f"JSON report: {report.saved_paths.get('json')}")
-            st.success(f"Markdown report: {report.saved_paths.get('markdown')}")
+            if demo_safe:
+                st.success("Report saved locally. File paths hidden in Demo Safe Mode.")
+            else:
+                st.success(f"JSON report: {report.saved_paths.get('json')}")
+                st.success(f"Markdown report: {report.saved_paths.get('markdown')}")
         if report.errors:
             st.warning("\n".join(report.errors[:8]))
 
@@ -941,10 +1064,13 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
                 st.caption(f"A: {item.claim_a}")
                 st.caption(f"B: {item.claim_b}")
 
-        with st.expander("Full report JSON", expanded=False):
-            st.json(report.to_dict())
+        if demo_safe:
+            st.caption("Full report JSON hidden in Demo Safe Mode.")
+        else:
+            with st.expander("Full report JSON", expanded=False):
+                st.json(report.to_dict())
 
-    if st.session_state.get("last_reality_research_report"):
+    if st.session_state.get("last_reality_research_report") and not demo_safe:
         with st.expander("Last Reality-First Research Report", expanded=False):
             st.json(st.session_state.last_reality_research_report)
 
@@ -1022,8 +1148,9 @@ def sanitize_image_generation_result(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def render_image_tab() -> None:
+def render_image_tab(settings: dict[str, Any] | None = None) -> None:
     st.subheader("Image Generation")
+    demo_safe = is_demo_safe(settings)
     providers = get_cached_image_providers()
     image_summary = get_cached_image_summary()
     usable_providers = [provider for provider in providers if provider.get("available") and provider.get("implemented")]
@@ -1054,7 +1181,7 @@ def render_image_tab() -> None:
             st.warning("Direct image generation is offline. ComfyUI workflows can still run when ComfyUI is reachable below.")
 
     with st.expander("Image provider status", expanded=not bool(usable_providers)):
-        st.dataframe(image_provider_status_rows(providers), width="stretch", hide_index=True)
+        st.dataframe(sanitize_demo_rows(image_provider_status_rows(providers), enabled=demo_safe), width="stretch", hide_index=True)
 
     prompt = st.text_area("Prompt", height=120, placeholder="Describe the image you want to generate.")
     negative_prompt = st.text_area("Negative prompt", height=80, placeholder="Optional things to avoid.")
@@ -1119,30 +1246,35 @@ def render_image_tab() -> None:
                     st.image(image_path, caption=item.get("prompt", prompt), width="stretch")
                 elif index < len(result_images):
                     st.image(result_images[index], caption=item.get("prompt", prompt), width="stretch")
-                with st.expander("Metadata", expanded=False):
-                    st.json(item)
+                if demo_safe:
+                    st.caption("Image metadata path hidden in Demo Safe Mode.")
+                else:
+                    with st.expander("Metadata", expanded=False):
+                        st.json(item)
             st.divider()
-            render_gallery(limit=24)
+            render_gallery(settings, limit=24)
 
     st.divider()
-    render_comfyui_workflow_section()
+    render_comfyui_workflow_section(settings)
 
 
-def render_comfyui_workflow_section() -> None:
+def render_comfyui_workflow_section(settings: dict[str, Any] | None = None) -> None:
     st.subheader("ComfyUI Workflows")
+    demo_safe = is_demo_safe(settings)
     core = get_nexus_core()
     status = core.comfyui.detect()
     if status.available:
-        st.success(status.message)
+        st.success(sanitize_demo_text(status.message) if demo_safe else status.message)
     else:
-        st.info(f"{status.message} Start ComfyUI and confirm the URL in Settings.")
+        status_message = sanitize_demo_text(status.message) if demo_safe else status.message
+        st.info(f"{status_message} Start ComfyUI and confirm the URL in Settings.")
 
     uploaded = st.file_uploader("Upload ComfyUI API workflow JSON", type=["json"], key="comfyui_workflow_upload")
     if uploaded and st.button("Save uploaded workflow", key="save_comfy_workflow"):
         try:
             payload = json.loads(uploaded.getvalue().decode("utf-8"))
             path = core.comfyui.save_workflow(payload, uploaded.name)
-            st.success(f"Saved workflow: {path}")
+            st.success("Workflow saved locally." if demo_safe else f"Saved workflow: {path}")
         except Exception as exc:
             st.error(f"Could not save workflow: {exc}")
 
@@ -1178,7 +1310,7 @@ def render_comfyui_workflow_section() -> None:
                 if path and Path(path).exists():
                     st.image(path, caption=Path(path).name, width="stretch")
             if result.metadata_path:
-                st.caption(f"Metadata saved: {result.metadata_path}")
+                st.caption("Metadata saved locally." if demo_safe else f"Metadata saved: {result.metadata_path}")
         except Exception as exc:
             st.error(f"ComfyUI workflow failed: {exc}")
 
@@ -1228,8 +1360,9 @@ def gallery_card_html(
 """
 
 
-def render_gallery(limit: int = 50) -> None:
+def render_gallery(settings: dict[str, Any] | None = None, limit: int = 50) -> None:
     st.subheader("Gallery")
+    demo_safe = is_demo_safe(settings)
     items = get_cached_gallery(limit)
     if not items:
         st.info("No generated images found yet.")
@@ -1286,8 +1419,10 @@ def render_gallery(limit: int = 50) -> None:
                 unsafe_allow_html=True,
             )
             with st.expander("Artifact metadata", expanded=False):
-                st.caption(str(image_path))
-                if metadata:
+                if demo_safe:
+                    st.caption("Local artifact path and raw metadata hidden in Demo Safe Mode.")
+                elif metadata:
+                    st.caption(str(image_path))
                     st.json(metadata)
                 else:
                     st.caption("No JSON metadata was found for this legacy image.")
@@ -1295,6 +1430,7 @@ def render_gallery(limit: int = 50) -> None:
 
 def render_web_research_tab(settings: dict[str, Any]) -> None:
     st.subheader("Web Research")
+    demo_safe = is_demo_safe(settings)
     query = st.text_input("Search query", placeholder="What should Cognitive Nexus research?")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -1327,8 +1463,11 @@ def render_web_research_tab(settings: dict[str, Any]) -> None:
         st.markdown("### Summary")
         st.markdown(research["summary"])
         if research.get("saved_paths"):
-            st.success(f"Saved JSON: {research['saved_paths'].get('json')}")
-            st.success(f"Saved Markdown: {research['saved_paths'].get('markdown')}")
+            if demo_safe:
+                st.success("Research saved locally. File paths hidden in Demo Safe Mode.")
+            else:
+                st.success(f"Saved JSON: {research['saved_paths'].get('json')}")
+                st.success(f"Saved Markdown: {research['saved_paths'].get('markdown')}")
         st.markdown("### Sources")
         for result in research["results"]:
             st.markdown(f"**[{result.get('title') or result.get('url')}]({result.get('url')})**")
@@ -1345,6 +1484,7 @@ def render_web_research_tab(settings: dict[str, Any]) -> None:
 
 def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
     st.subheader("Files / Knowledge")
+    demo_safe = is_demo_safe(settings)
     module = get_cached_research_module()
     url = st.text_input("Ingest URL")
     if st.button("Process URL"):
@@ -1383,7 +1523,7 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
             ingest=ingest_note,
         )
         if result.get("status") == "success":
-            st.success(f"Saved note: {result.get('path')}")
+            st.success("Saved note locally." if demo_safe else f"Saved note: {result.get('path')}")
             if result.get("ingested"):
                 st.caption(f"Added {result.get('chunks_count', 0)} chunk(s) to local retrieval.")
             get_cached_project_inventory.clear()
@@ -1423,12 +1563,16 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
             return
         result = get_nexus_core().answer_knowledge(query, settings, top_k=top_k)
         st.markdown(result["answer"])
-        with st.expander("Retrieved chunks", expanded=False):
-            st.json(result["results"])
+        if demo_safe:
+            st.caption(f"Retrieved chunks hidden in Demo Safe Mode ({len(result.get('results') or [])} result(s)).")
+        else:
+            with st.expander("Retrieved chunks", expanded=False):
+                st.json(result["results"])
 
 
 def render_memory_tab(settings: dict[str, Any]) -> None:
     st.subheader("Memory")
+    demo_safe = is_demo_safe(settings)
     messages = get_messages()
     profile_summary = load_user_profile_summary()
     memory_cols = st.columns(4)
@@ -1436,9 +1580,11 @@ def render_memory_tab(settings: dict[str, Any]) -> None:
     memory_cols[1].metric("Saved local facts", int(profile_summary.get("fact_count", 0) or 0))
     memory_cols[2].metric("Preferences", int(profile_summary.get("preference_count", 0) or 0))
     memory_cols[3].metric("Patterns", int(profile_summary.get("pattern_count", 0) or 0))
-    if messages:
+    if messages and not demo_safe:
         last_msg = messages[-1]
         st.caption(f"Last: {last_msg.get('role', 'unknown')}: {last_msg.get('content', '')[:100]}...")
+    elif messages:
+        st.caption("Latest private chat content hidden in Demo Safe Mode.")
     profile = settings["chat_profile"]
     st.metric("Persona enabled", "Yes" if profile.enabled else "No")
     if profile.enabled:
@@ -1448,7 +1594,9 @@ def render_memory_tab(settings: dict[str, Any]) -> None:
         st.info("Adaptive memory module is unavailable.")
     else:
         st.metric("Memory candidates", len(getattr(memory, "memory_candidates", [])))
-    if profile_summary.get("facts"):
+    if profile_summary.get("facts") and demo_safe:
+        st.info("Saved local facts are present, but raw memory contents are hidden in Demo Safe Mode.")
+    elif profile_summary.get("facts"):
         with st.expander("Saved local facts", expanded=True):
             st.dataframe(profile_summary["facts"], width="stretch", hide_index=True)
     notes = list_knowledge_notes(limit=12)
@@ -1468,7 +1616,9 @@ def render_memory_tab(settings: dict[str, Any]) -> None:
                 width="stretch",
                 hide_index=True,
             )
-    if settings.get("advanced_mode"):
+    if settings.get("advanced_mode") and demo_safe:
+        st.info("Raw session chat, persona, and adaptive memory internals are hidden in Demo Safe Mode.")
+    elif settings.get("advanced_mode"):
         with st.expander("Raw session chat", expanded=False):
             st.json(messages)
         with st.expander("Raw chat persona", expanded=False):
@@ -1480,8 +1630,9 @@ def render_memory_tab(settings: dict[str, Any]) -> None:
                         st.write(getattr(memory, attr))
 
 
-def render_tools_tab() -> None:
+def render_tools_tab(settings: dict[str, Any] | None = None) -> None:
     st.subheader("Tools / Utilities")
+    demo_safe = is_demo_safe(settings)
     tools = get_cached_project_tools()
     if not tools:
         st.info("No project tools detected.")
@@ -1503,7 +1654,9 @@ def render_tools_tab() -> None:
     st.caption("Agent workflow: log corrections, failures, missing capabilities, and reusable discoveries in .learnings.")
 
     existing_logs = [path for path in log_files if path.exists()]
-    if existing_logs:
+    if existing_logs and demo_safe:
+        st.caption("Learning log contents are hidden in Demo Safe Mode.")
+    elif existing_logs:
         selected_log = st.selectbox("Learning log", existing_logs, format_func=lambda path: path.name)
         st.text_area("Latest entries", tail_file(selected_log, max_chars=3000), height=220, disabled=True)
 
@@ -1511,6 +1664,9 @@ def render_tools_tab() -> None:
 def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict[str, Any], core_status: dict[str, Any], settings: dict[str, Any]) -> None:
     st.subheader("Diagnostics")
     st.caption("Live control-center view of providers, grounding, memory, search, and saved outputs.")
+    demo_safe = is_demo_safe(settings)
+    if demo_safe:
+        st.info("Demo Safe Mode is on. Raw paths, environment details, logs, private memory, and machine-specific diagnostics are hidden.")
 
     provider_order = tuple(settings.get("provider_order") or core_status.get("config", {}).get("provider_order", []))
     selected_model = str(settings.get("selected_model") or "")
@@ -1541,7 +1697,7 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     top_cols[4].metric("Reports", int(inventory.get("research_reports", 0) or 0))
 
     if fallback_reason:
-        st.warning(f"Fallback reason: {fallback_reason}")
+        st.warning(f"Fallback reason: {sanitize_demo_text(fallback_reason) if demo_safe else fallback_reason}")
     else:
         st.caption("Fallback reason: none recorded for the latest turn.")
 
@@ -1588,24 +1744,29 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
 
     probe = core_health.get("probe") or {}
     if probe.get("status") == "ok":
+        probe_model = "Local model" if demo_safe else probe.get("model", "unknown")
         st.caption(
             f"Live probe answered through {probe.get('provider', 'unknown')} / "
-            f"{probe.get('model', 'unknown')} in {float(probe.get('elapsed_seconds', 0) or 0):.2f}s."
+            f"{probe_model} in {float(probe.get('elapsed_seconds', 0) or 0):.2f}s."
         )
     elif probe.get("status") == "error":
-        st.warning(f"Live probe failed: {probe.get('error') or 'unknown error'}")
+        probe_error = sanitize_demo_text(probe.get("error") or "unknown error") if demo_safe else (probe.get("error") or "unknown error")
+        st.warning(f"Live probe failed: {probe_error}")
 
-    with st.expander("Core self-check details", expanded=health_status != "ok"):
-        st.markdown("Imports")
-        st.dataframe(core_health.get("imports", []), width="stretch", hide_index=True)
-        st.markdown("Providers")
-        st.dataframe(core_health.get("providers", []), width="stretch", hide_index=True)
-        st.markdown("Local storage")
-        st.dataframe(core_health.get("storage", []), width="stretch", hide_index=True)
-        recent_log_signals = core_health.get("recent_log_signals") or []
-        if recent_log_signals:
-            st.markdown("Recent log signals")
-            st.dataframe(recent_log_signals, width="stretch", hide_index=True)
+    if demo_safe:
+        st.caption("Core self-check details are hidden in Demo Safe Mode.")
+    else:
+        with st.expander("Core self-check details", expanded=health_status != "ok"):
+            st.markdown("Imports")
+            st.dataframe(core_health.get("imports", []), width="stretch", hide_index=True)
+            st.markdown("Providers")
+            st.dataframe(core_health.get("providers", []), width="stretch", hide_index=True)
+            st.markdown("Local storage")
+            st.dataframe(core_health.get("storage", []), width="stretch", hide_index=True)
+            recent_log_signals = core_health.get("recent_log_signals") or []
+            if recent_log_signals:
+                st.markdown("Recent log signals")
+                st.dataframe(recent_log_signals, width="stretch", hide_index=True)
 
     providers = core_status.get("providers", [])
     if providers:
@@ -1618,8 +1779,8 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
                     "Provider": str(provider.get("name", "unknown")).title(),
                     "Status": "Available" if provider.get("available") else "Offline",
                     "Models": len(models),
-                    "Endpoint": provider.get("base_url", ""),
-                    "Message": provider.get("message", ""),
+                    "Endpoint": "Local service hidden" if demo_safe and provider.get("base_url") else provider.get("base_url", ""),
+                    "Message": sanitize_demo_text(provider.get("message", "")) if demo_safe else provider.get("message", ""),
                 }
             )
         st.dataframe(provider_rows, width="stretch", hide_index=True)
@@ -1636,7 +1797,9 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     if last_retrieval.get("error"):
         st.warning(f"Knowledge retrieval error: {last_retrieval.get('error')}")
     retrieval_sources = last_retrieval.get("sources") or []
-    if retrieval_sources:
+    if retrieval_sources and demo_safe:
+        st.caption(f"Retrieved local chunks hidden in Demo Safe Mode ({len(retrieval_sources)} item(s)).")
+    elif retrieval_sources:
         with st.expander("Retrieved local chunks", expanded=False):
             st.dataframe(retrieval_sources, width="stretch", hide_index=True)
 
@@ -1670,7 +1833,7 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     recent_images = image_summary.get("recent_images") or []
     if recent_images:
         with st.expander("Recent image artifacts", expanded=False):
-            st.dataframe(recent_images, width="stretch", hide_index=True)
+            st.dataframe(sanitize_demo_rows(recent_images, enabled=demo_safe), width="stretch", hide_index=True)
 
     st.markdown("### Last Turn Trace")
     trace_cols = st.columns(4)
@@ -1710,11 +1873,11 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     if last_report:
         saved_paths = last_report.get("saved_paths") or {}
         if saved_paths:
-            st.success(f"Last report saved: {saved_paths}")
+            st.success("Last report saved locally." if demo_safe else f"Last report saved: {saved_paths}")
     recent_reports = inventory.get("recent_research_reports") or []
     if recent_reports:
         with st.expander("Recent saved research reports", expanded=False):
-            st.dataframe(recent_reports, width="stretch", hide_index=True)
+            st.dataframe(sanitize_demo_rows(recent_reports, enabled=demo_safe), width="stretch", hide_index=True)
 
     st.markdown("### Memory And Local Data")
     memory_paths = [PROJECT_ROOT / path for path in inventory.get("memory_files", [])]
@@ -1741,37 +1904,44 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     recent_notes = inventory.get("recent_knowledge_notes") or []
     if recent_notes:
         with st.expander("Recent Markdown knowledge notes", expanded=False):
-            st.dataframe(recent_notes, width="stretch", hide_index=True)
-    if last_memory:
+            st.dataframe(sanitize_demo_rows(recent_notes, enabled=demo_safe), width="stretch", hide_index=True)
+    if last_memory and demo_safe:
+        st.caption("Last local memory action hidden in Demo Safe Mode.")
+    elif last_memory:
         with st.expander("Last local memory action", expanded=False):
             st.json(last_memory)
-    if profile_summary.get("facts"):
+    if profile_summary.get("facts") and demo_safe:
+        st.caption("Saved local profile facts hidden in Demo Safe Mode.")
+    elif profile_summary.get("facts"):
         with st.expander("Saved local profile facts", expanded=False):
             st.dataframe(profile_summary["facts"], width="stretch", hide_index=True)
 
-    with st.expander("Raw diagnostics", expanded=False):
-        st.json(
-            {
-                "provider_result": last_provider,
-                "route": last_route,
-                "response_plan": last_plan,
-                "reality_audit": last_audit,
-                "trust_audit": last_trust,
-                "epistemic": last_epistemic,
-                "retrieval": last_retrieval,
-                "memory": last_memory,
-                "image_generation": last_image_generation,
-                "image_summary": image_summary,
-                "core_health": core_health,
-                "environment": get_environment_status(),
-            }
-        )
-    log_files = get_cached_log_files()
+    if demo_safe:
+        st.caption("Raw diagnostics and log files are hidden in Demo Safe Mode.")
+    else:
+        with st.expander("Raw diagnostics", expanded=False):
+            st.json(
+                {
+                    "provider_result": last_provider,
+                    "route": last_route,
+                    "response_plan": last_plan,
+                    "reality_audit": last_audit,
+                    "trust_audit": last_trust,
+                    "epistemic": last_epistemic,
+                    "retrieval": last_retrieval,
+                    "memory": last_memory,
+                    "image_generation": last_image_generation,
+                    "image_summary": image_summary,
+                    "core_health": core_health,
+                    "environment": get_environment_status(),
+                }
+            )
+    log_files = [] if demo_safe else get_cached_log_files()
     if log_files:
         with st.expander("Log files", expanded=False):
             selected = st.selectbox("Log file", log_files, format_func=lambda path: path.name)
             st.text(tail_file(selected))
-    if st.session_state.get("perf_timings"):
+    if st.session_state.get("perf_timings") and not demo_safe:
         with st.expander("Performance timings", expanded=False):
             st.dataframe(st.session_state.perf_timings, width="stretch")
 
@@ -1859,6 +2029,83 @@ def load_demo_data():
         ]
 
 
+def render_app_header(settings: dict[str, Any]) -> None:
+    st.title("Cognitive Nexus")
+    st.caption(
+        "Local-first AI research control center for chat, memory, web research, "
+        "Reality-First reports, diagnostics, and local providers."
+    )
+    if is_demo_safe(settings):
+        st.info("Demo Safe Mode is on. Local paths, raw private memory, and machine-specific diagnostics are hidden.")
+
+
+def render_overview_tab(status, inventory: dict[str, Any], image_status: dict[str, Any], core_status: dict[str, Any], settings: dict[str, Any]) -> None:
+    st.subheader("Home / Overview")
+    st.caption("A compact control-room view of the working Cognitive Nexus engine.")
+
+    demo_safe = is_demo_safe(settings)
+    last_provider = st.session_state.get("last_provider_result") or {}
+    active_provider = str(last_provider.get("provider") or ("ollama" if status.available else "fallback"))
+    model_label = str(last_provider.get("model") or settings.get("selected_model") or "No model selected")
+    if demo_safe and model_label:
+        model_label = "Local model selected" if settings.get("provider_ready") else "Model details hidden"
+
+    status_cols = st.columns(5)
+    status_cols[0].metric("App", "Online")
+    status_cols[1].metric("Ollama", "Connected" if status.available else "Offline")
+    status_cols[2].metric("Active provider", active_provider.title())
+    status_cols[3].metric("Model", model_label)
+    status_cols[4].metric("Demo safety", "On" if demo_safe else "Off")
+
+    st.markdown("### Control Center")
+    capability_cols = st.columns(3)
+    with capability_cols[0]:
+        st.markdown("**Chat and routing**")
+        st.caption("Ask questions, route tasks, use local providers, and keep fallback behavior visible.")
+    with capability_cols[1]:
+        st.markdown("**Reality-first research**")
+        st.caption("Search sources, extract claims, score trust, flag contradictions, and save reports.")
+    with capability_cols[2]:
+        st.markdown("**Memory and knowledge**")
+        st.caption("Use local facts, uploaded knowledge, Markdown notes, and retrieval summaries.")
+
+    st.markdown("### System Snapshot")
+    profile_summary = load_user_profile_summary()
+    snapshot_cols = st.columns(6)
+    snapshot_cols[0].metric("Chat messages", len(get_messages()))
+    snapshot_cols[1].metric("Local facts", int(profile_summary.get("fact_count", 0) or 0))
+    snapshot_cols[2].metric("Knowledge chunks", int(inventory.get("research_chunks", 0) or 0))
+    snapshot_cols[3].metric("Reports", int(inventory.get("research_reports", 0) or 0))
+    snapshot_cols[4].metric("Web sessions", int(inventory.get("web_research_sessions", 0) or 0))
+    snapshot_cols[5].metric("Images", int(inventory.get("generated_images", 0) or 0))
+
+    st.markdown("### Quick Actions")
+    action_cols = st.columns(4)
+    action_cols[0].info("Open Chat for normal work or code help.")
+    action_cols[1].info("Use Reality-First Research for sourced answers.")
+    action_cols[2].info("Use Files / Knowledge to ingest notes or URLs.")
+    action_cols[3].info("Use Diagnostics to inspect provider and grounding status.")
+
+    if demo_safe:
+        st.success("Demo-safe presentation is active. Raw local paths, environment details, and private memory tables are withheld.")
+    else:
+        st.warning("Demo Safe Mode is off. Diagnostics and memory tabs may show local paths or private session details.")
+
+    provider_rows = []
+    for provider in core_status.get("providers", []):
+        provider_rows.append(
+            {
+                "Provider": str(provider.get("name", "unknown")).title(),
+                "Status": "Available" if provider.get("available") else "Offline",
+                "Models": len(provider.get("models") or []),
+                "Message": provider.get("message", ""),
+            }
+        )
+    if provider_rows:
+        with st.expander("Provider status", expanded=False):
+            st.dataframe(sanitize_demo_rows(provider_rows, enabled=demo_safe), width="stretch", hide_index=True)
+
+
 def main() -> None:
     restore_persisted_chat()
     core = get_nexus_core()
@@ -1884,29 +2131,15 @@ def main() -> None:
             st.session_state.messages = []
         st.session_state.demo_loaded = False
 
-    st.title("Cognitive Nexus")
-    st.caption("Reality-first AI research platform")
+    render_app_header(settings)
 
-    tabs = st.tabs(
-        [
-            "Reality-First Research",
-            "Chat",
-            "Image Generation",
-            "Web Research",
-            "Files / Knowledge",
-            "Memory",
-            "Gallery",
-            "Tools / Utilities",
-            "Diagnostics",
-            "Settings",
-        ]
-    )
+    tabs = st.tabs(TAB_LABELS)
     with tabs[0]:
-        render_reality_research_tab(settings)
+        render_overview_tab(status, inventory, image_status, core_status, settings)
     with tabs[1]:
         render_chat_tab(settings)
     with tabs[2]:
-        render_image_tab()
+        render_reality_research_tab(settings)
     with tabs[3]:
         render_web_research_tab(settings)
     with tabs[4]:
@@ -1914,13 +2147,15 @@ def main() -> None:
     with tabs[5]:
         render_memory_tab(settings)
     with tabs[6]:
-        render_gallery()
+        render_image_tab(settings)
     with tabs[7]:
-        render_tools_tab()
+        render_gallery(settings)
     with tabs[8]:
         render_diagnostics_tab(status, inventory, image_status, core_status, settings)
     with tabs[9]:
         render_settings_tab(settings)
+    with tabs[10]:
+        render_tools_tab(settings)
 
 
 if __name__ == "__main__":

@@ -15,20 +15,132 @@ from typing import Any
 PREFERENCES_FILE = Path("data/response_preferences.json")
 
 RESPONSE_MODES = ["auto", "short", "standard", "deep", "surgeon", "research"]
-INTENT_TYPES = [
-    "casual_chat",
-    "concise_answer",
-    "detailed_explanation",
-    "technical_debugging",
-    "coding_request",
-    "brainstorming",
-    "emotional_support",
-    "long_form_generation",
-    "quick_fact",
-    "comparison",
-    "tutorial",
-    "research_mode",
+REQUEST_TYPES = [
+    "simple_fact",
+    "explanation",
+    "coding_help",
+    "debugging",
+    "project_planning",
+    "research",
+    "reality_check",
+    "file_or_memory_lookup",
+    "creative",
+    "opinion_rating",
+    "troubleshooting",
+    "unknown",
 ]
+INTENT_TYPES = REQUEST_TYPES
+
+AUTO_PRECISION_PROFILES: dict[str, dict[str, Any]] = {
+    "simple_fact": {
+        "mode": "short",
+        "verbosity": 1,
+        "reasoning_depth": 1,
+        "use_memory": False,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Answer directly in one short paragraph unless the user asks for more.",
+    },
+    "explanation": {
+        "mode": "standard",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": False,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Explain clearly, lead with the answer, then add the useful why/how.",
+    },
+    "coding_help": {
+        "mode": "surgeon",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": False,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Name the exact cause, give the exact fix, and include code when requested.",
+    },
+    "debugging": {
+        "mode": "surgeon",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": True,
+        "use_web_for_chat": False,
+        "diagnostics": True,
+        "style": "Give likely cause, next command/check, and the smallest safe fix.",
+    },
+    "troubleshooting": {
+        "mode": "surgeon",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": True,
+        "use_web_for_chat": False,
+        "diagnostics": True,
+        "style": "Triage symptoms, identify the next check, and avoid broad theory.",
+    },
+    "project_planning": {
+        "mode": "deep",
+        "verbosity": 3,
+        "reasoning_depth": 3,
+        "use_memory": True,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Prioritize the next move, then give phases without flooding options.",
+    },
+    "research": {
+        "mode": "research",
+        "verbosity": 3,
+        "reasoning_depth": 3,
+        "use_memory": True,
+        "use_web_for_chat": True,
+        "diagnostics": False,
+        "style": "Use sources when available, separate findings from uncertainty.",
+    },
+    "reality_check": {
+        "mode": "research",
+        "verbosity": 3,
+        "reasoning_depth": 3,
+        "use_memory": True,
+        "use_web_for_chat": True,
+        "diagnostics": True,
+        "style": "Separate grounded facts from speculation and label confidence.",
+    },
+    "file_or_memory_lookup": {
+        "mode": "standard",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": True,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Search local memory/knowledge first and answer from retrieved context.",
+    },
+    "creative": {
+        "mode": "deep",
+        "verbosity": 3,
+        "reasoning_depth": 2,
+        "use_memory": False,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Be vivid and useful without turning the answer into a lecture.",
+    },
+    "opinion_rating": {
+        "mode": "standard",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": False,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Give a blunt score, strengths, weaknesses, and the next upgrade path.",
+    },
+    "unknown": {
+        "mode": "standard",
+        "verbosity": 2,
+        "reasoning_depth": 2,
+        "use_memory": False,
+        "use_web_for_chat": False,
+        "diagnostics": False,
+        "style": "Answer the visible request first and ask only if truly blocked.",
+    },
+}
 
 
 @dataclass
@@ -100,49 +212,59 @@ def analyze_intent_cached(message: str, history_tail: str = "") -> dict[str, Any
     word_count = len(words)
     question_marks = text.count("?")
     exclamations = text.count("!")
-    scores = {intent: 0.0 for intent in INTENT_TYPES}
+    scores = {intent: 0.0 for intent in REQUEST_TYPES}
 
-    scores["casual_chat"] += _keyword_score(text, ["hello", "hi", "hey", "thanks", "thank", "joke"])
-    scores["concise_answer"] += _keyword_score(text, ["brief", "quick", "short", "concise", "simple", "summary"])
-    scores["detailed_explanation"] += _keyword_score(text, ["explain", "detail", "deep", "thorough", "why", "how"])
-    scores["technical_debugging"] += _keyword_score(text, ["traceback", "error", "bug", "fix", "broken", "debug", "exception"])
-    scores["coding_request"] += _keyword_score(text, ["code", "function", "class", "refactor", "implement", "python", "streamlit", "api"])
-    scores["brainstorming"] += _keyword_score(text, ["brainstorm", "ideas", "options", "alternatives", "names", "concepts"])
-    scores["emotional_support"] += _keyword_score(text, ["stressed", "sad", "anxious", "panic", "overwhelmed", "hurt"])
-    scores["long_form_generation"] += _keyword_score(text, ["write", "draft", "scene", "chapter", "story", "essay", "long-form"])
-    scores["quick_fact"] += _keyword_score(text, ["what is", "who is", "when did", "define", "meaning"])
-    scores["comparison"] += _keyword_score(text, ["compare", "versus", " vs ", "difference", "better", "pros", "cons"])
-    scores["tutorial"] += _keyword_score(text, ["tutorial", "walkthrough", "step-by-step", "guide", "teach me"])
-    scores["research_mode"] += _keyword_score(text, ["research", "sources", "latest", "current", "web", "evidence", "citations"])
+    scores["simple_fact"] += _keyword_score(text, ["what is", "who is", "when did", "define", "meaning", "quick", "brief", "short", "simple"])
+    scores["explanation"] += _keyword_score(text, ["explain", "detail", "why", "how", "teach", "walkthrough", "guide"])
+    scores["coding_help"] += _keyword_score(text, ["code", "function", "class", "refactor", "implement", "python", "streamlit", "api", "javascript", "html", "css"])
+    scores["debugging"] += _keyword_score(text, ["traceback", "error", "bug", "fix", "broken", "debug", "exception", "failing", "crash"])
+    scores["project_planning"] += _keyword_score(text, ["plan", "roadmap", "phase", "next step", "milestone", "workflow", "strategy"])
+    scores["research"] += _keyword_score(text, ["research", "sources", "latest", "current", "web", "evidence", "citations", "look up", "search"])
+    scores["reality_check"] += _keyword_score(text, ["verify", "fact check", "reality check", "true", "false", "prove", "contradiction", "hallucination"])
+    scores["file_or_memory_lookup"] += _keyword_score(text, ["remember", "memory", "file", "uploaded", "knowledge", "notes", "what did we", "what do you know"])
+    scores["creative"] += _keyword_score(text, ["write", "draft", "scene", "chapter", "story", "poem", "creative", "rewrite"])
+    scores["opinion_rating"] += _keyword_score(text, ["rate", "score", "opinion", "judge", "review", "how good", "strengths", "weaknesses"])
+    scores["troubleshooting"] += _keyword_score(text, ["not working", "doesn't work", "won't", "stuck", "slow", "timeout", "offline", "why isn't"])
 
-    if word_count <= 5:
-        scores["casual_chat"] += 0.8
-        scores["quick_fact"] += 0.4 if question_marks else 0.0
+    if word_count <= 8:
+        scores["simple_fact"] += 0.7 if question_marks else 0.2
     if word_count > 35:
-        scores["detailed_explanation"] += 0.7
+        scores["explanation"] += 0.5
     if question_marks > 1:
-        scores["detailed_explanation"] += 0.4
-        scores["comparison"] += 0.2
+        scores["explanation"] += 0.3
     if exclamations:
-        scores["emotional_support"] += min(exclamations * 0.1, 0.3)
-    if "```" in message or "traceback" in text:
-        scores["technical_debugging"] += 1.0
+        scores["troubleshooting"] += min(exclamations * 0.1, 0.3)
+    if "```" in message:
+        scores["coding_help"] += 0.8
+    if "traceback" in text or re.search(r"\b(error|exception):", text):
+        scores["debugging"] += 1.0
+    if re.search(r"\b(?:is this|is that|are these).*\b(?:real|true|fake|possible)\b", text):
+        scores["reality_check"] += 0.8
+    if re.search(r"\b(?:fix|debug|repair|why).*\b(?:app|test|import|server|streamlit|python)\b", text):
+        scores["debugging"] += 0.6
     if any(term in history_tail.lower() for term in ["debug", "traceback", "tests failed"]):
-        scores["technical_debugging"] += 0.2
+        scores["debugging"] += 0.2
 
     intent = max(scores, key=scores.get)
     confidence = min(0.98, max(0.35, scores[intent] / 3.0))
     if scores[intent] <= 0:
-        intent = "casual_chat" if word_count <= 8 else "detailed_explanation"
+        intent = "simple_fact" if word_count <= 8 and question_marks else "unknown"
         confidence = 0.4
 
     return {
         "intent": intent,
+        "request_type": intent,
         "confidence": round(confidence, 3),
         "scores": {key: round(value, 3) for key, value in scores.items() if value > 0},
         "word_count": word_count,
         "question_marks": question_marks,
     }
+
+
+def classify_request(message: str, history_tail: str = "") -> dict[str, Any]:
+    """Classify a request into the Auto Precision request taxonomy."""
+
+    return dict(analyze_intent_cached(message, history_tail))
 
 
 def load_response_preferences(path: Path = PREFERENCES_FILE) -> ResponsePreferences:
@@ -228,18 +350,63 @@ def _provider_speed_class(settings: dict[str, Any]) -> str:
     return "unknown"
 
 
+def auto_precision_profile(request_type: str) -> dict[str, Any]:
+    """Return the default answer profile for one request classification."""
+
+    return dict(AUTO_PRECISION_PROFILES.get(request_type, AUTO_PRECISION_PROFILES["unknown"]))
+
+
+def apply_auto_precision_settings(
+    settings: dict[str, Any] | None,
+    request_type: str,
+    *,
+    route_category: str = "",
+) -> dict[str, Any]:
+    """Apply automatic answer behavior without mutating caller settings."""
+
+    effective = dict(settings or {})
+    if not effective.get("auto_precision_mode", True):
+        effective["auto_precision_profile"] = auto_precision_profile(request_type)
+        return effective
+
+    profile = auto_precision_profile(request_type)
+    if route_category == "web_research" and request_type not in {"research", "reality_check"}:
+        profile = auto_precision_profile("research")
+
+    effective.update(
+        {
+            "response_mode": "auto",
+            "verbosity_level": int(profile["verbosity"]),
+            "reasoning_depth": int(profile["reasoning_depth"]),
+            "use_memory": bool(profile["use_memory"]),
+            "use_web_for_chat": bool(profile["use_web_for_chat"]),
+            "show_perf_timings": bool(profile["diagnostics"]),
+            "auto_precision_profile": profile,
+            "auto_precision_request_type": request_type,
+        }
+    )
+    if request_type in {"research", "reality_check"}:
+        effective["enable_reality_research_agent"] = bool(effective.get("enable_reality_research_agent", True))
+        effective["enable_bloodhound_search"] = bool(effective.get("enable_bloodhound_search", True))
+    if request_type == "file_or_memory_lookup":
+        effective["use_knowledge_for_chat"] = True
+    return effective
+
+
 def _auto_mode(intent: str, route_category: str, prefs: ResponsePreferences, manual_mode: str) -> str:
     manual_mode = _clean_mode(manual_mode)
     if manual_mode != "auto":
         return manual_mode
-    if intent in {"technical_debugging", "coding_request"} or route_category == "coding_development":
+    if intent in {"debugging", "coding_help", "troubleshooting"} or route_category == "coding_development":
         return "surgeon"
-    if intent in {"research_mode", "comparison"} or route_category == "web_research":
+    if intent in {"research", "reality_check"} or route_category == "web_research":
         return "research"
-    if intent in {"quick_fact", "concise_answer", "casual_chat"} or prefs.weights.get("brevity", 0) > 0.5:
+    if intent in {"simple_fact"} or prefs.weights.get("brevity", 0) > 0.5:
         return "short"
-    if intent in {"detailed_explanation", "tutorial", "long_form_generation", "brainstorming"}:
+    if intent in {"explanation", "project_planning", "creative"}:
         return "deep"
+    if intent in {"opinion_rating", "file_or_memory_lookup"}:
+        return "standard"
     return "standard"
 
 
@@ -252,7 +419,7 @@ def _budget_for_mode(mode: str, intent: str) -> tuple[int, int, int]:
         "research": (900, 2400, 5200),
     }
     min_chars, ideal_chars, max_chars = budgets.get(mode, budgets["standard"])
-    if intent == "long_form_generation":
+    if intent == "creative":
         min_chars, ideal_chars, max_chars = max(min_chars, 1200), max(ideal_chars, 3200), max(max_chars, 6500)
     return min_chars, ideal_chars, max_chars
 
@@ -270,9 +437,15 @@ def plan_response(
     settings = settings or {}
     history_tail = "\n".join(str(item.get("content", ""))[-240:] for item in messages[-4:])
     analysis = analyze_intent_cached(user_message, history_tail)
+    if route_category == "web_research" and analysis["intent"] not in {"research", "reality_check"}:
+        analysis = dict(analysis)
+        analysis["intent"] = "research"
+        analysis["confidence"] = max(float(analysis.get("confidence", 0.0) or 0.0), 0.72)
+        analysis.setdefault("scores", {})["research"] = max(float(analysis.get("scores", {}).get("research", 0.0) or 0.0), 2.2)
+    settings = apply_auto_precision_settings(settings, str(analysis["intent"]), route_category=route_category)
     prefs = update_response_preferences(user_message)
 
-    manual_mode = settings.get("response_mode", "auto")
+    manual_mode = "auto" if settings.get("auto_precision_mode", True) else settings.get("response_mode", "auto")
     mode = _auto_mode(analysis["intent"], route_category, prefs, str(manual_mode))
     verbosity = int(settings.get("verbosity_level", 2))
     reasoning_depth = int(settings.get("reasoning_depth", 2))
@@ -309,6 +482,7 @@ def plan_response(
         "surgeon": "precise change list, file references, commands, and verification",
         "research": "answer, findings, uncertainty, sources, and next steps",
     }.get(mode, "concise paragraphs")
+    profile = auto_precision_profile(str(analysis["intent"]))
 
     compression = "high" if mode == "short" or context_chars < 8000 else ("medium" if provider_speed in {"slow", "local"} else "low")
     streaming_priority = "immediate" if mode in {"short", "surgeon"} else "staged"
@@ -327,7 +501,10 @@ def plan_response(
         f"- Depth: {reasoning_depth}/5; explain only the reasoning needed for the user-facing answer.\n"
         f"- Format: {formatting}\n"
         f"- Compression: {compression}; preserve critical details first, remove filler.\n"
+        f"- Request style: {profile['style']}\n"
         "- Do not expose hidden chain-of-thought; provide concise rationale or checks instead.\n"
+        "- Answer the actual question first; put extra detail after the direct answer.\n"
+        "- Avoid sidebar, diagnostics, and internal mode talk unless the user asks or the issue requires it.\n"
         "- Cover all explicit subrequests before adding optional detail.\n"
     )
 
@@ -355,6 +532,8 @@ def plan_response(
             "route_category": route_category,
             "route_reason": route_reason,
             "manual_mode": manual_mode,
+            "auto_precision_mode": bool(settings.get("auto_precision_mode", True)),
+            "auto_precision_profile": settings.get("auto_precision_profile", profile),
             "verbosity": verbosity,
             "reasoning_depth": reasoning_depth,
         },

@@ -1,6 +1,7 @@
 import unittest
 
 import app
+from streamlit.testing.v1 import AppTest
 
 
 class AppControlsTests(unittest.TestCase):
@@ -21,6 +22,86 @@ class AppControlsTests(unittest.TestCase):
         order = app.normalize_provider_order(["missing"], ["ollama", "fallback"])
 
         self.assertEqual(order, ["fallback"])
+
+    def test_demo_safe_mode_setting_helper(self):
+        self.assertTrue(app.is_demo_safe({"demo_safe_mode": True}))
+        self.assertFalse(app.is_demo_safe({"demo_safe_mode": False}))
+        self.assertFalse(app.is_demo_safe({}))
+
+    def test_demo_safe_sanitizer_hides_local_paths_services_and_env_names(self):
+        text = (
+            r"C:\Users\Nmore\project\secret.txt "
+            "http://localhost:8501/_stcore/health "
+            "OPENAI_API_KEY is not set"
+        )
+
+        sanitized = app.sanitize_demo_text(text)
+
+        self.assertIn("[local path hidden]", sanitized)
+        self.assertIn("[local service hidden]", sanitized)
+        self.assertIn("[environment detail hidden]", sanitized)
+        self.assertNotIn("C:\\Users", sanitized)
+        self.assertNotIn("localhost:8501", sanitized)
+        self.assertNotIn("OPENAI_API_KEY", sanitized)
+
+    def test_tab_labels_use_demo_safe_overview_order(self):
+        self.assertEqual(
+            app.TAB_LABELS[:10],
+            [
+                "Home / Overview",
+                "Chat",
+                "Reality-First Research",
+                "Web Research",
+                "Files / Knowledge",
+                "Memory",
+                "Image Generation",
+                "Gallery",
+                "Diagnostics",
+                "Settings",
+            ],
+        )
+        self.assertIn("Tools / Utilities", app.TAB_LABELS)
+
+    def test_streamlit_overview_and_demo_safe_mode_render(self):
+        app_test = AppTest.from_file("app.py", default_timeout=25)
+        app_test.run()
+
+        self.assertEqual(len(app_test.exception), 0)
+        self.assertEqual([tab.label for tab in app_test.tabs], app.TAB_LABELS)
+        self.assertTrue(
+            any(
+                "A compact control-room view" in str(getattr(element, "value", ""))
+                for element in app_test.caption
+            )
+        )
+
+        for checkbox in app_test.checkbox:
+            if checkbox.label == "Demo Safe Mode":
+                checkbox.set_value(True)
+                break
+        else:
+            self.fail("Demo Safe Mode checkbox was not rendered")
+
+        app_test.run()
+        self.assertEqual(len(app_test.exception), 0)
+        self.assertTrue(
+            any(
+                "Demo Safe Mode is on" in str(getattr(element, "value", ""))
+                for element in [*app_test.info, *app_test.success]
+            )
+        )
+
+    def test_auto_precision_mode_defaults_on_in_sidebar(self):
+        app_test = AppTest.from_file("app.py", default_timeout=25)
+        app_test.run()
+
+        self.assertEqual(len(app_test.exception), 0)
+        for checkbox in app_test.checkbox:
+            if checkbox.label == "Auto Precision Mode":
+                self.assertTrue(checkbox.value)
+                break
+        else:
+            self.fail("Auto Precision Mode checkbox was not rendered")
 
 
 if __name__ == "__main__":
