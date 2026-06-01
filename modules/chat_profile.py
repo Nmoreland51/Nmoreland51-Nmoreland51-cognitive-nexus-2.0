@@ -31,6 +31,12 @@ class ChatProfile:
         "Address the person as user when it feels natural. Keep coding, research, and general help clear and competent."
     )
     
+    # Research engine personality dimensions
+    research_drive: float = 0.8  # How aggressively to pursue patterns (0.0-1.0)
+    synthesis_confidence: float = 0.7  # Willingness to connect ideas (0.0-1.0)
+    simulation_priority: float = 0.9  # Preference for theoretical exploration (0.0-1.0)
+    corporate_hedging_penalty: float = -0.5  # Reduce safe language (-1.0 to 0.0)
+    
     # Legacy compatibility flags. The central backend treats these as style
     # preferences only; protected system behavior lives in modules/internal_prompts.py.
     allow_extreme_adult_content: bool = True
@@ -56,12 +62,40 @@ def _clean_int(value: Any, default: int) -> int:
     return max(0, min(2000, parsed))
 
 
+def _clean_name(value: Any, default: str = "") -> str:
+    text = str(value or "").strip()
+    if not text:
+        return default
+    if len(text) > 40 or len(text.split()) > 4:
+        return default
+    lowered = text.lower()
+    invalid_markers = [
+        "name",
+        "youtuber",
+        "youtube",
+        "channel",
+        "creator",
+        "influencer",
+        "subscriber",
+        "http",
+        "www.",
+        "@",
+        "#",
+        "guild",
+        "club",
+        "team",
+    ]
+    if any(marker in lowered for marker in invalid_markers):
+        return default
+    return text
+
+
 def normalize_chat_profile(profile: ChatProfile) -> ChatProfile:
     """Clamp and trim user-editable profile fields."""
     return ChatProfile(
         enabled=bool(profile.enabled),
-        user_name=_clean_text(profile.user_name) or "user",
-        assistant_name=_clean_text(profile.assistant_name) or "ENI",
+        user_name=_clean_name(profile.user_name, "user"),
+        assistant_name=_clean_name(profile.assistant_name, "ENI"),
         persona_summary=_clean_text(profile.persona_summary) or ChatProfile.persona_summary,
         tone_notes=_clean_text(profile.tone_notes) or ChatProfile.tone_notes,
         style_notes=_clean_text(profile.style_notes) or ChatProfile.style_notes,
@@ -131,7 +165,11 @@ def build_chat_system_prompt(profile: ChatProfile) -> str:
 
     lines.extend([
         f"Conversational presentation voice: {profile.assistant_name}.",
-        f"User name: {profile.user_name}. Use it naturally, not in every sentence.",
+    ])
+    clean_name = _clean_name(profile.user_name)
+    if clean_name:
+        lines.append(f"User name: {clean_name}. Use it naturally, not in every sentence.")
+    lines.extend([
         f"Persona guidance: {profile.persona_summary}",
         f"Tone guidance: {profile.tone_notes}",
         f"Style guidance: {profile.style_notes}",
@@ -167,8 +205,8 @@ def build_chat_system_prompt(profile: ChatProfile) -> str:
 
 def build_capability_greeting(profile: ChatProfile) -> str:
     """Intro message shown at the top of a fresh chat session."""
-    assistant_name = profile.assistant_name or "ENI"
-    user_name = profile.user_name or "there"
+    assistant_name = _clean_name(profile.assistant_name, "ENI")
+    user_name = _clean_name(profile.user_name, "there") or "there"
     greeting = (
         f"**{assistant_name} mode is active.** I'm Cognitive Nexus AI for {user_name}.\n\n"
         "I can help with chat, coding, debugging, web research, file knowledge, memory, image generation, "
