@@ -115,13 +115,107 @@ class TestResponsePlanner(unittest.TestCase):
     def test_auto_precision_settings_choose_memory_and_research(self):
         simple = apply_auto_precision_settings({"auto_precision_mode": True}, "simple_fact")
         research = apply_auto_precision_settings({"auto_precision_mode": True}, "research")
+        reality = apply_auto_precision_settings({"auto_precision_mode": True}, "reality_check")
         debugging = apply_auto_precision_settings({"auto_precision_mode": True}, "debugging")
 
         self.assertFalse(simple["use_memory"])
         self.assertFalse(simple["use_web_for_chat"])
+        self.assertFalse(simple["show_perf_timings"])
         self.assertTrue(research["use_memory"])
         self.assertTrue(research["use_web_for_chat"])
+        self.assertTrue(reality["enable_reality_research_agent"])
+        self.assertTrue(reality["enable_bloodhound_search"])
+        self.assertTrue(reality["show_perf_timings"])
         self.assertTrue(debugging["show_perf_timings"])
+
+    def test_troubleshooting_prompt_uses_technical_triage_mode(self):
+        plan = plan_response(
+            user_message="Why is my Streamlit app slow?",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertIn(plan.intent, {"troubleshooting", "debugging"})
+        self.assertEqual(plan.mode, "surgeon")
+        self.assertTrue(plan.diagnostics["auto_precision_profile"]["diagnostics"])
+
+    def test_creative_short_copy_is_not_mistaken_for_simple_fact(self):
+        plan = plan_response(
+            user_message="Write a short website headline",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertEqual(plan.intent, "creative")
+        self.assertEqual(plan.mode, "deep")
+
+    def test_last_test_run_question_uses_debug_memory_profile(self):
+        plan = plan_response(
+            user_message="What broke in my last test run?",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertIn(plan.intent, {"debugging", "troubleshooting"})
+        self.assertEqual(plan.mode, "surgeon")
+        self.assertTrue(plan.diagnostics["auto_precision_profile"]["use_memory"])
+
+    def test_opinion_rating_prompt_uses_blunt_structured_profile(self):
+        plan = plan_response(
+            user_message="Rate my AI compared to ChatGPT",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertEqual(plan.intent, "opinion_rating")
+        self.assertEqual(plan.mode, "standard")
+        self.assertIn("blunt score", plan.instructions)
+
+    def test_project_planning_prompt_uses_phased_profile(self):
+        plan = plan_response(
+            user_message="Make me a plan to improve this project",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertEqual(plan.intent, "project_planning")
+        self.assertEqual(plan.mode, "deep")
+        self.assertIn("Prioritize the next move", plan.instructions)
 
     def test_preference_persistence(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -214,15 +214,15 @@ def analyze_intent_cached(message: str, history_tail: str = "") -> dict[str, Any
     exclamations = text.count("!")
     scores = {intent: 0.0 for intent in REQUEST_TYPES}
 
-    scores["simple_fact"] += _keyword_score(text, ["what is", "who is", "when did", "define", "meaning", "quick", "brief", "short", "simple"])
+    scores["simple_fact"] += _keyword_score(text, ["what is", "who is", "when did", "define", "meaning", "quick", "brief", "short answer", "simple question"])
     scores["explanation"] += _keyword_score(text, ["explain", "detail", "why", "how", "teach", "walkthrough", "guide"])
     scores["coding_help"] += _keyword_score(text, ["code", "function", "class", "refactor", "implement", "python", "streamlit", "api", "javascript", "html", "css"])
-    scores["debugging"] += _keyword_score(text, ["traceback", "error", "bug", "fix", "broken", "debug", "exception", "failing", "crash"])
+    scores["debugging"] += _keyword_score(text, ["traceback", "error", "import error", "modulenotfounderror", "bug", "fix", "broken", "broke", "debug", "exception", "failing", "crash", "test run"])
     scores["project_planning"] += _keyword_score(text, ["plan", "roadmap", "phase", "next step", "milestone", "workflow", "strategy"])
     scores["research"] += _keyword_score(text, ["research", "sources", "latest", "current", "web", "evidence", "citations", "look up", "search"])
     scores["reality_check"] += _keyword_score(text, ["verify", "fact check", "reality check", "true", "false", "prove", "contradiction", "hallucination"])
     scores["file_or_memory_lookup"] += _keyword_score(text, ["remember", "memory", "file", "uploaded", "knowledge", "notes", "what did we", "what do you know"])
-    scores["creative"] += _keyword_score(text, ["write", "draft", "scene", "chapter", "story", "poem", "creative", "rewrite"])
+    scores["creative"] += _keyword_score(text, ["write", "draft", "scene", "chapter", "story", "poem", "creative", "rewrite", "headline", "tagline", "copy"])
     scores["opinion_rating"] += _keyword_score(text, ["rate", "score", "opinion", "judge", "review", "how good", "strengths", "weaknesses"])
     scores["troubleshooting"] += _keyword_score(text, ["not working", "doesn't work", "won't", "stuck", "slow", "timeout", "offline", "why isn't"])
 
@@ -238,9 +238,11 @@ def analyze_intent_cached(message: str, history_tail: str = "") -> dict[str, Any
         scores["coding_help"] += 0.8
     if "traceback" in text or re.search(r"\b(error|exception):", text):
         scores["debugging"] += 1.0
+    if re.search(r"\b(?:slow|timeout|offline|stuck)\b", text) and re.search(r"\b(?:app|streamlit|server|test|provider|model)\b", text):
+        scores["troubleshooting"] += 0.8
     if re.search(r"\b(?:is this|is that|are these).*\b(?:real|true|fake|possible)\b", text):
         scores["reality_check"] += 0.8
-    if re.search(r"\b(?:fix|debug|repair|why).*\b(?:app|test|import|server|streamlit|python)\b", text):
+    if re.search(r"\b(?:fix|debug|repair|why|what broke).*\b(?:app|test|import|server|streamlit|python)\b", text):
         scores["debugging"] += 0.6
     if any(term in history_tail.lower() for term in ["debug", "traceback", "tests failed"]):
         scores["debugging"] += 0.2
