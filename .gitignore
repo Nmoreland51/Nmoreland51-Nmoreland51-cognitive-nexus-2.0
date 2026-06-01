@@ -18,8 +18,10 @@ logs/*.log
 logs/*.jsonl
 
 # Private/generated local data
+.learnings/
 data/chat_history.json
 data/user_profile.json
+data/reality_grounding_patterns.json
 data/search_cache/
 data/search_history/
 data/web_research/
