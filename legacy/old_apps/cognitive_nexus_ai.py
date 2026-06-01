@@ -578,7 +578,9 @@ class OpenChatService:
             else:
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
-                    trust_remote_code=True
+                    torch_dtype=torch.float32,
+                    low_cpu_mem_usage=False,
+                    trust_remote_code=True,
                 )
             
             self.available = True
@@ -665,8 +667,10 @@ class ImageGenerationService:
             else:
                 self.pipe = StableDiffusionPipeline.from_pretrained(
                     model_id,
+                    torch_dtype=torch.float32,
+                    low_cpu_mem_usage=False,
                     safety_checker=None,
-                    requires_safety_checker=False
+                    requires_safety_checker=False,
                 )
             
             self.available = True

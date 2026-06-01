@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import cognitive_nexus_ai as app
+from legacy.old_apps import cognitive_nexus_ai as app
 
 
 def build_core():

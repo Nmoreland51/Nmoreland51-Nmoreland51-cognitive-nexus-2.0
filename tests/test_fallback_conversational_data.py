@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import cognitive_nexus_ai as app
+from legacy.old_apps import cognitive_nexus_ai as app
 
 
 class FallbackConversationalDataTests(unittest.TestCase):
