@@ -218,7 +218,7 @@ def analyze_intent_cached(message: str, history_tail: str = "") -> dict[str, Any
     scores["explanation"] += _keyword_score(text, ["explain", "detail", "why", "how", "teach", "walkthrough", "guide"])
     scores["coding_help"] += _keyword_score(text, ["code", "function", "class", "refactor", "implement", "python", "streamlit", "api", "javascript", "html", "css"])
     scores["debugging"] += _keyword_score(text, ["traceback", "error", "import error", "modulenotfounderror", "bug", "fix", "broken", "broke", "debug", "exception", "failing", "crash", "test run"])
-    scores["project_planning"] += _keyword_score(text, ["plan", "roadmap", "phase", "next step", "milestone", "workflow", "strategy"])
+    scores["project_planning"] += _keyword_score(text, ["plan", "roadmap", "phase", "next step", "do next", "what should i do next", "milestone", "workflow", "strategy"])
     scores["research"] += _keyword_score(text, ["research", "sources", "latest", "current", "web", "evidence", "citations", "look up", "search"])
     scores["reality_check"] += _keyword_score(text, ["verify", "fact check", "reality check", "true", "false", "prove", "contradiction", "hallucination"])
     scores["file_or_memory_lookup"] += _keyword_score(text, ["remember", "memory", "file", "uploaded", "knowledge", "notes", "what did we", "what do you know"])
@@ -240,6 +240,8 @@ def analyze_intent_cached(message: str, history_tail: str = "") -> dict[str, Any
         scores["debugging"] += 1.0
     if re.search(r"\b(?:slow|timeout|offline|stuck)\b", text) and re.search(r"\b(?:app|streamlit|server|test|provider|model)\b", text):
         scores["troubleshooting"] += 0.8
+    if re.search(r"\bwhat should i do next\b", text) and re.search(r"\b(?:repo|project|app|codebase)\b", text):
+        scores["project_planning"] += 0.9
     if re.search(r"\b(?:is this|is that|are these).*\b(?:real|true|fake|possible)\b", text):
         scores["reality_check"] += 0.8
     if re.search(r"\b(?:fix|debug|repair|why|what broke).*\b(?:app|test|import|server|streamlit|python)\b", text):
@@ -405,8 +407,10 @@ def _auto_mode(intent: str, route_category: str, prefs: ResponsePreferences, man
         return "research"
     if intent in {"simple_fact"} or prefs.weights.get("brevity", 0) > 0.5:
         return "short"
-    if intent in {"explanation", "project_planning", "creative"}:
+    if intent in {"project_planning", "creative"}:
         return "deep"
+    if intent == "explanation":
+        return "standard"
     if intent in {"opinion_rating", "file_or_memory_lookup"}:
         return "standard"
     return "standard"
@@ -449,6 +453,21 @@ def plan_response(
 
     manual_mode = "auto" if settings.get("auto_precision_mode", True) else settings.get("response_mode", "auto")
     mode = _auto_mode(analysis["intent"], route_category, prefs, str(manual_mode))
+    compact_creative = bool(
+        analysis["intent"] == "creative"
+        and re.search(r"\b(?:headline|tagline|slogan|one-liner|caption)\b", user_message.lower())
+    )
+    compact_rating = analysis["intent"] == "opinion_rating"
+    if compact_creative:
+        mode = "short"
+        settings = dict(settings)
+        settings["verbosity_level"] = min(int(settings.get("verbosity_level", 1) or 1), 1)
+        settings["reasoning_depth"] = min(int(settings.get("reasoning_depth", 1) or 1), 1)
+    if compact_rating:
+        mode = "short"
+        settings = dict(settings)
+        settings["verbosity_level"] = min(int(settings.get("verbosity_level", 1) or 1), 1)
+        settings["reasoning_depth"] = min(int(settings.get("reasoning_depth", 1) or 1), 1)
     verbosity = int(settings.get("verbosity_level", 2))
     reasoning_depth = int(settings.get("reasoning_depth", 2))
     provider_speed = _provider_speed_class(settings)
@@ -458,6 +477,10 @@ def plan_response(
     ideal_chars = int(ideal_chars * scale)
     max_chars = int(max_chars * scale)
     min_chars = int(min_chars * max(0.75, scale - 0.2))
+    if compact_creative:
+        min_chars, ideal_chars, max_chars = 20, 70, 140
+    if compact_rating:
+        min_chars, ideal_chars, max_chars = 180, 420, 760
 
     context_chars = int(settings.get("max_context_chars") or 12000)
     if context_chars < 8000:
@@ -484,6 +507,10 @@ def plan_response(
         "surgeon": "precise change list, file references, commands, and verification",
         "research": "answer, findings, uncertainty, sources, and next steps",
     }.get(mode, "concise paragraphs")
+    if compact_creative:
+        formatting = "one polished line only, no explanation or alternate options"
+    if analysis["intent"] == "project_planning":
+        formatting = "numbered list or phase list only; no preamble or follow-up question"
     profile = auto_precision_profile(str(analysis["intent"]))
 
     compression = "high" if mode == "short" or context_chars < 8000 else ("medium" if provider_speed in {"slow", "local"} else "low")
@@ -509,6 +536,12 @@ def plan_response(
         "- Avoid sidebar, diagnostics, and internal mode talk unless the user asks or the issue requires it.\n"
         "- Cover all explicit subrequests before adding optional detail.\n"
     )
+    if compact_creative:
+        instructions += "- For headline, tagline, caption, or one-liner requests: output exactly one option under 12 words with no setup text.\n"
+    if compact_rating:
+        instructions += "- For rating/opinion requests: start with 'Score:' or 'Verdict:', then give strengths, weaknesses, and next upgrade in under 120 words.\n"
+    if analysis["intent"] == "project_planning":
+        instructions += "- For planning requests: do not ask a follow-up question. The first visible characters must be '1.' or 'Phase 1'. Give 3-5 ordered steps, beginning with the next concrete move.\n"
 
     return ResponsePlan(
         intent=str(analysis["intent"]),

@@ -161,6 +161,43 @@ class TestResponsePlanner(unittest.TestCase):
         )
 
         self.assertEqual(plan.intent, "creative")
+        self.assertEqual(plan.mode, "short")
+        self.assertEqual(plan.diagnostics["verbosity"], 1)
+        self.assertLessEqual(plan.max_tokens, 96)
+        self.assertIn("exactly one option under 12 words", plan.instructions)
+
+    def test_one_paragraph_explanation_uses_standard_mode(self):
+        plan = plan_response(
+            user_message="Explain Ollama in one paragraph.",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertEqual(plan.intent, "explanation")
+        self.assertEqual(plan.mode, "standard")
+
+    def test_repo_next_step_question_uses_project_planning(self):
+        plan = plan_response(
+            user_message="What should I do next with this repo?",
+            messages=[],
+            route_category="standard_conversation",
+            settings={
+                "response_mode": "auto",
+                "auto_precision_mode": True,
+                "verbosity_level": 1,
+                "reasoning_depth": 1,
+                "provider_order": ["ollama", "fallback"],
+            },
+        )
+
+        self.assertEqual(plan.intent, "project_planning")
         self.assertEqual(plan.mode, "deep")
 
     def test_last_test_run_question_uses_debug_memory_profile(self):
@@ -196,8 +233,9 @@ class TestResponsePlanner(unittest.TestCase):
         )
 
         self.assertEqual(plan.intent, "opinion_rating")
-        self.assertEqual(plan.mode, "standard")
-        self.assertIn("blunt score", plan.instructions)
+        self.assertEqual(plan.mode, "short")
+        self.assertIn("Score:", plan.instructions)
+        self.assertIn("under 120 words", plan.instructions)
 
     def test_project_planning_prompt_uses_phased_profile(self):
         plan = plan_response(
@@ -216,6 +254,10 @@ class TestResponsePlanner(unittest.TestCase):
         self.assertEqual(plan.intent, "project_planning")
         self.assertEqual(plan.mode, "deep")
         self.assertIn("Prioritize the next move", plan.instructions)
+        self.assertIn("do not ask a follow-up question", plan.instructions)
+        self.assertIn("first visible characters", plan.instructions)
+        self.assertIn("3-5 ordered steps", plan.instructions)
+        self.assertIn("no preamble", plan.formatting_style)
 
     def test_preference_persistence(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -43,9 +43,9 @@ CASES = [
     ),
     EvalCase("Why is my Streamlit app slow?", {"troubleshooting", "debugging"}, {"surgeon"}, memory=True, research=False, diagnostics=True),
     EvalCase("Research whether this claim is true", {"research", "reality_check"}, {"research"}, memory=True, research=True),
-    EvalCase("Rate my AI compared to ChatGPT", {"opinion_rating"}, {"standard"}, memory=False, research=False, diagnostics=False),
+    EvalCase("Rate my AI compared to ChatGPT", {"opinion_rating"}, {"short"}, memory=False, research=False, diagnostics=False),
     EvalCase("Make me a plan to improve this project", {"project_planning"}, {"deep"}, memory=True, research=False, diagnostics=False),
-    EvalCase("Write a short website headline", {"creative"}, {"deep"}, memory=False, research=False, diagnostics=False),
+    EvalCase("Write a short website headline", {"creative"}, {"short"}, memory=False, research=False, diagnostics=False),
     EvalCase("Remember that Ollama is my default provider", {"file_or_memory_lookup"}, {"standard"}, memory=True, research=False),
     EvalCase("What broke in my last test run?", {"debugging", "troubleshooting"}, {"surgeon"}, memory=True, research=False, diagnostics=True),
 ]
