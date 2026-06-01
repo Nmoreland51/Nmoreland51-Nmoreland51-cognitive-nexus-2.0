@@ -11,6 +11,29 @@ from nexus_router import RouterConfig
 
 
 class NexusCoreTests(unittest.TestCase):
+    def base_chat_settings(self, provider_order=None):
+        return {
+            "chat_profile": ChatProfile(enabled=False),
+            "router_config": RouterConfig(default_model="fake-local-model", enabled=True),
+            "provider_order": provider_order or ["ollama", "fallback"],
+            "selected_model": "fake-local-model",
+            "base_url": "http://localhost:11434",
+            "use_memory": False,
+            "use_knowledge_for_chat": False,
+            "use_web_for_chat": False,
+            "show_sources": True,
+            "generation_timeout": 5.0,
+            "max_context_chars": 4000,
+            "recent_message_limit": 4,
+            "enable_reality_grounding": False,
+            "enable_reality_first_reasoning": False,
+            "auto_precision_mode": True,
+            "response_mode": "auto",
+            "verbosity_level": 1,
+            "reasoning_depth": 1,
+            "staged_streaming": False,
+        }
+
     def test_core_fallback_chat_response(self):
         core = NexusCore()
         settings = {
@@ -176,6 +199,90 @@ class NexusCoreTests(unittest.TestCase):
         self.assertEqual(answer, "Cognitive Nexus is online and ready.")
         self.assertNotIn("Response plan", core.last_provider_result["text"])
         self.assertNotIn("User request", core.last_provider_result["text"])
+
+    def test_simple_chat_calls_provider_after_auto_precision_planning(self):
+        core = NexusCore()
+        seen_prompts = []
+
+        def fake_stream(request):
+            seen_prompts.append(request.prompt)
+            core.provider_router.last_stream_metadata = {
+                "provider": "ollama",
+                "model": "fake-local-model",
+                "success": True,
+                "attempts": [{"provider": "ollama", "success": True}],
+                "fallback_reason": "",
+            }
+            yield "Hello from the provider."
+
+        core.provider_router.stream = fake_stream  # type: ignore[method-assign]
+        core.provider_router.detect_provider = lambda *_args, **_kwargs: type(  # type: ignore[method-assign]
+            "Info",
+            (),
+            {"available": True, "models": ["fake-local-model"], "name": "ollama"},
+        )()
+
+        answer = core.generate_chat_response("hello", [], self.base_chat_settings())
+
+        self.assertEqual(answer, "Hello from the provider.")
+        self.assertTrue(seen_prompts)
+        self.assertIn("Adaptive response plan", seen_prompts[0])
+        self.assertNotIn("Planner:", answer)
+        self.assertEqual(core.last_provider_result.get("provider"), "ollama")
+        self.assertTrue(core.last_response_plan)
+
+    def test_simple_fact_still_produces_provider_answer_after_planning(self):
+        core = NexusCore()
+
+        def fake_stream(_request):
+            core.provider_router.last_stream_metadata = {
+                "provider": "ollama",
+                "model": "fake-local-model",
+                "success": True,
+                "attempts": [{"provider": "ollama", "success": True}],
+                "fallback_reason": "",
+            }
+            yield "Cognitive Nexus is a local-first AI control center."
+
+        core.provider_router.stream = fake_stream  # type: ignore[method-assign]
+        core.provider_router.detect_provider = lambda *_args, **_kwargs: type(  # type: ignore[method-assign]
+            "Info",
+            (),
+            {"available": True, "models": ["fake-local-model"], "name": "ollama"},
+        )()
+
+        answer = core.generate_chat_response("What is Cognitive Nexus?", [], self.base_chat_settings())
+
+        self.assertIn("local-first AI control center", answer)
+        self.assertEqual(core.last_response_plan.get("intent"), "simple_fact")
+        self.assertEqual(core.last_provider_result.get("provider"), "ollama")
+
+    def test_empty_provider_stream_returns_visible_fallback_not_silence(self):
+        core = NexusCore()
+
+        def fake_stream(_request):
+            core.provider_router.last_stream_metadata = {
+                "provider": "ollama",
+                "model": "fake-local-model",
+                "success": False,
+                "attempts": [{"provider": "ollama", "success": False, "error": "empty"}],
+                "fallback_reason": "empty",
+            }
+            if False:
+                yield ""
+
+        core.provider_router.stream = fake_stream  # type: ignore[method-assign]
+        core.provider_router.detect_provider = lambda *_args, **_kwargs: type(  # type: ignore[method-assign]
+            "Info",
+            (),
+            {"available": True, "models": ["fake-local-model"], "name": "ollama"},
+        )()
+
+        answer = core.generate_chat_response("hello", [], self.base_chat_settings())
+
+        self.assertIn("Fallback: provider returned no visible assistant response", answer)
+        self.assertEqual(core.last_provider_result.get("text"), answer)
+        self.assertTrue(core.last_provider_result.get("success"))
 
     def test_status_snapshot_contains_comfyui_and_providers(self):
         core = NexusCore()

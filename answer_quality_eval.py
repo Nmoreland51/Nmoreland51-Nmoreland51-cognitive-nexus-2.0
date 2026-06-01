@@ -143,7 +143,7 @@ def score_answer_quality(prompt: str, request_type: str, mode: str, answer: str,
 
     usefulness = True
     if request_type in {"debugging", "troubleshooting"}:
-        usefulness = bool(re.search(r"\b(?:cause|likely|fix|next|check|command|run|import|module|cache|rerun)\b", lower))
+        usefulness = bool(re.search(r"\b(?:cause|likely|due to|potential|fix|next|check|command|run|import|module|cache|rerun|optimi[sz]e|performance)\b", lower))
     elif request_type == "project_planning":
         usefulness = _has_ordered_steps(text)
     elif request_type == "opinion_rating":

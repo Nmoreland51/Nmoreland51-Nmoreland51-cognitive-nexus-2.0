@@ -155,6 +155,39 @@ def sanitize_demo_rows(rows: list[dict[str, Any]], *, enabled: bool) -> list[dic
     return [sanitize_demo_value(row) for row in rows]
 
 
+def normalize_assistant_response(response: Any) -> str:
+    """Convert Streamlit streamed return values into saved assistant text."""
+
+    if response is None:
+        return ""
+    if isinstance(response, str):
+        return response.strip()
+    if isinstance(response, (list, tuple)):
+        return "".join(str(item) for item in response if isinstance(item, str)).strip()
+    return str(response).strip()
+
+
+def empty_assistant_response_message(provider_result: dict[str, Any] | None = None) -> str:
+    """Visible fallback for a provider/planner path that returned no text."""
+
+    provider_result = provider_result or {}
+    reason = str(provider_result.get("fallback_reason") or provider_result.get("error") or "").strip()
+    if reason:
+        return f"Fallback: provider returned no visible assistant response. Reason: {reason}"
+    return "Fallback: provider returned no visible assistant response. Check Diagnostics for provider attempts."
+
+
+def persist_assistant_response(response: Any, provider_result: dict[str, Any] | None = None) -> str:
+    """Save a non-empty assistant response to local chat history."""
+
+    response_text = normalize_assistant_response(response)
+    if not response_text:
+        response_text = empty_assistant_response_message(provider_result)
+    add_message("assistant", response_text)
+    save_session_history()
+    return response_text
+
+
 @st.cache_resource
 def get_nexus_core() -> NexusCore:
     return NexusCore(PROJECT_ROOT)
@@ -913,8 +946,8 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
             status_label = f"Generating with {primary_provider}..."
         response_status = st.empty()
         try:
-            with response_status.status(status_label, expanded=False):
-                response = st.write_stream(get_nexus_core().stream_chat_response(user_message, get_messages(), settings))
+            response_status.info(status_label)
+            response = st.write_stream(get_nexus_core().stream_chat_response(user_message, get_messages(), settings))
         except Exception as exc:
             response_status.error(f"Response failed: {exc}")
             raise
@@ -953,6 +986,10 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
                     f"Reality-first: {epistemic['reality'].get('reality_status', 'unknown')} | "
                     f"feasibility {epistemic.get('feasibility', {}).get('level', 'unknown')}"
                 )
+        response = normalize_assistant_response(response)
+        if not response:
+            response = empty_assistant_response_message(st.session_state.last_provider_result)
+            st.warning(response)
         record_perf("chat.stream_response", time.perf_counter() - started, settings)
 
     if settings.get("show_perf_timings") and "last_provider_result" in st.session_state and not demo_safe:
@@ -961,8 +998,7 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
             with st.expander("Performance Timings", expanded=False):
                 st.json(timings)
 
-    add_message("assistant", response)
-    save_session_history()
+    persist_assistant_response(response, st.session_state.get("last_provider_result"))
 
 
 def render_reality_research_tab(settings: dict[str, Any]) -> None:

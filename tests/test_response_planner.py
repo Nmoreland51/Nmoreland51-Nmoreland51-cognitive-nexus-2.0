@@ -45,7 +45,8 @@ class TestResponsePlanner(unittest.TestCase):
         )
         self.assertEqual(plan.intent, "simple_fact")
         self.assertEqual(plan.mode, "short")
-        self.assertLessEqual(plan.max_tokens, 850)
+        self.assertLessEqual(plan.max_tokens, 140)
+        self.assertIn("under 75 words", plan.instructions)
 
     def test_surgeon_mode_for_coding_route(self):
         plan = plan_response(

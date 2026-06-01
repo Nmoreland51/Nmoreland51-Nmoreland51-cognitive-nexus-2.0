@@ -36,6 +36,16 @@ class AnswerQualityEvalTests(unittest.TestCase):
 
         self.assertTrue(score.usefulness)
 
+    def test_troubleshooting_answer_accepts_due_to_signal(self):
+        score = score_answer_quality(
+            "Why is my Streamlit app slow?",
+            "troubleshooting",
+            "surgeon",
+            "Your Streamlit app is slow due to potential reruns and uncached expensive calls.",
+        )
+
+        self.assertTrue(score.usefulness)
+
     def test_planning_answer_needs_steps_or_phases(self):
         score = score_answer_quality(
             "Make me a plan to improve this project.",

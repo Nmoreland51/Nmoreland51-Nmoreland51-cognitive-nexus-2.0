@@ -457,6 +457,7 @@ def plan_response(
         analysis["intent"] == "creative"
         and re.search(r"\b(?:headline|tagline|slogan|one-liner|caption)\b", user_message.lower())
     )
+    compact_simple_fact = analysis["intent"] == "simple_fact"
     compact_rating = analysis["intent"] == "opinion_rating"
     if compact_creative:
         mode = "short"
@@ -486,6 +487,8 @@ def plan_response(
     if context_chars < 8000:
         max_chars = min(max_chars, 2200)
         ideal_chars = min(ideal_chars, 1200)
+    if compact_simple_fact:
+        min_chars, ideal_chars, max_chars = 80, 220, 420
     if provider_speed in {"slow", "local"} and mode not in {"short", "surgeon"}:
         ideal_chars = int(ideal_chars * 0.72)
         max_chars = int(max_chars * 0.72)
@@ -509,6 +512,8 @@ def plan_response(
     }.get(mode, "concise paragraphs")
     if compact_creative:
         formatting = "one polished line only, no explanation or alternate options"
+    if compact_simple_fact:
+        formatting = "one short paragraph, no bullets unless the user asks"
     if analysis["intent"] == "project_planning":
         formatting = "numbered list or phase list only; no preamble or follow-up question"
     profile = auto_precision_profile(str(analysis["intent"]))
@@ -538,6 +543,8 @@ def plan_response(
     )
     if compact_creative:
         instructions += "- For headline, tagline, caption, or one-liner requests: output exactly one option under 12 words with no setup text.\n"
+    if compact_simple_fact:
+        instructions += "- For simple factual questions: answer in 1-3 sentences under 75 words unless the user asks for more.\n"
     if compact_rating:
         instructions += "- For rating/opinion requests: start with 'Score:' or 'Verdict:', then give strengths, weaknesses, and next upgrade in under 120 words.\n"
     if analysis["intent"] == "project_planning":

@@ -903,6 +903,10 @@ class NexusCore:
 
         answer = "".join(chunks).strip()
         answer = self._clean_model_answer(answer)
+        if not answer:
+            answer = "Fallback: provider returned no visible assistant response. Check Diagnostics for provider attempts."
+            chunks.append(answer)
+            yield answer
         audited_answer = self._audit_answer(
             answer,
             label="chat",

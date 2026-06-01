@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import app
 from streamlit.testing.v1 import AppTest
@@ -102,6 +103,34 @@ class AppControlsTests(unittest.TestCase):
                 break
         else:
             self.fail("Auto Precision Mode checkbox was not rendered")
+
+    def test_normalize_assistant_response_joins_streamlit_string_chunks(self):
+        response = app.normalize_assistant_response(["Hello", " ", "from Nexus"])
+
+        self.assertEqual(response, "Hello from Nexus")
+
+    def test_empty_assistant_response_message_is_visible(self):
+        message = app.empty_assistant_response_message({"fallback_reason": "empty stream"})
+
+        self.assertIn("Fallback:", message)
+        self.assertIn("empty stream", message)
+
+    def test_persist_assistant_response_saves_non_empty_assistant_text(self):
+        with patch("app.add_message") as add_message, patch("app.save_session_history") as save_history:
+            saved = app.persist_assistant_response("Provider answer", {})
+
+        self.assertEqual(saved, "Provider answer")
+        add_message.assert_called_once_with("assistant", "Provider answer")
+        save_history.assert_called_once()
+
+    def test_persist_empty_assistant_response_saves_visible_fallback(self):
+        with patch("app.add_message") as add_message, patch("app.save_session_history") as save_history:
+            saved = app.persist_assistant_response("", {"fallback_reason": "empty stream"})
+
+        self.assertIn("Fallback:", saved)
+        self.assertIn("empty stream", saved)
+        add_message.assert_called_once_with("assistant", saved)
+        save_history.assert_called_once()
 
 
 if __name__ == "__main__":
