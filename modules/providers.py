@@ -20,12 +20,12 @@ FALLBACK_RESPONSE = (
 )
 OLLAMA_SESSION = requests.Session()
 DEFAULT_OLLAMA_MODEL_PREFERENCES = (
+    "BlackHillsInfoSec/llama-3.1-8b-abliterated:latest",
+    "BlackHillsInfoSec/llama-3.1-8b-abliterated",
     "llama3.2:3b",
     "llama3.2",
     "llama3.1:8b",
     "llama3.1",
-    "BlackHillsInfoSec/llama-3.1-8b-abliterated:latest",
-    "BlackHillsInfoSec/llama-3.1-8b-abliterated",
 )
 
 

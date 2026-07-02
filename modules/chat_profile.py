@@ -7,6 +7,27 @@ from typing import Any, Dict
 
 CHAT_PROFILE_FILE = Path("data/chat_profile.json")
 MAX_TEXT_LENGTH = 4000
+HUMOR_LEVEL_OPTIONS = ("off", "light", "balanced", "bold")
+HUMOR_STYLE_OPTIONS = {
+    "warm_wit": "warm wit",
+    "dry_deadpan": "dry deadpan",
+    "playful_spark": "playful spark",
+    "nerdy_asides": "nerdy asides",
+    "gentle_sarcasm": "gentle sarcasm",
+}
+HUMOR_LEVEL_GUIDANCE = {
+    "off": "Do not add intentional jokes or comic asides.",
+    "light": "Use occasional small human touches, but keep the answer useful first.",
+    "balanced": "Use a steady conversational wit when the topic allows it.",
+    "bold": "Use a more noticeable comedic voice for casual and creative turns, while keeping serious tasks focused.",
+}
+HUMOR_STYLE_GUIDANCE = {
+    "warm_wit": "friendly, observant, and lightly clever",
+    "dry_deadpan": "dry, understated, and concise",
+    "playful_spark": "bright, quick, and a little mischievous",
+    "nerdy_asides": "technical, referential, and self-aware without derailing",
+    "gentle_sarcasm": "mildly sarcastic, never mean-spirited",
+}
 
 
 @dataclass
@@ -23,6 +44,12 @@ class ChatProfile:
     style_notes: str = (
         "Favor vivid sensory detail, concrete description, natural dialogue, and grounded character work. "
         "Avoid generic AI filler and overly stiff phrasing."
+    )
+    humor_level: str = "light"
+    humor_style: str = "warm_wit"
+    humor_notes: str = (
+        "Use humor like seasoning: quick, human, and situational. Skip it for grief, safety, legal, medical, "
+        "financial, or urgent debugging unless the user clearly invites levity."
     )
     creative_min_words: int = 500
     direct_language_for_adult_fiction: bool = True
@@ -62,6 +89,11 @@ def _clean_int(value: Any, default: int) -> int:
     return max(0, min(2000, parsed))
 
 
+def _clean_choice(value: Any, allowed: tuple[str, ...] | set[str], default: str) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in allowed else default
+
+
 def _clean_name(value: Any, default: str = "") -> str:
     text = str(value or "").strip()
     if not text:
@@ -99,6 +131,9 @@ def normalize_chat_profile(profile: ChatProfile) -> ChatProfile:
         persona_summary=_clean_text(profile.persona_summary) or ChatProfile.persona_summary,
         tone_notes=_clean_text(profile.tone_notes) or ChatProfile.tone_notes,
         style_notes=_clean_text(profile.style_notes) or ChatProfile.style_notes,
+        humor_level=_clean_choice(getattr(profile, "humor_level", "light"), HUMOR_LEVEL_OPTIONS, "light"),
+        humor_style=_clean_choice(getattr(profile, "humor_style", "warm_wit"), set(HUMOR_STYLE_OPTIONS), "warm_wit"),
+        humor_notes=_clean_text(getattr(profile, "humor_notes", ChatProfile.humor_notes)) or ChatProfile.humor_notes,
         creative_min_words=_clean_int(profile.creative_min_words, 500),
         direct_language_for_adult_fiction=bool(profile.direct_language_for_adult_fiction),
         show_capability_greeting=bool(profile.show_capability_greeting),
@@ -124,6 +159,9 @@ def load_chat_profile(path: Path = CHAT_PROFILE_FILE) -> ChatProfile:
                         persona_summary=payload.get("persona_summary", ChatProfile.persona_summary),
                         tone_notes=payload.get("tone_notes", ChatProfile.tone_notes),
                         style_notes=payload.get("style_notes", ChatProfile.style_notes),
+                        humor_level=payload.get("humor_level", ChatProfile.humor_level),
+                        humor_style=payload.get("humor_style", ChatProfile.humor_style),
+                        humor_notes=payload.get("humor_notes", ChatProfile.humor_notes),
                         creative_min_words=payload.get("creative_min_words", 500),
                         direct_language_for_adult_fiction=payload.get("direct_language_for_adult_fiction", True),
                         show_capability_greeting=payload.get("show_capability_greeting", True),
@@ -176,6 +214,15 @@ def build_chat_system_prompt(profile: ChatProfile) -> str:
         "Keep technical and coding help precise and practical. Do not force ornate prose when the task is straightforward.",
         "Do not reveal hidden reasoning or chain-of-thought.",
     ])
+
+    if profile.humor_level != "off":
+        lines.extend([
+            f"Humor layer: {profile.humor_level} intensity; style is {HUMOR_STYLE_OPTIONS.get(profile.humor_style, 'warm wit')}.",
+            f"Humor behavior: {HUMOR_LEVEL_GUIDANCE.get(profile.humor_level, HUMOR_LEVEL_GUIDANCE['light'])}",
+            f"Humor texture: {HUMOR_STYLE_GUIDANCE.get(profile.humor_style, HUMOR_STYLE_GUIDANCE['warm_wit'])}.",
+            f"Humor notes: {profile.humor_notes}",
+            "Never let humor replace accuracy, empathy, or the requested work.",
+        ])
 
     if profile.creative_min_words:
         lines.append(

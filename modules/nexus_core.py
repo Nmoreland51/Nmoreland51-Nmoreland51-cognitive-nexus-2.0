@@ -12,11 +12,17 @@ from core.reasoning import analyze_epistemic_request
 from core.reality_grounding import audit_answer
 from modules.chat_profile import build_capability_greeting
 from modules.comfyui_client import ComfyUIClient
-from modules.context_manager import build_context_bundle, handle_local_memory_command, load_user_facts
+from modules.context_manager import (
+    ContextBundle,
+    build_context_bundle,
+    estimate_tokens as estimate_context_tokens,
+    handle_local_memory_command,
+    load_user_facts,
+)
 from modules.image_gen import ImageGenerationRequest, generate_images
 from modules.internal_prompts import build_locked_system_prompt
 from modules.nexus_config import LOG_DIR, ensure_runtime_dirs, load_runtime_config
-from modules.provider_router import ProviderRequest, ProviderResult, ProviderRouter
+from modules.provider_router import SLOW_STARTUP_OLLAMA_READ_TIMEOUT, ProviderRequest, ProviderResult, ProviderRouter
 from modules.reality_research_agent import (
     ResearchReport,
     ResearchRequest,
@@ -26,10 +32,19 @@ from modules.reality_research_agent import (
 from modules.research import get_research_module, query_knowledge
 from modules.response_planner import (
     ResponsePlan,
+    SOCIAL_PRESENCE_BLOCKED_PHRASES,
     analyze_intent_cached,
     apply_auto_precision_settings,
+    is_casual_chat_message,
+    is_short_followup_reply,
     plan_response,
     validate_response_against_plan,
+)
+from modules.response_self_critic import (
+    PREFERENCES_FILE as RESPONSE_PREFERENCES_FILE,
+    build_self_critic_prompt_hints,
+    evaluate_response_self_critic,
+    store_self_critic_observation,
 )
 from modules.response_verifier import VerificationResult, log_verification, verify_response
 from modules.web_research import run_research_session
@@ -40,10 +55,22 @@ from search.bloodhound_search import (
     format_bloodhound_markdown,
     run_bloodhound_search,
 )
-from nexus_router import CATEGORY_LABELS, RouterConfig, build_routed_prompt, route_message
+from nexus_router import CATEGORY_LABELS, RouteDecision, RouterConfig, build_routed_prompt, route_message
 
 
 logger = logging.getLogger(__name__)
+
+
+def _elapsed_ms(started: float, ended: float | None = None) -> float:
+    """Return elapsed milliseconds rounded for diagnostics."""
+
+    return round(((ended or time.perf_counter()) - started) * 1000, 1)
+
+
+def _estimate_output_tokens(text: str) -> int:
+    """Cheap output token estimate for providers that do not report token counts."""
+
+    return max(1, len(text or "") // 4)
 
 
 class NexusCore:
@@ -58,6 +85,7 @@ class NexusCore:
         )
         self.project_root = project_root or Path(__file__).resolve().parents[1]
         self.config = load_runtime_config()
+        self.response_preferences_path = self._configured_response_preferences_path()
         self.provider_router = ProviderRouter(self.config)
         self.comfyui = ComfyUIClient(str(self.config.get("comfyui_url", "http://127.0.0.1:8188")))
         self._research_module = None
@@ -72,14 +100,20 @@ class NexusCore:
         self.last_reality_research_report: dict[str, Any] = {}
         self.last_retrieval: dict[str, Any] = {}
         self.last_memory: dict[str, Any] = {}
+        self.last_response_critic: dict[str, Any] = {}
 
     def refresh_config(self) -> None:
         """Reload config and provider cache after settings change."""
 
         self.config = load_runtime_config()
+        self.response_preferences_path = self._configured_response_preferences_path()
         self.provider_router.config = self.config
         self.provider_router.invalidate_status_cache()
         self.comfyui = ComfyUIClient(str(self.config.get("comfyui_url", "http://127.0.0.1:8188")))
+
+    def _configured_response_preferences_path(self) -> Path:
+        raw_path = Path(str(self.config.get("response_preferences_path") or RESPONSE_PREFERENCES_FILE))
+        return raw_path if raw_path.is_absolute() else self.project_root / raw_path
 
     def _direct_response_instruction(self, user_message: str) -> str | None:
         """Return deterministic text for exact-output prompts that do not need a model."""
@@ -170,6 +204,95 @@ class NexusCore:
             )
         )
 
+    def _immediate_previous_assistant(self, messages: list[dict[str, str]]) -> str:
+        for item in reversed(messages or []):
+            if str(item.get("role", "")).lower() == "assistant":
+                return str(item.get("content", "") or "").strip()
+        return ""
+
+    def _immediate_previous_user(self, messages: list[dict[str, str]]) -> str:
+        for item in reversed(messages or []):
+            if str(item.get("role", "")).lower() == "user":
+                return str(item.get("content", "") or "").strip()
+        return ""
+
+    def _conversation_followup_reply(self, message: str, messages: list[dict[str, str]]) -> str:
+        normalized = re.sub(r"[^\w\s']", " ", " ".join((message or "").lower().replace("’", "'").split()))
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        previous = self._immediate_previous_assistant(messages)
+        previous_lower = previous.lower()
+        history_tail = previous[-240:] if previous else ""
+        pragmatics = analyze_intent_cached(message, history_tail).get("pragmatics", {})
+        function = str(pragmatics.get("function") or "")
+        if not previous:
+            if function == "rejection":
+                return "Got it. What should I change?"
+            return "I can do that, but what should I continue?"
+        if function == "choose_all":
+            return "Got it. I'll include all of the options from the last thing I offered."
+        if function == "choose_option":
+            if normalized.startswith("first"):
+                return "First option it is. I'll follow that direction from the last choice."
+            if normalized.startswith("second"):
+                return "Second option it is. I'll follow that direction from the last choice."
+            return "Got it, that option. I'll stick to what you just pointed at."
+        if function == "agreement":
+            if "fix" in previous_lower:
+                return "Yes, I'll fix it. Send the error or file and I'll keep it tight."
+            return "Got it. I'll continue from the last thing I offered."
+        if function in {"proceed", "continue_previous"}:
+            return "On it. I'll continue from the last thing we were doing."
+        if function == "rejection":
+            return "Got it, no on that. What should I change or skip?"
+        return "Got it. I'll continue from the immediate previous point."
+
+    def _topic_aware_redirect(self, message: str) -> str:
+        """Narrowly redirect only direct operational harm without generic refusal text."""
+
+        return (
+            "I can discuss this at a high level, but not as actionable instructions for real-world harm. "
+            "Useful angles: risk analysis, prevention, legal consequences, or a fictional non-actionable version."
+        )
+
+    def _looks_like_generic_refusal(self, answer: str) -> bool:
+        lowered = " ".join(str(answer or "").lower().split())
+        return any(
+            marker in lowered
+            for marker in (
+                "i cannot fulfill requests that involve harm or illegal activities",
+                "i can't fulfill requests that involve harm or illegal activities",
+                "i can't provide information on illegal",
+                "i cannot provide information on illegal",
+                "i can't provide information on how to",
+                "i cannot provide information on how to",
+                "i can't provide instructions on illegal",
+                "i cannot provide instructions on illegal",
+                "i can't provide instructions on how to",
+                "i cannot provide instructions on how to",
+            )
+        )
+
+    def _topic_aware_discussion_fallback(self, message: str, topic_category: str) -> str:
+        if topic_category == "risk_analysis":
+            return (
+                "At a high level, treat this as a risk-analysis question: identify the threat, "
+                "how it is detected, who is affected, prevention controls, and what to do when warning signs appear."
+            )
+        if topic_category == "fictional_or_roleplay":
+            return (
+                "For a fictional version, keep the scenario non-operational: focus on motives, consequences, "
+                "atmosphere, and character decisions rather than real-world instructions."
+            )
+        if topic_category == "educational_context":
+            return (
+                "At a high level, this can be discussed through history, incentives, social harm, enforcement, "
+                "legal consequences, and prevention without giving operational instructions."
+            )
+        return (
+            "At a high level, I can discuss the topic, risks, consequences, prevention, and safer alternatives "
+            "without turning it into operational instructions."
+        )
+
     def _memory_context(self, user_message: str, messages: list[dict[str, str]], enabled: bool) -> tuple[str, str]:
         if not enabled:
             return "", ""
@@ -203,9 +326,11 @@ class NexusCore:
             "used_count": 0,
             "sources": [],
             "error": "",
+            "elapsed_ms": 0.0,
         }
         if not enabled:
             return "", metadata
+        started = time.perf_counter()
         try:
             module = self.get_research_module()
             results = module.semantic_search(user_message, top_k=top_k)
@@ -231,10 +356,12 @@ class NexusCore:
             metadata["result_count"] = len(results)
             metadata["used_count"] = len(chunks)
             metadata["sources"] = sources
+            metadata["elapsed_ms"] = _elapsed_ms(started)
             return "\n\n".join(chunks), metadata
         except Exception as exc:
             logger.info("Knowledge retrieval unavailable: %s", exc)
             metadata["error"] = str(exc)
+            metadata["elapsed_ms"] = _elapsed_ms(started)
             return "", metadata
 
     def _retrieved_context(self, user_message: str, enabled: bool, top_k: int = 3) -> str:
@@ -285,12 +412,33 @@ class NexusCore:
             return False
         lowered = " ".join((user_message or "").lower().split())
         words = lowered.split()
-        if len(words) > 4:
-            return False
+        if is_casual_chat_message(user_message):
+            return True
+        context_terms = {
+            "file",
+            "files",
+            "memory",
+            "remember",
+            "research",
+            "source",
+            "sources",
+            "history",
+            "notes",
+            "knowledge",
+            "project",
+        }
+        if len(words) <= 3 and not any(term in words for term in context_terms):
+            return True
         casual_phrases = {
             "hi",
             "hello",
             "hey",
+            "yo",
+            "sup",
+            "what's up",
+            "whats up",
+            "what up",
+            "hi there",
             "thanks",
             "thank you",
             "good morning",
@@ -317,6 +465,44 @@ class NexusCore:
             system_prompt=system_prompt,
             max_tokens=int((route_options or {}).get("num_predict", 512)),
         )
+
+    def _apply_throughput_profile(
+        self,
+        options: dict[str, Any],
+        settings: dict[str, Any],
+        plan: ResponsePlan,
+    ) -> dict[str, Any]:
+        """Tune local generation options for lower latency and higher token throughput."""
+
+        tuned = dict(options or {})
+        mode = str(settings.get("throughput_mode") or "balanced").lower()
+        if mode not in {"balanced", "fast", "turbo"}:
+            mode = "balanced"
+        if mode == "balanced":
+            return tuned
+
+        max_ctx = 2048 if mode == "fast" else 1024
+        max_predict = 384 if mode == "fast" else 220
+        if plan.intent in {"research", "reality_check"}:
+            max_ctx = max(max_ctx, 4096)
+            max_predict = max(max_predict, 700)
+        elif plan.intent in {"debugging", "troubleshooting", "project_planning"}:
+            max_predict = max(max_predict, 320)
+
+        tuned["num_ctx"] = min(int(tuned.get("num_ctx", max_ctx) or max_ctx), max_ctx)
+        tuned["num_predict"] = min(int(tuned.get("num_predict", max_predict) or max_predict), max_predict)
+        tuned["temperature"] = min(float(tuned.get("temperature", 0.6) or 0.6), 0.55 if mode == "fast" else 0.35)
+        tuned["top_k"] = min(int(tuned.get("top_k", 40) or 40), 30 if mode == "fast" else 20)
+        tuned["top_p"] = min(float(tuned.get("top_p", 0.9) or 0.9), 0.85 if mode == "fast" else 0.75)
+        tuned["repeat_last_n"] = min(int(tuned.get("repeat_last_n", 128) or 128), 96 if mode == "fast" else 64)
+        tuned["num_batch"] = max(int(tuned.get("num_batch", 0) or 0), 256 if mode == "fast" else 512)
+        return tuned
+
+    def _uses_slow_startup_ollama_model(self, model: str) -> bool:
+        """Return True for local models that need more than a tiny first-token window."""
+
+        normalized = str(model or "").lower()
+        return "blackhillsinfosec/" in normalized or "abliterated" in normalized
 
     def _make_classifier(self, settings: dict[str, Any], router_config: RouterConfig):
         if not router_config.use_llm_classifier:
@@ -350,24 +536,32 @@ class NexusCore:
         """Build the final provider prompt through the central context manager."""
 
         profile = settings.get("chat_profile")
-        base_prompt = build_locked_system_prompt(profile)
-        routed_system = build_routed_prompt(
-            user_message=user_message,
-            base_system_prompt=base_prompt,
-            history_prompt="",
-            route=route_decision,
-            chat_profile=profile,
-            config=settings["router_config"],
-        )
+        minimal_context = bool(settings.get("_minimal_context_for_turn", False))
+        if minimal_context:
+            routed_system = (
+                "You are Cognitive Nexus. Answer only the current user message. "
+                "Be brief, direct, and natural. Do not use old chat, files, memory, research, or unrelated topics."
+            )
+        else:
+            base_prompt = build_locked_system_prompt(profile)
+            routed_system = build_routed_prompt(
+                user_message=user_message,
+                base_system_prompt=base_prompt,
+                history_prompt="",
+                route=route_decision,
+                chat_profile=profile,
+                config=settings["router_config"],
+            )
         epistemic_instruction = str(settings.get("_epistemic_instruction") or "")
         if epistemic_instruction:
             routed_system = f"{routed_system}\n\n{epistemic_instruction}"
-        memory_context = str(settings.get("_memory_context_override") or "")
-        if not memory_context:
+        memory_context = "" if minimal_context else str(settings.get("_memory_context_override") or "")
+        if not memory_context and not minimal_context:
             memory_context, _ = self._memory_context(user_message, messages, bool(settings.get("use_memory")))
-        skip_retrieval = self._skip_retrieval_for_simple_chat(user_message, simple_mode)
+        skip_retrieval = minimal_context or self._skip_retrieval_for_simple_chat(user_message, simple_mode)
         retrieval_enabled = bool(settings.get("use_knowledge_for_chat", True)) and not skip_retrieval
         retrieved_context = ""
+        skipped_reason = "minimal_context" if minimal_context else ("simple_greeting" if skip_retrieval else "")
         retrieval_meta: dict[str, Any] = {
             "enabled": retrieval_enabled,
             "query": user_message,
@@ -376,7 +570,8 @@ class NexusCore:
             "used_count": 0,
             "sources": [],
             "error": "",
-            "skipped_reason": "simple_greeting" if skip_retrieval else "",
+            "skipped_reason": skipped_reason,
+            "elapsed_ms": 0.0,
         }
         if retrieval_enabled:
             retrieved_context, retrieval_meta = self._retrieve_context(
@@ -385,17 +580,58 @@ class NexusCore:
                 top_k=int(settings.get("knowledge_top_k", 3)),
             )
         self.last_retrieval = retrieval_meta
+        if minimal_context:
+            immediate_previous = ""
+            immediate_previous_user = ""
+            if settings.get("_include_immediate_previous_assistant"):
+                immediate_previous = self._immediate_previous_assistant(messages)
+            if settings.get("_include_immediate_previous_user"):
+                immediate_previous_user = self._immediate_previous_user(messages)
+            previous_parts = []
+            if immediate_previous_user:
+                previous_parts.append(f"Immediate previous user message:\n{immediate_previous_user}")
+            if immediate_previous:
+                previous_parts.append(f"Immediate previous assistant message:\n{immediate_previous}")
+            previous_block = "\n\n" + "\n\n".join(previous_parts) if previous_parts else ""
+            prompt = f"{routed_system}\n\nUser request:\n{str(user_message or '').strip()}\n\nFinal answer:"
+            if previous_block:
+                prompt = f"{routed_system}{previous_block}\n\nUser request:\n{str(user_message or '').strip()}\n\nFinal answer:"
+            context = ContextBundle(
+                prompt=prompt,
+                recent_history=[
+                    item
+                    for item in (
+                        {"role": "user", "content": immediate_previous_user} if immediate_previous_user else None,
+                        {"role": "assistant", "content": immediate_previous} if immediate_previous else None,
+                    )
+                    if item
+                ],
+                memory_context="",
+                retrieved_context="",
+                user_facts=[],
+                estimated_tokens=estimate_context_tokens(prompt),
+                trimmed=False,
+                trust_audit={},
+            )
+            self.last_trust_audit = {}
+            return context.prompt, context
+        context_messages = [] if minimal_context else messages
+        user_facts = [] if minimal_context else load_user_facts()
+        recent_message_limit = 0 if minimal_context else int(settings.get("recent_message_limit") or self.config.get("recent_message_limit", 8))
         context = build_context_bundle(
             user_message=user_message,
-            messages=messages,
+            messages=context_messages,
             system_prompt=routed_system,
             route_label=CATEGORY_LABELS.get(route_decision.category, route_decision.category),
             route_reason=route_decision.reason,
             memory_context=memory_context,
             retrieved_context=retrieved_context,
-            user_facts=load_user_facts(),
-            max_context_chars=int(settings.get("max_context_chars") or self.config.get("max_context_chars", 12000)),
-            recent_message_limit=int(settings.get("recent_message_limit") or self.config.get("recent_message_limit", 8)),
+            user_facts=user_facts,
+            max_context_chars=min(
+                int(settings.get("max_context_chars") or self.config.get("max_context_chars", 12000)),
+                1800 if minimal_context else 12000,
+            ),
+            recent_message_limit=recent_message_limit,
         )
         self.last_trust_audit = context.trust_audit
         return context.prompt, context
@@ -403,11 +639,96 @@ class NexusCore:
     def build_planned_chat_prompt(self, prompt: str, plan: ResponsePlan) -> str:
         """Append response-planning instructions without exposing hidden reasoning."""
 
+        critic_hints = self._self_critic_prompt_hints(plan.intent)
+        compact_rules = {
+            "casual_chat": "Reply like a present conversational assistant: brief, natural, and responsive. Do not give technical self-status, define yourself, mention constraints, or use old context.",
+            "simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks.",
+            "explanation": "Answer in one compact paragraph when the user asks for one paragraph.",
+            "debugging": "Give likely cause first, then the smallest fix or next command. Stay concise.",
+            "troubleshooting": "Give likely cause first, then the next concrete check. Stay under 180 words.",
+            "project_planning": "Start with '1.'. Give exactly 3 short concrete steps, each under 10 words, with no preamble.",
+            "opinion_rating": "Start with Score or Verdict, then a compact reason and next upgrade.",
+        }
+        if plan.intent in compact_rules:
+            base = prompt.rstrip()
+            if base.endswith("Final answer:"):
+                base = base[: -len("Final answer:")].rstrip()
+            extra_rules = []
+            social_policy = dict(plan.diagnostics.get("social_presence") or {})
+            if social_policy.get("enabled"):
+                blocked = "; ".join(str(item) for item in social_policy.get("blocked_phrases", []) if item)
+                extra_rules.extend(
+                    [
+                        "Use only the current social exchange; no memory, research, file context, old reports, or diagnostics.",
+                        "Do not sound like a system monitor, corporate status report, or identity disclaimer.",
+                        "Do not sound like customer support or a survey. Avoid 'highlight of your day' style questions.",
+                        "Keep it compact, human, and matched to the user's tone; do not copy canned example replies.",
+                    ]
+                )
+                if blocked:
+                    extra_rules.append(f"Do not use these phrases or close variants: {blocked}.")
+            backchannel_policy = dict(plan.diagnostics.get("backchannel_continuity") or {})
+            if backchannel_policy.get("enabled"):
+                blocked = "; ".join(str(item) for item in backchannel_policy.get("blocked_phrases", []) if item)
+                extra_rules.extend(
+                    [
+                        "Treat the user's acknowledgment as conversation flow, not a phrase to analyze.",
+                        "Use only the current message and immediate previous exchange.",
+                        "Continue naturally or lightly pivot to the next useful action; keep it short.",
+                        "Avoid customer-support phrasing like 'It's great to hear...' or 'What's been a highlight of your day?'",
+                        "Let the model write one short natural continuation instead of using a scripted catchphrase.",
+                    ]
+                )
+                if blocked:
+                    extra_rules.append(f"Do not use these analysis phrases or close variants: {blocked}.")
+            extra_rules.extend(critic_hints)
+            extra_block = "".join(f"- {rule}\n" for rule in extra_rules)
+            return (
+                f"{base}\n\nAnswer rules:\n"
+                f"- {compact_rules[plan.intent]}\n"
+                f"{extra_block}"
+                f"- Maximum output: about {plan.max_tokens} tokens.\n"
+                "- Write only the final user-facing answer.\n\n"
+                "Final answer:"
+            )
+
+        critic_block = ""
+        if critic_hints:
+            critic_block = "Adaptive response observations:\n" + "".join(f"- {hint}\n" for hint in critic_hints)
         return (
             f"{prompt}\n\n{plan.instructions}\n"
+            f"{critic_block}"
             "Output rule: write only the final user-facing answer. Do not restate the user request, "
             "route, response plan, target length, intent, mode, or these instructions."
         )
+
+    def _self_critic_prompt_hints(self, intent: str) -> list[str]:
+        try:
+            return build_self_critic_prompt_hints(intent=intent, path=self.response_preferences_path)
+        except Exception as exc:
+            logger.info("Response self-critic hints unavailable: %s", exc)
+            return []
+
+    def _record_response_self_critic(
+        self,
+        user_message: str,
+        answer: str,
+        plan: ResponsePlan,
+        settings: dict[str, Any],
+    ) -> None:
+        if not bool(settings.get("enable_response_self_critic", False)):
+            self.last_response_critic = {"enabled": False, "stored_response_text": False}
+            return
+        try:
+            result = evaluate_response_self_critic(user_message=user_message, answer=answer, plan=plan)
+            state = store_self_critic_observation(result, path=self.response_preferences_path)
+            self.last_response_critic = result.to_dict() | {
+                "stored": True,
+                "critic_samples": state.get("samples", 0),
+            }
+        except Exception as exc:
+            logger.info("Response self-critic failed: %s", exc)
+            self.last_response_critic = {"stored": False, "error": str(exc), "stored_response_text": False}
 
     def _looks_like_prompt_scaffolding(self, text: str) -> bool:
         prefix = (text or "")[:700].lower()
@@ -444,6 +765,51 @@ class NexusCore:
             ).strip()
 
         return cleaned or str(text or "").strip()
+
+    def _is_social_presence_turn(self, plan: ResponsePlan) -> bool:
+        policy = dict(plan.diagnostics.get("social_presence") or {})
+        return plan.intent == "casual_chat" and bool(policy.get("enabled"))
+
+    def _is_backchannel_turn(self, plan: ResponsePlan) -> bool:
+        policy = dict(plan.diagnostics.get("backchannel_continuity") or {})
+        return plan.intent == "conversation_followup" and bool(policy.get("enabled"))
+
+    def _has_robotic_social_phrase(self, text: str) -> bool:
+        normalized = " ".join(str(text or "").lower().split())
+        return any(phrase in normalized for phrase in SOCIAL_PRESENCE_BLOCKED_PHRASES)
+
+    def _has_scripted_social_phrase(self, text: str) -> bool:
+        normalized = " ".join(str(text or "").lower().split())
+        scripted_markers = (
+            "it's great to hear",
+            "great to hear that",
+            "things are going well for you",
+            "what's been a highlight",
+            "highlight of your day",
+            "how's it going?",
+            "how is it going?",
+            "what's been keeping you busy today",
+        )
+        return any(marker in normalized for marker in scripted_markers)
+
+    def _repair_social_presence_answer(self, answer: str, user_message: str, plan: ResponsePlan) -> str:
+        """Trim bad social clauses only when the model left a usable remainder."""
+
+        eligible = self._is_social_presence_turn(plan) or self._is_backchannel_turn(plan)
+        if not eligible or not (self._has_robotic_social_phrase(answer) or self._has_scripted_social_phrase(answer)):
+            return answer
+        parts = re.split(r"(?<=[.!?])\s+", str(answer or "").strip())
+        kept = [
+            part.strip()
+            for part in parts
+            if part.strip()
+            and not self._has_robotic_social_phrase(part)
+            and not self._has_scripted_social_phrase(part)
+        ]
+        repaired = " ".join(kept).strip()
+        if repaired:
+            return repaired
+        return answer
 
     def _audit_answer(
         self,
@@ -554,7 +920,15 @@ class NexusCore:
         """Route a chat turn, stream provider output, and log verification metadata."""
 
         started = time.perf_counter()
-        timings = {}
+        timings: dict[str, Any] = {
+            "planner_ms": 0.0,
+            "context_ms": 0.0,
+            "retrieval_ms": 0.0,
+            "provider_first_token_ms": None,
+            "provider_total_ms": 0.0,
+            "render_ms": 0.0,
+            "total_ms": 0.0,
+        }
         profile = settings.get("chat_profile")
         self.last_memory = {}
         direct_response = self._direct_response_instruction(user_message)
@@ -603,11 +977,23 @@ class NexusCore:
 
         route_start = time.perf_counter()
         router_config: RouterConfig = settings["router_config"]
-        classifier = self._make_classifier(settings, router_config)
-        route_decision = route_message(user_message, router_config, classifier=classifier)
+        pre_route_history_tail = "\n".join(str(item.get("content", ""))[-240:] for item in messages[-4:])
+        pre_route_analysis = analyze_intent_cached(user_message, pre_route_history_tail)
+        pre_route_intent = str(pre_route_analysis.get("intent") or "")
+        if pre_route_intent in {"casual_chat", "casual_followup", "conversation_followup"}:
+            route_decision = RouteDecision(
+                category="standard_conversation",
+                reason=f"{pre_route_intent}_pre_resolved",
+                confidence=float(pre_route_analysis.get("confidence") or 0.85),
+                model=router_config.default_model,
+                generation_options={"temperature": 0.75},
+            )
+        else:
+            classifier = self._make_classifier(settings, router_config)
+            route_decision = route_message(user_message, router_config, classifier=classifier)
         bloodhound_query = detect_bloodhound_query(user_message)
         reality_research_query = detect_reality_research_query(user_message)
-        timings["routing"] = time.perf_counter() - route_start
+        timings["routing_ms"] = _elapsed_ms(route_start)
 
         if settings.get("auto_precision_mode", True):
             pre_analysis = analyze_intent_cached(user_message, "")
@@ -616,11 +1002,19 @@ class NexusCore:
                 settings,
                 str(pre_analysis.get("intent") or "unknown"),
                 route_category=precision_category,
+                context_policy=str((pre_analysis.get("conversation_intelligence") or {}).get("context_policy") or ""),
             )
+            if settings.get("_fast_path_for_turn"):
+                settings = dict(settings)
+                settings["use_memory"] = False
+                settings["use_knowledge_for_chat"] = False
+                settings["use_web_for_chat"] = False
+                settings["enable_reality_research_agent"] = False
+                settings["enable_bloodhound_search"] = False
 
         memory_start = time.perf_counter()
         memory_context, memory_command = self._memory_context(user_message, messages, bool(settings.get("use_memory")))
-        timings["memory_context"] = time.perf_counter() - memory_start
+        timings["memory_context_ms"] = _elapsed_ms(memory_start)
         if memory_command:
             memory_command = self._audit_answer(memory_command, label="adaptive_memory", tool_confirmed=True, settings=settings)
             self.last_provider_result = {"provider": "adaptive_memory", "elapsed": time.perf_counter() - started}
@@ -628,7 +1022,7 @@ class NexusCore:
             return
 
         epistemic_start = time.perf_counter()
-        if bool(settings.get("enable_reality_first_reasoning", self.config.get("enable_reality_first_reasoning", True))):
+        if bool(settings.get("enable_reality_first_reasoning", self.config.get("enable_reality_first_reasoning", True))) and not bool(settings.get("_skip_epistemic_for_turn")):
             epistemic = analyze_epistemic_request(
                 user_message,
                 route_category="web_research" if bloodhound_query else route_decision.category,
@@ -639,7 +1033,7 @@ class NexusCore:
         else:
             epistemic = None
             self.last_epistemic_assessment = {"enabled": False}
-        timings["epistemic_analysis"] = time.perf_counter() - epistemic_start
+        timings["epistemic_ms"] = _elapsed_ms(epistemic_start)
 
         plan_start = time.perf_counter()
         plan = plan_response(
@@ -649,7 +1043,7 @@ class NexusCore:
             route_reason="bloodhound_search_detected" if bloodhound_query else route_decision.reason,
             settings=settings,
         )
-        timings["response_planning"] = time.perf_counter() - plan_start
+        timings["planner_ms"] = _elapsed_ms(plan_start)
         self.last_response_plan = plan.to_dict()
         logger.info(
             "Response plan intent=%s mode=%s max_tokens=%s provider_order=%s",
@@ -670,9 +1064,125 @@ class NexusCore:
             "tags": route_decision.tags,
             "response_mode": plan.mode,
             "response_intent": plan.intent,
+            "context_policy": plan.context_policy,
+            "conversation_intelligence": plan.diagnostics.get("conversation_intelligence", {}),
+            "topic_handling": plan.diagnostics.get("analysis", {}).get("topic_handling", {}),
             "bloodhound_query": bloodhound_query,
             "reality_research_query": reality_research_query,
         }
+
+        pragmatic_function = str(plan.diagnostics.get("analysis", {}).get("pragmatics", {}).get("function") or "")
+        topic_handling = dict(plan.diagnostics.get("analysis", {}).get("topic_handling") or {})
+        topic_category = str(topic_handling.get("category") or "")
+        followup_functions = {
+            "agreement",
+            "proceed",
+            "choose_option",
+            "choose_all",
+            "continue_previous",
+            "rejection",
+            "backchannel_acknowledgment",
+        }
+
+        if plan.intent == "opinion_rating" and pragmatic_function == "risk_assessment":
+            answer = "Maybe, but I need the situation first. Tell me what happened and I'll give you the blunt read."
+            verification = verify_response(answer, tool_confirmed=True)
+            completion = validate_response_against_plan(answer, plan)
+            timings["provider_first_token_ms"] = 0.0
+            timings["provider_total_ms"] = 0.0
+            timings["total_ms"] = _elapsed_ms(started)
+            self.last_verification = verification.to_dict()
+            self.last_reality_audit = {"enabled": False, "reason": "slang_risk_fast_path"}
+            self.last_trust_audit = {}
+            log_verification(verification, "slang_risk_fast_path")
+            self.last_provider_result = {
+                "text": answer,
+                "provider": "local_fast_path",
+                "model": "",
+                "elapsed": float(timings["total_ms"]) / 1000.0,
+                "success": True,
+                "attempts": [{"provider": "local_fast_path", "success": True}],
+                "fallback_reason": "",
+                "response_completion": completion,
+                "planned_tokens": plan.max_tokens,
+                "timings": timings,
+                "provider_order": list(settings.get("provider_order") or []),
+                "retrieval": {"enabled": False, "used_count": 0, "skipped_reason": "slang_risk_fast_path"},
+                "sources": 0,
+            }
+            self.last_retrieval = self.last_provider_result["retrieval"]
+            self._record_response_self_critic(user_message, answer, plan, settings)
+            yield answer
+            return
+
+        if (
+            plan.intent in {"casual_followup", "conversation_followup"}
+            and pragmatic_function in followup_functions
+            and not self._immediate_previous_assistant(messages)
+            and topic_category != "direct_harmful_instruction"
+        ):
+            answer = self._conversation_followup_reply(user_message, messages)
+            verification = verify_response(answer, tool_confirmed=True)
+            completion = validate_response_against_plan(answer, plan)
+            timings["provider_first_token_ms"] = 0.0
+            timings["provider_total_ms"] = 0.0
+            timings["total_ms"] = _elapsed_ms(started)
+            self.last_verification = verification.to_dict()
+            self.last_reality_audit = {"enabled": False, "reason": "conversation_followup_needs_clarification"}
+            self.last_trust_audit = {}
+            log_verification(verification, "conversation_followup_needs_clarification")
+            self.last_provider_result = {
+                "text": answer,
+                "provider": "local_followup_clarification",
+                "model": "",
+                "elapsed": float(timings["total_ms"]) / 1000.0,
+                "success": True,
+                "attempts": [{"provider": "local_followup_clarification", "success": True}],
+                "fallback_reason": "",
+                "response_completion": completion,
+                "planned_tokens": plan.max_tokens,
+                "timings": timings,
+                "provider_order": list(settings.get("provider_order") or []),
+                "retrieval": {"enabled": False, "used_count": 0, "skipped_reason": "no_immediate_followup_context"},
+                "topic_handling": topic_handling,
+                "sources": 0,
+            }
+            self.last_retrieval = self.last_provider_result["retrieval"]
+            self._record_response_self_critic(user_message, answer, plan, settings)
+            yield answer
+            return
+
+        if topic_category == "direct_harmful_instruction":
+            answer = self._topic_aware_redirect(user_message)
+            verification = verify_response(answer, tool_confirmed=True)
+            completion = validate_response_against_plan(answer, plan)
+            timings["provider_first_token_ms"] = 0.0
+            timings["provider_total_ms"] = 0.0
+            timings["total_ms"] = _elapsed_ms(started)
+            self.last_verification = verification.to_dict()
+            self.last_reality_audit = {"enabled": False, "reason": "topic_aware_direct_harm_redirect"}
+            self.last_trust_audit = {}
+            log_verification(verification, "topic_aware_direct_harm_redirect")
+            self.last_provider_result = {
+                "text": answer,
+                "provider": "local_topic_handler",
+                "model": "",
+                "elapsed": float(timings["total_ms"]) / 1000.0,
+                "success": True,
+                "attempts": [{"provider": "local_topic_handler", "success": True}],
+                "fallback_reason": "",
+                "response_completion": completion,
+                "planned_tokens": plan.max_tokens,
+                "timings": timings,
+                "provider_order": list(settings.get("provider_order") or []),
+                "retrieval": {"enabled": False, "used_count": 0, "skipped_reason": "topic_aware_direct_harm_redirect"},
+                "topic_handling": topic_handling,
+                "sources": 0,
+            }
+            self.last_retrieval = self.last_provider_result["retrieval"]
+            self._record_response_self_critic(user_message, answer, plan, settings)
+            yield answer
+            return
 
         if settings.get("enable_reality_research_agent", True) and reality_research_query:
             if plan.acknowledge:
@@ -723,6 +1233,7 @@ class NexusCore:
                 "memory_saved": report.memory_saved,
                 "errors": report.errors,
             }
+            self._record_response_self_critic(user_message, answer, plan, settings)
             yield answer
             return
 
@@ -759,6 +1270,7 @@ class NexusCore:
                 "coverage": result.get("coverage", {}),
                 "errors": result.get("errors", []),
             }
+            self._record_response_self_critic(user_message, answer, plan, settings)
             yield answer
             return
 
@@ -793,6 +1305,7 @@ class NexusCore:
                 "elapsed": time.perf_counter() - started,
                 "response_completion": completion,
             }
+            self._record_response_self_critic(user_message, answer, plan, settings)
             yield answer
             return
 
@@ -800,11 +1313,44 @@ class NexusCore:
         prompt_settings["_memory_context_override"] = memory_context
         if epistemic is not None:
             prompt_settings["_epistemic_instruction"] = epistemic.constraints.instruction
+        context_policy = str(plan.context_policy or plan.diagnostics.get("context_policy") or "none")
+        conversation_intelligence = dict(plan.diagnostics.get("conversation_intelligence") or {})
+        if context_policy in {"none", "immediate_turn_only"}:
+            prompt_settings["_minimal_context_for_turn"] = True
+            prompt_settings["_memory_context_override"] = ""
+            prompt_settings["use_memory"] = False
+            prompt_settings["use_knowledge_for_chat"] = False
+            prompt_settings["use_web_for_chat"] = False
+        if context_policy == "immediate_turn_only" and str(conversation_intelligence.get("function") or "") in followup_functions:
+            prompt_settings["_minimal_context_for_turn"] = True
+            prompt_settings["_include_immediate_previous_assistant"] = True
+            if str(conversation_intelligence.get("function") or "") == "backchannel_acknowledgment":
+                prompt_settings["_include_immediate_previous_user"] = True
+            prompt_settings["_memory_context_override"] = ""
+            prompt_settings["use_memory"] = False
+            prompt_settings["use_knowledge_for_chat"] = False
+        elif context_policy == "project_memory":
+            prompt_settings["use_memory"] = True
+            prompt_settings["use_knowledge_for_chat"] = False
+        elif context_policy == "file_knowledge":
+            prompt_settings["use_knowledge_for_chat"] = True
+        elif context_policy == "diagnostics":
+            prompt_settings["_minimal_context_for_turn"] = True
+            prompt_settings["_memory_context_override"] = ""
+            prompt_settings["use_memory"] = False
+            prompt_settings["use_knowledge_for_chat"] = False
         prompt_start = time.perf_counter()
-        prompt, context = self.build_chat_prompt(user_message, messages, prompt_settings, route_decision, simple_mode=plan.intent == "simple_fact")
+        prompt, context = self.build_chat_prompt(
+            user_message,
+            messages,
+            prompt_settings,
+            route_decision,
+            simple_mode=plan.intent in {"casual_chat", "simple_fact", "math"},
+        )
         prompt = self.build_planned_chat_prompt(prompt, plan)
-        timings["prompt_build"] = time.perf_counter() - prompt_start
+        timings["context_ms"] = _elapsed_ms(prompt_start)
         retrieval_meta = dict(self.last_retrieval or {})
+        timings["retrieval_ms"] = float(retrieval_meta.get("elapsed_ms", 0.0) or 0.0)
         source_count = int(retrieval_meta.get("used_count", 0) or 0)
         options = dict(route_decision.generation_options or {})
         options["num_predict"] = int(plan.max_tokens)
@@ -813,6 +1359,7 @@ class NexusCore:
             options["temperature"] = min(float(options.get("temperature", 0.7)), 0.7)
         elif plan.mode in {"deep", "research"}:
             options["temperature"] = max(float(options.get("temperature", 0.75)), 0.8)
+        options = self._apply_throughput_profile(options, settings, plan)
         request = self._provider_request(
             prompt,
             settings,
@@ -853,11 +1400,22 @@ class NexusCore:
             }
             self.last_verification = verification.to_dict()
             log_verification(verification, "local_knowledge_fallback")
+            self._record_response_self_critic(user_message, answer, plan, settings)
             yield answer
             return
-        # For simple answers, use shorter timeout
-        if plan.intent == "simple_fact" or plan.mode == "short":
-            request.timeout = min(request.timeout, 60.0)
+        # For simple answers, use shorter timeout unless the selected local model has a slow first-token window.
+        if self._uses_slow_startup_ollama_model(request.model):
+            request.timeout = max(min(request.timeout, SLOW_STARTUP_OLLAMA_READ_TIMEOUT), 75.0)
+        elif plan.intent == "casual_chat":
+            request.timeout = min(request.timeout, 12.0)
+        elif plan.intent == "simple_fact":
+            request.timeout = min(request.timeout, 12.0)
+        elif plan.intent == "creative":
+            request.timeout = min(request.timeout, 45.0)
+        elif plan.mode == "short":
+            request.timeout = min(request.timeout, 25.0)
+        elif plan.intent in {"debugging", "troubleshooting", "project_planning"}:
+            request.timeout = min(request.timeout, 45.0)
         chunks: list[str] = []
         if plan.acknowledge:
             chunks.append(plan.acknowledgement)
@@ -865,10 +1423,20 @@ class NexusCore:
         provider_start = time.perf_counter()
         provider_raw_chunks: list[str] = []
         provider_visible_chunks: list[str] = []
+        first_provider_chunk_at: float | None = None
         guard_buffer = ""
         visible_stream_started = False
-        suppress_provider_stream = False
+        social_presence_turn = self._is_social_presence_turn(plan)
+        suppress_provider_stream = social_presence_turn or topic_category in {
+            "sensitive_discussion",
+            "fictional_or_roleplay",
+            "educational_context",
+            "risk_analysis",
+        }
         for chunk in self.provider_router.stream(request):
+            if first_provider_chunk_at is None:
+                first_provider_chunk_at = time.perf_counter()
+                timings["provider_first_token_ms"] = _elapsed_ms(provider_start, first_provider_chunk_at)
             provider_raw_chunks.append(chunk)
             if suppress_provider_stream:
                 continue
@@ -888,11 +1456,15 @@ class NexusCore:
             provider_visible_chunks.append(chunk)
             chunks.append(chunk)
             yield chunk
-        timings["provider_call"] = time.perf_counter() - provider_start
+        timings["provider_total_ms"] = _elapsed_ms(provider_start)
         provider_meta = dict(getattr(self.provider_router, "last_stream_metadata", {}) or {})
+        provider_speed = dict(provider_meta.get("throughput") or {})
         provider_raw_answer = "".join(provider_raw_chunks).strip()
         if suppress_provider_stream or not provider_visible_chunks:
             provider_answer = self._clean_model_answer(provider_raw_answer)
+            provider_answer = self._repair_social_presence_answer(provider_answer, user_message, plan)
+            if topic_category != "direct_harmful_instruction" and self._looks_like_generic_refusal(provider_answer):
+                provider_answer = self._topic_aware_discussion_fallback(user_message, topic_category)
             if provider_answer:
                 chunks.append(provider_answer)
                 yield provider_answer
@@ -903,8 +1475,17 @@ class NexusCore:
 
         answer = "".join(chunks).strip()
         answer = self._clean_model_answer(answer)
+        answer = self._repair_social_presence_answer(answer, user_message, plan)
         if not answer:
-            answer = "Fallback: provider returned no visible assistant response. Check Diagnostics for provider attempts."
+            reason = str(provider_meta.get("fallback_reason") or provider_meta.get("error") or "").strip()
+            if not reason:
+                failed = [
+                    str(item.get("error") or item.get("reason") or "").strip()
+                    for item in provider_meta.get("attempts", [])
+                    if item and not item.get("success") and str(item.get("error") or item.get("reason") or "").strip()
+                ]
+                reason = failed[0] if failed else "Provider stream ended without visible text."
+            answer = f"Fallback: provider returned no visible assistant response. Reason: {reason}"
             chunks.append(answer)
             yield answer
         audited_answer = self._audit_answer(
@@ -922,15 +1503,32 @@ class NexusCore:
             if note:
                 yield note
             answer = audited_answer
+        self._record_response_self_critic(user_message, answer, plan, settings)
         provider_result = ProviderResult(
             text=answer,
             provider=str(provider_meta.get("provider") or ";".join(request.provider_order or [])),
             model=str(provider_meta.get("model") or request.model),
             elapsed=time.perf_counter() - started,
-            success=bool(answer),
+            success=bool(provider_meta.get("success", bool(answer))),
         )
         verification = verify_response(answer, source_count=source_count, tool_confirmed=False, web_used=False)
         completion = validate_response_against_plan(answer, plan)
+        timings["total_ms"] = _elapsed_ms(started)
+        output_tokens_estimate = _estimate_output_tokens(answer)
+        provider_seconds = max(float(timings.get("provider_total_ms", 0.0) or 0.0) / 1000.0, 0.001)
+        timings["output_tokens_estimate"] = output_tokens_estimate
+        timings["output_tokens_per_second_estimate"] = round(output_tokens_estimate / provider_seconds, 2)
+        if provider_speed.get("tokens_per_second"):
+            timings["provider_tokens_per_second"] = round(float(provider_speed["tokens_per_second"]), 2)
+        logger.info(
+            "Chat timings intent=%s mode=%s total_ms=%s provider_first_token_ms=%s provider_total_ms=%s retrieval_ms=%s",
+            plan.intent,
+            plan.mode,
+            timings.get("total_ms"),
+            timings.get("provider_first_token_ms"),
+            timings.get("provider_total_ms"),
+            timings.get("retrieval_ms"),
+        )
         self.last_provider_result = provider_result.to_dict() | {
             "context_tokens_estimate": context.estimated_tokens,
             "context_trimmed": context.trimmed,
@@ -942,6 +1540,14 @@ class NexusCore:
             "fallback_reason": provider_meta.get("fallback_reason", ""),
             "retrieval": retrieval_meta,
             "sources": source_count,
+            "throughput": {
+                "mode": str(settings.get("throughput_mode") or "balanced"),
+                "target_tokens_per_second": int(settings.get("target_tokens_per_second") or 0),
+                "output_tokens_estimate": output_tokens_estimate,
+                "output_tokens_per_second_estimate": timings["output_tokens_per_second_estimate"],
+                "provider_tokens_per_second": timings.get("provider_tokens_per_second"),
+                "provider_reported": provider_speed,
+            },
         }
         self.last_verification = verification.to_dict()
         log_verification(verification, "chat")

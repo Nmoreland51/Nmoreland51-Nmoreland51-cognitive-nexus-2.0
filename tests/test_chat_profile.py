@@ -10,6 +10,7 @@ from modules.chat_profile import (
     load_chat_profile,
     save_chat_profile,
 )
+from modules.internal_prompts import build_locked_system_prompt
 
 
 class ChatProfileTests(unittest.TestCase):
@@ -33,6 +34,9 @@ class ChatProfileTests(unittest.TestCase):
                 user_name="Morgan",
                 assistant_name="Iris",
                 creative_min_words=650,
+                humor_level="balanced",
+                humor_style="dry_deadpan",
+                humor_notes="Use one quick aside when the moment has room.",
                 additional_instructions="Keep the voice sharp.",
             ),
             self.profile_path,
@@ -42,6 +46,9 @@ class ChatProfileTests(unittest.TestCase):
         self.assertEqual(saved.user_name, "Morgan")
         self.assertEqual(reloaded.assistant_name, "Iris")
         self.assertEqual(reloaded.creative_min_words, 650)
+        self.assertEqual(reloaded.humor_level, "balanced")
+        self.assertEqual(reloaded.humor_style, "dry_deadpan")
+        self.assertIn("quick aside", reloaded.humor_notes)
 
     def test_system_prompt_includes_persona_and_safety(self):
         prompt = build_chat_system_prompt(ChatProfile())
@@ -50,6 +57,15 @@ class ChatProfileTests(unittest.TestCase):
         self.assertIn("user", prompt)
         self.assertIn("consensual adult fictional content", prompt)
         self.assertIn("Do not reveal hidden reasoning", prompt)
+        self.assertIn("Humor layer", prompt)
+        self.assertIn("warm wit", prompt)
+
+    def test_locked_prompt_includes_humor_as_style_guidance(self):
+        prompt = build_locked_system_prompt(ChatProfile(humor_level="bold", humor_style="playful_spark"))
+
+        self.assertIn("Humor layer: bold", prompt)
+        self.assertIn("playful spark", prompt)
+        self.assertIn("optional texture", prompt)
 
     def test_greeting_lists_capabilities_and_limits(self):
         greeting = build_capability_greeting(ChatProfile())

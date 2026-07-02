@@ -65,6 +65,16 @@ def _optional_available(module_name: str) -> bool:
     return importlib.util.find_spec(module_name) is not None
 
 
+def _needs_slow_startup_timeout(model: str) -> bool:
+    """Return True for local Ollama models that often need a longer first-token window."""
+
+    normalized = str(model or "").lower()
+    return "blackhillsinfosec/" in normalized or "abliterated" in normalized
+
+
+SLOW_STARTUP_OLLAMA_READ_TIMEOUT = 180.0
+
+
 class ProviderRouter:
     """Detect and call configured providers with graceful fallback."""
 
@@ -74,6 +84,7 @@ class ProviderRouter:
         self._hf_pipeline = None
         self._session = requests.Session()
         self.last_stream_metadata: dict[str, Any] = {}
+        self._last_ollama_throughput: dict[str, Any] = {}
 
     def invalidate_status_cache(self) -> None:
         self._status_cache.clear()
@@ -191,7 +202,8 @@ class ProviderRouter:
                 text = "".join(self.stream(request, preferred_provider=provider))
                 stream_meta = dict(self.last_stream_metadata or {})
                 elapsed = time.perf_counter() - started
-                if text.strip():
+                stream_success = bool(stream_meta.get("success", bool(text.strip())))
+                if text.strip() and stream_success:
                     return ProviderResult(
                         text=text.strip(),
                         provider=str(stream_meta.get("provider") or provider),
@@ -199,6 +211,17 @@ class ProviderRouter:
                         success=True,
                         elapsed=elapsed,
                         attempts=stream_meta.get("attempts", attempts),
+                    )
+                if text.strip() and not stream_success:
+                    attempts.extend(stream_meta.get("attempts", []))
+                    return ProviderResult(
+                        text=text.strip(),
+                        provider=str(stream_meta.get("provider") or provider),
+                        model=str(stream_meta.get("model") or request.model or (info.models[0] if info.models else "")),
+                        success=False,
+                        error=str(stream_meta.get("fallback_reason") or "No provider returned a usable response."),
+                        elapsed=elapsed,
+                        attempts=attempts,
                     )
                 attempts.append({"provider": provider, "success": False, "error": "Empty response."})
             except Exception as exc:
@@ -244,8 +267,14 @@ class ProviderRouter:
             try:
                 model, model_note = self._resolve_model(request, info)
                 if provider == "ollama":
+                    yielded_any = False
                     for chunk in self._stream_ollama(request, info, model):
+                        yielded_any = True
                         yield chunk
+                    if not yielded_any:
+                        last_error = model_note or f"{provider}: empty response from model '{model or request.model or 'unknown'}'."
+                        attempts.append({"provider": provider, "success": False, "error": last_error})
+                        continue
                     attempt = {"provider": provider, "success": True}
                     if model_note:
                         attempt["note"] = model_note
@@ -257,6 +286,7 @@ class ProviderRouter:
                         "attempts": attempts,
                         "fallback_reason": "",
                         "model_note": model_note,
+                        "throughput": dict(self._last_ollama_throughput or {}),
                     }
                     return
                 if provider == "openai":
@@ -322,36 +352,63 @@ class ProviderRouter:
         yield f"{FALLBACK_RESPONSE}\n\nProvider error: {last_error}".strip()
 
     def _stream_ollama(self, request: ProviderRequest, info: ProviderInfo, model: str = "") -> Generator[str, None, None]:
+        self._last_ollama_throughput = {}
         model = model or self._resolve_model(request, info)[0]
         if not model:
-            yield FALLBACK_RESPONSE
-            return
+            raise RuntimeError("Ollama is available but no usable model could be selected.")
         base_url = (request.base_url or info.base_url or str(self.config.get("ollama_url"))).rstrip("/")
         payload: dict[str, Any] = {
             "model": model,
             "prompt": request.prompt,
             "stream": True,
-            "keep_alive": "30m",
+            "keep_alive": str(self.config.get("ollama_keep_alive", "30m")),
         }
-        if request.options:
-            payload["options"] = dict(request.options)
+        options = dict(request.options or {})
+        if options.get("keep_alive"):
+            payload["keep_alive"] = str(options.pop("keep_alive"))
+        options.setdefault("num_predict", int(request.max_tokens or 512))
+        options.setdefault("num_ctx", 2048)
+        payload["options"] = options
 
+        read_timeout = max(float(request.timeout or 0), 10.0)
+        if _needs_slow_startup_timeout(model):
+            read_timeout = max(read_timeout, SLOW_STARTUP_OLLAMA_READ_TIMEOUT)
         response = OLLAMA_SESSION.post(
             f"{base_url}/api/generate",
             json=payload,
-            timeout=(8.0, max(float(request.timeout or 0), 120.0)),
+            timeout=(5.0, read_timeout),
             stream=True,
         )
         response.raise_for_status()
+        yielded_any = False
         for line in response.iter_lines(decode_unicode=True):
             if not line:
                 continue
             data = json.loads(line)
             chunk = str(data.get("response", ""))
             if chunk:
+                yielded_any = True
                 yield chunk
             if data.get("done"):
+                if not yielded_any:
+                    raise RuntimeError(f"Ollama model '{model}' returned an empty response.")
+                eval_count = int(data.get("eval_count") or 0)
+                eval_duration = int(data.get("eval_duration") or 0)
+                prompt_eval_count = int(data.get("prompt_eval_count") or 0)
+                prompt_eval_duration = int(data.get("prompt_eval_duration") or 0)
+                tokens_per_second = 0.0
+                if eval_count > 0 and eval_duration > 0:
+                    tokens_per_second = eval_count / (eval_duration / 1_000_000_000)
+                self._last_ollama_throughput = {
+                    "eval_count": eval_count,
+                    "eval_duration_ns": eval_duration,
+                    "prompt_eval_count": prompt_eval_count,
+                    "prompt_eval_duration_ns": prompt_eval_duration,
+                    "tokens_per_second": round(tokens_per_second, 2) if tokens_per_second else 0.0,
+                }
                 return
+        if not yielded_any:
+            raise RuntimeError(f"Ollama model '{model}' stream ended without text.")
 
     def _generate_openai(self, request: ProviderRequest, info: ProviderInfo) -> str:
         api_key = os.environ["OPENAI_API_KEY"]

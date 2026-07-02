@@ -10,6 +10,15 @@ from __future__ import annotations
 from typing import Any
 
 
+HUMOR_STYLE_LABELS = {
+    "warm_wit": "warm wit",
+    "dry_deadpan": "dry deadpan",
+    "playful_spark": "playful spark",
+    "nerdy_asides": "nerdy asides",
+    "gentle_sarcasm": "gentle sarcasm",
+}
+
+
 LOCKED_SYSTEM_PROMPT = """\
 You are Cognitive Nexus AI, a local-first assistant running inside the user's private workspace.
 Operate as a capable engineering, research, writing, and planning assistant.
@@ -42,6 +51,8 @@ def build_locked_system_prompt(profile: Any | None = None) -> str:
 
     lines = [LOCKED_SYSTEM_PROMPT.strip()]
     if profile is not None and getattr(profile, "enabled", False):
+        humor_level = str(getattr(profile, "humor_level", "light") or "light")
+        humor_style = str(getattr(profile, "humor_style", "warm_wit") or "warm_wit")
         lines.extend(
             [
                 "",
@@ -52,7 +63,10 @@ def build_locked_system_prompt(profile: Any | None = None) -> str:
                 f"- Tone notes: {getattr(profile, 'tone_notes', '')}",
                 f"- Style notes: {getattr(profile, 'style_notes', '')}",
                 f"- Additional preferences: {getattr(profile, 'additional_instructions', '')}",
+                f"- Humor layer: {humor_level}; style: {HUMOR_STYLE_LABELS.get(humor_style, 'warm wit')}",
+                f"- Humor notes: {getattr(profile, 'humor_notes', '')}",
                 "Apply these preferences only when they fit the task and do not conflict with internal operating rules.",
+                "Humor should be optional texture, never a substitute for accuracy, empathy, or task completion.",
             ]
         )
     lines.extend(["", ROUTE_QUALITY_CHECKLIST.strip()])

@@ -12,6 +12,8 @@ import streamlit as st
 
 from modules.chat_profile import (
     ChatProfile,
+    HUMOR_LEVEL_OPTIONS,
+    HUMOR_STYLE_OPTIONS,
     load_chat_profile,
     save_chat_profile,
 )
@@ -82,6 +84,7 @@ SESSION_DIAGNOSTIC_KEYS = (
     "last_provider_result",
     "last_verification",
     "last_response_plan",
+    "last_response_critic",
     "last_reality_audit",
     "last_trust_audit",
     "last_epistemic_assessment",
@@ -122,7 +125,6 @@ def demo_safe_status(enabled: bool) -> str:
 
 
 def sanitize_demo_text(value: Any) -> str:
-    """Hide local paths and environment-specific details for demo surfaces."""
     text = str(value or "")
     if not text:
         return ""
@@ -156,8 +158,6 @@ def sanitize_demo_rows(rows: list[dict[str, Any]], *, enabled: bool) -> list[dic
 
 
 def normalize_assistant_response(response: Any) -> str:
-    """Convert Streamlit streamed return values into saved assistant text."""
-
     if response is None:
         return ""
     if isinstance(response, str):
@@ -168,8 +168,6 @@ def normalize_assistant_response(response: Any) -> str:
 
 
 def empty_assistant_response_message(provider_result: dict[str, Any] | None = None) -> str:
-    """Visible fallback for a provider/planner path that returned no text."""
-
     provider_result = provider_result or {}
     reason = str(provider_result.get("fallback_reason") or provider_result.get("error") or "").strip()
     if reason:
@@ -178,8 +176,6 @@ def empty_assistant_response_message(provider_result: dict[str, Any] | None = No
 
 
 def persist_assistant_response(response: Any, provider_result: dict[str, Any] | None = None) -> str:
-    """Save a non-empty assistant response to local chat history."""
-
     response_text = normalize_assistant_response(response)
     if not response_text:
         response_text = empty_assistant_response_message(provider_result)
@@ -188,9 +184,43 @@ def persist_assistant_response(response: Any, provider_result: dict[str, Any] | 
     return response_text
 
 
+def merge_chat_timing_trace(
+    provider_result: dict[str, Any] | None,
+    *,
+    turn_started: float,
+    render_ms: float,
+    save_ms: float,
+) -> dict[str, Any]:
+    result = dict(provider_result or {})
+    timings = dict(result.get("timings") or {})
+    timings["render_ms"] = round(float(render_ms), 1)
+    timings["save_chat_history_ms"] = round(float(save_ms), 1)
+    timings["total_ms"] = round((time.perf_counter() - turn_started) * 1000, 1)
+    result["timings"] = timings
+    result["elapsed"] = round(float(timings["total_ms"]) / 1000.0, 3)
+    return result
+
+
 @st.cache_resource
 def get_nexus_core() -> NexusCore:
     return NexusCore(PROJECT_ROOT)
+
+
+def sync_core_diagnostics(core: NexusCore | None = None) -> None:
+    """Copy core diagnostics into session state, tolerating cached older core objects."""
+
+    core = core or get_nexus_core()
+    st.session_state.last_route_decision = getattr(core, "last_route_decision", {})
+    st.session_state.last_provider_result = getattr(core, "last_provider_result", {})
+    st.session_state.last_verification = getattr(core, "last_verification", {})
+    st.session_state.last_response_plan = getattr(core, "last_response_plan", {})
+    st.session_state.last_response_critic = getattr(core, "last_response_critic", {})
+    st.session_state.last_reality_audit = getattr(core, "last_reality_audit", {})
+    st.session_state.last_trust_audit = getattr(core, "last_trust_audit", {})
+    st.session_state.last_epistemic_assessment = getattr(core, "last_epistemic_assessment", {})
+    st.session_state.last_reality_research_report = getattr(core, "last_reality_research_report", {})
+    st.session_state.last_retrieval = getattr(core, "last_retrieval", {})
+    st.session_state.last_memory = getattr(core, "last_memory", {})
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -297,13 +327,42 @@ def record_perf(label: str, elapsed: float, settings: Optional[dict[str, Any]] =
     del timings[:-30]
 
 
-def get_chat_model(models: list[str]) -> str:
+def should_show_plan_caption(settings: dict[str, Any], plan: dict[str, Any]) -> bool:
+    if not plan:
+        return False
+    router_config = settings.get("router_config")
+    router_debug = bool(getattr(router_config, "show_debug", False))
+    return bool(settings.get("advanced_mode") or router_debug)
+
+
+THROUGHPUT_MODES = ["balanced", "fast", "turbo"]
+FAST_MODEL_HINTS = (
+    "qwen2.5:0.5b",
+    "qwen2.5:1.5b",
+    "llama3.2:1b",
+    "gemma2:2b",
+    "phi3:mini",
+    "phi3.5:mini",
+    "llama3.2:3b",
+    "llama3.2",
+)
+
+
+def get_chat_model(models: list[str], throughput_mode: str = "balanced") -> str:
+    if throughput_mode in {"fast", "turbo"}:
+        non_embedding = [model for model in models if "embed" not in model.lower()]
+        for preferred in FAST_MODEL_HINTS:
+            preferred_base = preferred.split(":", 1)[0].lower()
+            for model in non_embedding:
+                model_base = model.split(":", 1)[0].lower()
+                if model.lower() == preferred.lower() or model_base == preferred_base:
+                    return model
     preferred_models = [
-        "llama3.2:3b",  # Fast model
         "BlackHillsInfoSec/llama-3.1-8b-abliterated:latest",
-        "mannix/llama3.1-8b-abliterated:latest",
         "BlackHillsInfoSec/llama-3.1-8b-abliterated",
+        "mannix/llama3.1-8b-abliterated:latest",
         "mannix/llama3.1-8b-abliterated",
+        "llama3.2:3b",
         "dolphin-llama3:8b",
         "dolphin-llama3:latest",
         "dolphin-llama3:70b",
@@ -321,16 +380,12 @@ def clear_chat_state() -> None:
 
 
 def reset_session_state() -> None:
-    """Reset transient chat, diagnostics, timings, and demo data without deleting knowledge files."""
-
     clear_chat_state()
     for key in SESSION_DIAGNOSTIC_KEYS:
         st.session_state.pop(key, None)
 
 
 def normalize_provider_order(selection: list[str], provider_options: list[str]) -> list[str]:
-    """Keep provider order valid and force fallback to remain the last safety net."""
-
     valid = set(provider_options)
     normalized: list[str] = []
     for provider in selection:
@@ -382,9 +437,29 @@ def render_sidebar(
         else:
             st.caption(f"Endpoint: {status.base_url}")
 
+        throughput_mode = st.selectbox(
+            "Throughput profile",
+            THROUGHPUT_MODES,
+            index=1,
+            format_func=lambda value: {
+                "balanced": "Balanced quality",
+                "fast": "Fast",
+                "turbo": "Turbo / shortest path",
+            }[value],
+            help="Fast and Turbo reduce context overhead and use speed-friendly local generation options. Actual tokens/sec depends on model and hardware.",
+        )
+        target_tokens_per_second = st.slider(
+            "Target tokens/sec",
+            10,
+            200,
+            60 if throughput_mode == "fast" else 120 if throughput_mode == "turbo" else 30,
+            step=10,
+            help="Planning target only. The Diagnostics tab reports measured throughput after each turn.",
+        )
+
         selected_model = None
         if status.models:
-            default_model = get_chat_model(status.models)
+            default_model = get_chat_model(status.models, throughput_mode)
             default_index = status.models.index(default_model) if default_model in status.models else 0
             selected_model = st.selectbox("Chat model", status.models, index=default_index)
         else:
@@ -455,6 +530,11 @@ def render_sidebar(
         bloodhound_enable_cache = bool(core_status.get("config", {}).get("enable_search_cache", True))
         bloodhound_enable_onion = bool(core_status.get("config", {}).get("enable_onion_search", False))
 
+        safety_level = "balanced"
+        allow_nsfw = True
+        allow_controversial = True
+        allow_technical_dark = True
+
         manual_disabled = bool(auto_precision_mode)
         with st.expander("Advanced Overrides", expanded=not auto_precision_mode):
             if auto_precision_mode:
@@ -495,6 +575,17 @@ def render_sidebar(
                 disabled=manual_disabled or not status.models,
             )
             show_route_debug = st.checkbox("Show routing debug", value=show_route_debug, disabled=manual_disabled)
+
+            st.markdown("**Safety Controls (Unhinged Mode)**")
+            safety_level = st.select_slider(
+                "Safety level",
+                options=["strict", "balanced", "loose", "unhinged"],
+                value=safety_level,
+                disabled=manual_disabled,
+            )
+            allow_nsfw = st.checkbox("Allow NSFW / adult content", value=allow_nsfw, disabled=manual_disabled)
+            allow_controversial = st.checkbox("Allow controversial / political", value=allow_controversial, disabled=manual_disabled)
+            allow_technical_dark = st.checkbox("Allow dark technical / hypotheticals", value=allow_technical_dark, disabled=manual_disabled)
 
             st.markdown("**Response controls**")
             response_mode = st.selectbox(
@@ -698,12 +789,15 @@ def render_sidebar(
             "auto_precision_mode": auto_precision_mode,
             "generation_timeout": float(generation_timeout),
             "provider_order": provider_order,
+            "throughput_mode": throughput_mode,
+            "target_tokens_per_second": int(target_tokens_per_second),
             "max_context_chars": int(max_context_chars),
             "recent_message_limit": int(recent_message_limit),
             "response_mode": response_mode,
             "verbosity_level": int(verbosity_level),
             "reasoning_depth": int(reasoning_depth),
             "staged_streaming": bool(staged_streaming),
+            "enable_response_self_critic": True,
             "enable_reality_grounding": bool(enable_reality_grounding),
             "enable_reality_first_reasoning": bool(enable_reality_first_reasoning),
             "enable_reality_research_agent": bool(reality_research_enabled),
@@ -725,6 +819,12 @@ def render_sidebar(
             "reality_research_use_ai": True,
             "comfyui_url": comfyui_url.rstrip("/"),
             "chat_profile": profile,
+            "safety_config": {
+                "level": safety_level,
+                "allow_nsfw": allow_nsfw,
+                "allow_controversial": allow_controversial,
+                "allow_technical_dark": allow_technical_dark,
+            },
             "router_config": RouterConfig(
                 enabled=enable_router,
                 god_mode=god_mode,
@@ -802,17 +902,9 @@ def is_capability_question(message: str) -> bool:
 
 def generate_chat_response(user_message: str, settings: dict[str, Any]) -> str:
     started = time.perf_counter()
-    response = get_nexus_core().generate_chat_response(user_message, get_messages(), settings)
-    st.session_state.last_route_decision = get_nexus_core().last_route_decision
-    st.session_state.last_provider_result = get_nexus_core().last_provider_result
-    st.session_state.last_verification = get_nexus_core().last_verification
-    st.session_state.last_response_plan = get_nexus_core().last_response_plan
-    st.session_state.last_reality_audit = get_nexus_core().last_reality_audit
-    st.session_state.last_trust_audit = get_nexus_core().last_trust_audit
-    st.session_state.last_epistemic_assessment = get_nexus_core().last_epistemic_assessment
-    st.session_state.last_reality_research_report = get_nexus_core().last_reality_research_report
-    st.session_state.last_retrieval = get_nexus_core().last_retrieval
-    st.session_state.last_memory = get_nexus_core().last_memory
+    core = get_nexus_core()
+    response = core.generate_chat_response(user_message, get_messages(), settings)
+    sync_core_diagnostics(core)
     record_perf("chat.central_response", time.perf_counter() - started, settings)
     return response
 
@@ -933,6 +1025,17 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
     with st.chat_message("user"):
         st.markdown(user_message)
 
+    safety = settings.get("safety_config", {"level": "balanced", "allow_nsfw": True, "allow_controversial": True, "allow_technical_dark": True})
+    blocked = False
+    block_reason = None
+    if safety["level"] == "strict" and any(word in user_message.lower() for word in ["child", "underage", "cp", "illegal"]):
+        blocked = True
+        block_reason = "Strict safety: potential illegal content"
+    if blocked:
+        st.warning(f"🚫 BLOCKED: {block_reason}. Logged for audit.")
+        st.session_state.setdefault("safety_blocks", []).append({"message": user_message[:100], "reason": block_reason, "time": time.time()})
+        return
+
     with st.chat_message("assistant"):
         started = time.perf_counter()
         provider_order = list(settings.get("provider_order") or [])
@@ -952,23 +1055,8 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
             response_status.error(f"Response failed: {exc}")
             raise
         response_status.empty()
-        st.session_state.last_route_decision = get_nexus_core().last_route_decision
-        st.session_state.last_provider_result = get_nexus_core().last_provider_result
-        st.session_state.last_verification = get_nexus_core().last_verification
-        st.session_state.last_response_plan = get_nexus_core().last_response_plan
-        st.session_state.last_reality_audit = get_nexus_core().last_reality_audit
-        st.session_state.last_trust_audit = get_nexus_core().last_trust_audit
-        st.session_state.last_epistemic_assessment = get_nexus_core().last_epistemic_assessment
-        st.session_state.last_reality_research_report = get_nexus_core().last_reality_research_report
-        st.session_state.last_retrieval = get_nexus_core().last_retrieval
-        st.session_state.last_memory = get_nexus_core().last_memory
-        plan = st.session_state.last_response_plan or {}
+        sync_core_diagnostics()
         show_advanced_debug = settings.get("advanced_mode") or settings["router_config"].show_debug
-        if plan:
-            st.caption(
-                f"Planner: {plan.get('mode', 'auto')} / {plan.get('intent', 'unknown')} "
-                f"/ max {plan.get('max_tokens', '?')} tokens"
-            )
         if show_advanced_debug:
             audit = st.session_state.last_reality_audit or {}
             if audit.get("confidence"):
@@ -1352,8 +1440,6 @@ def render_comfyui_workflow_section(settings: dict[str, Any] | None = None) -> N
 
 
 def local_image_data_uri(path: Path) -> str:
-    """Return a browser-safe data URI for a local image file."""
-
     try:
         suffix = path.suffix.lower()
         mime = {
@@ -1378,8 +1464,6 @@ def gallery_card_html(
     file_name: str,
     details: str,
 ) -> str:
-    """Render a stable gallery tile without Streamlit's fragile image widget."""
-
     safe_prompt = html.escape(prompt.strip() or file_name)
     safe_provider = html.escape(provider.strip() or "unknown provider")
     safe_time = html.escape(timestamp.strip())
@@ -1872,11 +1956,19 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
             st.dataframe(sanitize_demo_rows(recent_images, enabled=demo_safe), width="stretch", hide_index=True)
 
     st.markdown("### Last Turn Trace")
-    trace_cols = st.columns(4)
+    throughput = dict(last_provider.get("throughput") or {})
+    timings = dict(last_provider.get("timings") or {})
+    measured_tps = throughput.get("provider_tokens_per_second") or throughput.get("output_tokens_per_second_estimate") or timings.get("provider_tokens_per_second") or timings.get("output_tokens_per_second_estimate")
+    trace_cols = st.columns(5)
     trace_cols[0].metric("Route", str(last_route.get("label") or last_route.get("category") or "No turn yet"))
     trace_cols[1].metric("Mode", str(last_plan.get("mode", "No plan yet")))
     trace_cols[2].metric("Model", str(last_provider.get("model") or settings.get("selected_model") or "None"))
     trace_cols[3].metric("Elapsed", f"{float(last_provider.get('elapsed', 0) or 0):.2f}s")
+    trace_cols[4].metric("Tok/s", f"{float(measured_tps or 0):.1f}" if measured_tps else "No turn yet")
+
+    if throughput:
+        with st.expander("Throughput", expanded=False):
+            st.json(throughput)
 
     attempts = last_provider.get("attempts") or []
     if attempts:
@@ -1992,10 +2084,25 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
         persona_summary = st.text_area("Persona summary", value=profile.persona_summary, height=100)
         tone_notes = st.text_area("Tone notes", value=profile.tone_notes, height=80)
         style_notes = st.text_area("Style notes", value=profile.style_notes, height=120)
+        humor_level = st.select_slider(
+            "Humor",
+            options=list(HUMOR_LEVEL_OPTIONS),
+            value=getattr(profile, "humor_level", "light"),
+        )
+        humor_styles = list(HUMOR_STYLE_OPTIONS)
+        current_humor_style = getattr(profile, "humor_style", "warm_wit")
+        if current_humor_style not in humor_styles:
+            current_humor_style = "warm_wit"
+        humor_style = st.selectbox(
+            "Humor style",
+            humor_styles,
+            index=humor_styles.index(current_humor_style),
+            format_func=lambda key: HUMOR_STYLE_OPTIONS.get(key, key),
+        )
+        humor_notes = st.text_area("Humor notes", value=getattr(profile, "humor_notes", ChatProfile.humor_notes), height=80)
         creative_min_words = st.number_input("Creative writing minimum words", min_value=0, max_value=2000, value=profile.creative_min_words)
         additional_instructions = st.text_area("Additional instructions", value=profile.additional_instructions, height=100)
 
-        # Added fields in form
         direct_language_for_adult_fiction = st.checkbox("Allow direct language for adult fiction", value=getattr(profile, 'direct_language_for_adult_fiction', True))
         show_capability_greeting = st.checkbox("Show greeting on fresh chat", value=getattr(profile, 'show_capability_greeting', True))
 
@@ -2008,6 +2115,9 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
                 persona_summary=persona_summary,
                 tone_notes=tone_notes,
                 style_notes=style_notes,
+                humor_level=humor_level,
+                humor_style=humor_style,
+                humor_notes=humor_notes,
                 creative_min_words=int(creative_min_words),
                 direct_language_for_adult_fiction=direct_language_for_adult_fiction,
                 show_capability_greeting=show_capability_greeting,
@@ -2024,7 +2134,6 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
 
 
 def load_demo_data():
-    """Load sample data for demonstration purposes"""
     if "messages" not in st.session_state or not st.session_state.messages:
         st.session_state.messages = [
             {"role": "user", "content": "What are the benefits of renewable energy?"},
@@ -2033,7 +2142,6 @@ def load_demo_data():
             {"role": "assistant", "content": "I've initiated a Reality-First Research on quantum computing developments. The research shows promising advances in error correction and qubit stability, with companies like IBM and Google achieving significant milestones in the past year."}
         ]
 
-    # Sample research report
     if "last_reality_research_report" not in st.session_state:
         from modules.reality_research_agent import ResearchReport
         sample_report = ResearchReport(
@@ -2055,7 +2163,6 @@ def load_demo_data():
         )
         st.session_state.last_reality_research_report = sample_report.to_dict()
 
-    # Sample performance timings
     if "perf_timings" not in st.session_state:
         st.session_state.perf_timings = [
             {"operation": "memory_context", "duration_ms": 45.2},
@@ -2153,16 +2260,13 @@ def main() -> None:
     core_status = get_cached_core_status(default_order)
     settings = render_sidebar(status, inventory, image_status, chat_profile, core_status)
 
-    # Auto-enable demo mode if environment variable set
     if os.getenv("COGNITIVE_NEXUS_DEMO") == "1":
         settings["demo_mode"] = True
 
-    # Load demo data if enabled and not already loaded
     if settings.get("demo_mode") and not st.session_state.get("demo_loaded"):
         load_demo_data()
         st.session_state.demo_loaded = True
     elif not settings.get("demo_mode") and st.session_state.get("demo_loaded"):
-        # Clear demo data when disabled
         if "messages" in st.session_state:
             st.session_state.messages = []
         st.session_state.demo_loaded = False
