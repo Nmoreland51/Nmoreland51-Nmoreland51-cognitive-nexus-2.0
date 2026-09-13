@@ -79,6 +79,8 @@ Present in current tree and unchanged by this PR scope:
    - Outcome: succeeded (Gradle 9.7.1 available).
 5. `cd android && gradle wrapper`
    - Outcome: failed to resolve Android Gradle Plugin artifact in this agent environment; Android build/test tasks therefore not executable here.
+6. `cd android && gradle :app:testDebugUnitTest`
+   - Outcome: failed for the same Android Gradle Plugin resolution constraint in this environment.
 
 ## 7) Honesty/limits
 - This PR does **not** claim complete parity migration.

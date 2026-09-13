@@ -146,6 +146,7 @@ class MobileApiService:
         settings["use_knowledge_for_chat"] = use_knowledge_for_chat
 
         user_mid = self.store.add_message(cid, "user", message, metadata={"source": "mobile_api"})
+        history = history + [{"role": "user", "content": message}]
         answer = self.core.generate_chat_response(message, history, settings)
         meta = self._chat_metadata()
         assistant_mid = self.store.add_message(cid, "assistant", answer, metadata=meta)
@@ -169,13 +170,20 @@ class MobileApiService:
         settings["use_knowledge_for_chat"] = use_knowledge_for_chat
 
         user_mid = self.store.add_message(cid, "user", message, metadata={"source": "mobile_api"})
+        history = history + [{"role": "user", "content": message}]
         chunks: list[str] = []
         try:
             for chunk in self.core.stream_chat_response(message, history, settings):
                 chunks.append(chunk)
                 yield f"data: {json.dumps({'type': 'chunk', 'delta': chunk}, ensure_ascii=False)}\n\n"
-        except Exception as exc:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)}, ensure_ascii=False)}\n\n"
+        except Exception:
+            self.store.add_message(
+                cid,
+                "assistant",
+                "Streaming failed before completion.",
+                metadata={"provider": "mobile_api", "error": "stream_failed"},
+            )
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Streaming failed in backend adapter.'}, ensure_ascii=False)}\n\n"
             return
 
         answer = "".join(chunks).strip()

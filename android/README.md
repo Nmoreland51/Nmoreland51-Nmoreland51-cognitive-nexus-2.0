@@ -38,8 +38,9 @@ uvicorn mobile_api.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 ## Networking/security notes
-- Development may require cleartext HTTP to local/LAN endpoints.
+- Development cleartext HTTP is enabled in this scaffold via `android:usesCleartextTraffic=\"true\"` for local/LAN testing.
 - Production deployment must use HTTPS and authenticated backend exposure.
+- Before production release, disable cleartext traffic and enforce HTTPS-only network security config.
 - Provider keys remain on backend only; Android app never stores OpenAI/Anthropic/Gemini credentials.
 
 ## Troubleshooting

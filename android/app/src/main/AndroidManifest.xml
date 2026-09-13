@@ -5,7 +5,8 @@
 
     <application
         android:name=".NexusMobileApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:label="Cognitive Nexus"
         android:supportsRtl="true"
         android:theme="@style/Theme.CognitiveNexus">

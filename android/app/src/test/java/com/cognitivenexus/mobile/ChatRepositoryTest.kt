@@ -10,6 +10,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -27,7 +28,7 @@ class ChatRepositoryTest {
 
         every { store.backendUrl } returns flowOf("http://10.0.2.2:8001/")
         every { factory.create(any()) } returns api
-        coEvery { api.chat(any()) } returns ChatResponse("conv_1", "msg_1", "hi")
+        coEvery { api.chat(any()) } returns ChatResponse("conv_1", "msg_1", "hi", buildJsonObject { })
 
         val repo = ChatRepository(store, factory, dao)
         val result = repo.sendMessage("hello", null, "u", "d")

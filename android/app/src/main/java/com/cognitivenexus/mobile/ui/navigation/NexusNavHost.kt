@@ -39,7 +39,15 @@ fun NexusNavHost() {
                 tabs.forEach { route ->
                     NavigationBarItem(
                         selected = current == route,
-                        onClick = { navController.navigate(route) },
+                        onClick = {
+                            navController.navigate(route) {
+                                launchSingleTop = true
+                                restoreState = true
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                            }
+                        },
                         label = { Text(route) },
                         icon = {},
                     )
