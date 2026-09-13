@@ -25,6 +25,24 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            val releaseStoreFile = (project.findProperty("CN_RELEASE_STORE_FILE") as String?)?.trim().orEmpty()
+            val releaseStorePassword = (project.findProperty("CN_RELEASE_STORE_PASSWORD") as String?)?.trim().orEmpty()
+            val releaseKeyAlias = (project.findProperty("CN_RELEASE_KEY_ALIAS") as String?)?.trim().orEmpty()
+            val releaseKeyPassword = (project.findProperty("CN_RELEASE_KEY_PASSWORD") as String?)?.trim().orEmpty()
+            if (
+                releaseStoreFile.isNotEmpty() &&
+                file(releaseStoreFile).exists() &&
+                releaseStorePassword.isNotEmpty() &&
+                releaseKeyAlias.isNotEmpty() &&
+                releaseKeyPassword.isNotEmpty()
+            ) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(releaseStoreFile)
+                    storePassword = releaseStorePassword
+                    keyAlias = releaseKeyAlias
+                    keyPassword = releaseKeyPassword
+                }
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -85,10 +103,13 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("io.mockk:mockk:1.13.16")
+    testImplementation("com.google.dagger:hilt-android-testing:2.52")
 
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")
+    kspAndroidTest("com.google.dagger:hilt-compiler:2.52")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

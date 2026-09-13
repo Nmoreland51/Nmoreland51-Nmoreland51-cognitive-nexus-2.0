@@ -18,10 +18,18 @@ interface NexusApiService {
     ): List<ConversationSummary>
 
     @GET("api/v1/conversations/{conversationId}")
-    suspend fun conversation(@Path("conversationId") conversationId: String): ConversationDetail
+    suspend fun conversation(
+        @Path("conversationId") conversationId: String,
+        @Query("user_id") userId: String,
+        @Query("device_id") deviceId: String,
+    ): ConversationDetail
 
     @DELETE("api/v1/conversations/{conversationId}")
-    suspend fun deleteConversation(@Path("conversationId") conversationId: String)
+    suspend fun deleteConversation(
+        @Path("conversationId") conversationId: String,
+        @Query("user_id") userId: String,
+        @Query("device_id") deviceId: String,
+    )
 
     @POST("api/v1/research")
     suspend fun research(@Body request: ResearchRequest): ResearchResponse

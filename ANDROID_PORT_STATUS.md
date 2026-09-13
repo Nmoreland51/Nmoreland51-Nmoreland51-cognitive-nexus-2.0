@@ -54,7 +54,8 @@ Present in current tree and unchanged by this PR scope:
 | Image generation + history | `modules/image_gen.py` | Reused through mobile API | `/api/v1/images/*` uses existing generation/listing; mode-to-provider mapping added in adapter only. | Endpoint contract path added | Hosted premium (`comfyui`) may report unimplemented/unavailable, surfaced honestly |
 | Runtime settings (non-secret) | `modules/nexus_config.py`, `modules/chat_profile.py` | Reused through mobile API | `/api/v1/settings` returns config/profile with secret-like keys removed. | Endpoint contract path added | — |
 | FastAPI mobile adapter structure | `mobile_api/*` (new) | Reused through mobile API | Added versioned endpoints required by issue. | `python -m compileall mobile_api`; `python -m unittest mobile_api.tests.test_api` | — |
-| Android native project scaffold | `android/*` (new) | Ported to Android | Kotlin + Compose + MVVM + Hilt + Retrofit + Room + DataStore + Navigation added. | `gradle -v` succeeded | Full SDK build not verifiable here due plugin resolution/env constraints |
+| Android native project scaffold | `android/*` (new) | Ported to Android | Kotlin + Compose + MVVM + Hilt + Retrofit + Room + DataStore + Navigation added, including Gradle wrapper files. | `./gradlew -v` succeeded | Full SDK build not verifiable here due plugin resolution/env constraints |
+| GitHub Android release pipeline | `.github/workflows/android-release.yml` | Ported to Android | Push-to-main debug APK artifact; tag `v*` signed release APK+AAB+GitHub Release when signing secrets are present; explicit missing-secret notice path. | Workflow YAML added and reviewed | Runtime verification requires GitHub Actions execution in repo |
 | Android Chat screen | `android/app/src/main/java/.../ui/screen/ChatScreen.kt` | Partially implemented | Conversation/send UI + basic error/loading states, provider/model note placeholder from metadata path. | Added `ChatScreenTest.kt` | Full streaming protocol rendering and all actions (copy/regenerate/share etc.) need deeper integration |
 | Android Research screen | `.../ResearchScreen.kt` | Partially implemented | Query runner + result/error surface. | Included in app navigation; unit infra present | URL-specific flow and richer source cards/verdict UI not fully rendered yet |
 | Android Memory screen | `.../MemoryScreen.kt` | Partially implemented | Overview/remember/forget/clear-confirmation UI and backend calls. | ViewModel + repo wiring present | Full preferences/patterns/feedback visualization depends on richer UI binding |
@@ -75,14 +76,14 @@ Present in current tree and unchanged by this PR scope:
    - Outcome: passed (4 tests).
 3. `python -m compileall mobile_api`
    - Outcome: succeeded.
-4. `cd android && gradle -v`
-   - Outcome: succeeded (Gradle 9.7.1 available).
-5. `cd android && gradle wrapper`
-   - Outcome: failed to resolve Android Gradle Plugin artifact in this agent environment; Android build/test tasks therefore not executable here.
-6. `cd android && gradle :app:testDebugUnitTest`
+4. `cd android && ./gradlew -v`
+   - Outcome: succeeded (Gradle wrapper downloaded and runs Gradle 8.10.2).
+5. `cd android && ./gradlew :app:assembleDebug`
+   - Outcome: failed to resolve Android Gradle Plugin artifact in this agent environment.
+6. `cd android && ./gradlew :app:testDebugUnitTest`
    - Outcome: failed for the same Android Gradle Plugin resolution constraint in this environment.
 
 ## 7) Honesty/limits
 - This PR does **not** claim complete parity migration.
 - Provider/model/research/image success remains environment-dependent and is reported as unavailable when backends/keys/models are absent.
-- Android code is additive and wired to mobile API contracts, but full device/emulator build execution could not be completed in this agent environment due Gradle plugin resolution constraints.
+- Android code is additive and wired to mobile API contracts, but full device/emulator build execution could not be completed in this agent environment due Android Gradle Plugin dependency resolution constraints.

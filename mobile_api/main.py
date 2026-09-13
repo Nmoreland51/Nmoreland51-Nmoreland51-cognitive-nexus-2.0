@@ -4,7 +4,9 @@ from functools import lru_cache
 import json
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 
 from mobile_api.schemas import (
@@ -54,6 +56,12 @@ def create_app() -> FastAPI:
             raise
         except Exception:
             raise HTTPException(status_code=500, detail="Operation failed in mobile API adapter.")
+
+    @app.exception_handler(Exception)
+    async def handle_internal_error(request: Request, exc: Exception):
+        _ = request
+        _ = exc
+        return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
     @app.get("/api/v1/health", response_model=HealthResponse)
     def health(service: MobileApiService = Depends(get_service)):

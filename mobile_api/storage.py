@@ -64,11 +64,14 @@ class ConversationStore:
         with self._lock:
             if conversation_id:
                 with self._conn() as conn:
-                    row = conn.execute("SELECT id FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+                    row = conn.execute(
+                        "SELECT id FROM conversations WHERE id = ? AND user_id = ? AND device_id = ?",
+                        (conversation_id, user_id, device_id),
+                    ).fetchone()
                     if row:
                         conn.execute(
-                            "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                            (self._now(), conversation_id),
+                            "UPDATE conversations SET updated_at = ? WHERE id = ? AND user_id = ? AND device_id = ?",
+                            (self._now(), conversation_id, user_id, device_id),
                         )
                         conn.commit()
                         return conversation_id
