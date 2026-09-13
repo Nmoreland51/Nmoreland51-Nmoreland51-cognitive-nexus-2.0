@@ -15,6 +15,7 @@ data class ChatRequest(
 data class ChatResponse(
     @SerialName("conversation_id") val conversationId: String,
     @SerialName("message_id") val messageId: String,
+    @SerialName("user_message_id") val userMessageId: String,
     @SerialName("assistant_reply") val assistantReply: String,
     val metadata: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap(),
 )

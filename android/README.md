@@ -57,6 +57,8 @@ git push origin v1.0.0
 ```
 
 ## Install from GitHub on Android
+Installable release claim is valid only after the workflow successfully creates a GitHub Release with APK attached.
+
 1. Open repository **Releases** on your Android phone.
 2. Open target version (for example `v1.0.0`).
 3. Download APK asset (for example `cognitive-nexus-v1.0.0.apk`).

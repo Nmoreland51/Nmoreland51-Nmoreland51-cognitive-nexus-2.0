@@ -27,7 +27,7 @@ class ChatRepository @Inject constructor(
             )
             chatDao.upsertMessage(
                 ChatMessageEntity(
-                    id = "local_user_${System.currentTimeMillis()}",
+                    id = response.userMessageId,
                     conversationId = response.conversationId,
                     role = "user",
                     content = message,

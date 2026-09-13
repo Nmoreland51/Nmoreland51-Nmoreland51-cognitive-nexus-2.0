@@ -43,16 +43,17 @@ fun SettingsScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Web search")
-            Switch(checked = state.webSearchToggle, onCheckedChange = onSetWebSearch)
+            Switch(checked = state.webSearchToggle, onCheckedChange = onSetWebSearch, enabled = false)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Learning")
-            Switch(checked = state.learningToggle, onCheckedChange = onSetLearning)
+            Switch(checked = state.learningToggle, onCheckedChange = onSetLearning, enabled = false)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Grounding")
-            Switch(checked = state.groundingToggle, onCheckedChange = onSetGrounding)
+            Switch(checked = state.groundingToggle, onCheckedChange = onSetGrounding, enabled = false)
         }
+        Text("Toggle controls are read-only in this build until backend settings-write endpoints are added.")
 
         Button(onClick = { confirmClear = true }) { Text("Clear Android cache") }
         Text(state.status)

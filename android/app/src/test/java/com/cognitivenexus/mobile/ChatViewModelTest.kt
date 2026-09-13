@@ -39,5 +39,6 @@ class ChatViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(vm.state.value.messages.any { it.contains("Assistant: hello from backend") })
+        assertTrue(vm.state.value.conversationId == "conv_1")
     }
 }
