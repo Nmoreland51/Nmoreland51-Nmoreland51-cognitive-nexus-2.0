@@ -213,8 +213,8 @@ class MobileApiService:
             for row in rows
         ]
 
-    def get_conversation(self, conversation_id: str) -> dict[str, Any] | None:
-        item = self.store.get_conversation(conversation_id)
+    def get_conversation(self, conversation_id: str, user_id: str, device_id: str) -> dict[str, Any] | None:
+        item = self.store.get_conversation(conversation_id, user_id=user_id, device_id=device_id)
         if not item:
             return None
         return {
@@ -236,8 +236,8 @@ class MobileApiService:
             ],
         }
 
-    def delete_conversation(self, conversation_id: str) -> bool:
-        return self.store.delete_conversation(conversation_id)
+    def delete_conversation(self, conversation_id: str, user_id: str, device_id: str) -> bool:
+        return self.store.delete_conversation(conversation_id, user_id=user_id, device_id=device_id)
 
     def _adaptive_memory(self):
         return self.core.get_adaptive_memory()

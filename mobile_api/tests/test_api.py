@@ -10,6 +10,8 @@ from mobile_api.main import create_app
 
 
 class FakeService:
+    fail_stream = False
+
     def health(self):
         return {
             "status": "degraded",
@@ -31,12 +33,14 @@ class FakeService:
 
     def stream_chat(self, **_kwargs):
         yield "data: " + json.dumps({"type": "chunk", "delta": "hel"}) + "\n\n"
+        if self.fail_stream:
+            raise RuntimeError("simulated stream failure")
         yield "data: " + json.dumps({"type": "done", "assistant_reply": "hello"}) + "\n\n"
 
     def list_conversations(self, **_kwargs):
         return [{"conversation_id": "conv_1", "user_id": "u", "device_id": "d", "title": "t", "message_count": 2, "updated_at": datetime.now(timezone.utc)}]
 
-    def get_conversation(self, conversation_id: str):
+    def get_conversation(self, conversation_id: str, user_id: str, device_id: str):
         if conversation_id != "conv_1":
             return None
         now = datetime.now(timezone.utc)
@@ -50,8 +54,8 @@ class FakeService:
             "messages": [{"message_id": "msg_1", "role": "user", "content": "hi", "created_at": now, "metadata": {}}],
         }
 
-    def delete_conversation(self, conversation_id: str):
-        return conversation_id == "conv_1"
+    def delete_conversation(self, conversation_id: str, user_id: str, device_id: str):
+        return conversation_id == "conv_1" and user_id == "u" and device_id == "d"
 
     def memory_overview(self):
         return {"summary": {"fact_count": 0}, "adaptive": {"unavailable": True}}
@@ -118,11 +122,14 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(listing.status_code, 200)
         self.assertEqual(len(listing.json()), 1)
 
-        detail = self.client.get("/api/v1/conversations/conv_1")
+        detail = self.client.get("/api/v1/conversations/conv_1", params={"user_id": "u", "device_id": "d"})
         self.assertEqual(detail.status_code, 200)
 
-        missing = self.client.get("/api/v1/conversations/missing")
+        missing = self.client.get("/api/v1/conversations/missing", params={"user_id": "u", "device_id": "d"})
         self.assertEqual(missing.status_code, 404)
+
+        deletion = self.client.delete("/api/v1/conversations/conv_1", params={"user_id": "u", "device_id": "d"})
+        self.assertEqual(deletion.status_code, 200)
 
     def test_stream_endpoint(self):
         with self.client.stream("POST", "/api/v1/chat/stream", json={"message": "hello"}) as response:
@@ -130,6 +137,17 @@ class ApiTests(unittest.TestCase):
             body = "".join(response.iter_text())
         self.assertIn('"type": "chunk"', body)
         self.assertIn('"type": "done"', body)
+
+    def test_stream_error_event(self):
+        fake = FakeService()
+        fake.fail_stream = True
+        from mobile_api.main import get_service
+
+        self.app.dependency_overrides[get_service] = lambda: fake
+        with self.client.stream("POST", "/api/v1/chat/stream", json={"message": "hello"}) as response:
+            self.assertEqual(response.status_code, 200)
+            body = "".join(response.iter_text())
+        self.assertIn('"type": "error"', body)
 
 
 if __name__ == "__main__":

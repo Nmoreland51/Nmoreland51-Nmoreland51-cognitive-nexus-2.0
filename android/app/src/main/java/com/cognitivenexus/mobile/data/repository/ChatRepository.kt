@@ -17,6 +17,16 @@ class ChatRepository @Inject constructor(
         return runCatching {
             val baseUrl = backendUrlStore.backendUrl.first()
             val api = apiClientFactory.create(baseUrl)
+            val pendingConversationId = conversationId ?: "pending_local"
+            chatDao.upsertMessage(
+                ChatMessageEntity(
+                    id = "local_user_${System.currentTimeMillis()}",
+                    conversationId = pendingConversationId,
+                    role = "user",
+                    content = message,
+                    createdAt = System.currentTimeMillis(),
+                )
+            )
             val response = api.chat(
                 ChatRequest(
                     message = message,

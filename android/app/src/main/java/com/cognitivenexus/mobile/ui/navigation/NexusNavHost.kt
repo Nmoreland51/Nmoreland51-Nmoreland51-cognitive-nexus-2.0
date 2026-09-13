@@ -1,6 +1,13 @@
 package com.cognitivenexus.mobile.ui.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -26,6 +33,13 @@ import com.cognitivenexus.mobile.viewmodel.ResearchViewModel
 import com.cognitivenexus.mobile.viewmodel.SettingsViewModel
 
 private val tabs = listOf("chat", "research", "memory", "images", "settings")
+private fun tabIcon(route: String) = when (route) {
+    "chat" -> Icons.Filled.Chat
+    "research" -> Icons.Filled.Science
+    "memory" -> Icons.Filled.Memory
+    "images" -> Icons.Filled.Image
+    else -> Icons.Filled.Settings
+}
 
 @Composable
 fun NexusNavHost() {
@@ -49,7 +63,7 @@ fun NexusNavHost() {
                             }
                         },
                         label = { Text(route) },
-                        icon = {},
+                        icon = { Icon(tabIcon(route), contentDescription = route) },
                     )
                 }
             }

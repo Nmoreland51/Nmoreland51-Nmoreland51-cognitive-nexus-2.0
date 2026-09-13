@@ -72,7 +72,7 @@ Present in current tree and unchanged by this PR scope:
 1. `pip install -r mobile_api/requirements.txt`
    - Outcome: succeeded.
 2. `python -m unittest mobile_api.tests.test_api`
-   - Outcome: passed (3 tests).
+   - Outcome: passed (4 tests).
 3. `python -m compileall mobile_api`
    - Outcome: succeeded.
 4. `cd android && gradle -v`

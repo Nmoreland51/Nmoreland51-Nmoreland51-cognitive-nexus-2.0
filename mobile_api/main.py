@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import json
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,8 +52,8 @@ def create_app() -> FastAPI:
             return operation()
         except HTTPException:
             raise
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail="Operation failed in mobile API adapter.") from exc
+        except Exception:
+            raise HTTPException(status_code=500, detail="Operation failed in mobile API adapter.")
 
     @app.get("/api/v1/health", response_model=HealthResponse)
     def health(service: MobileApiService = Depends(get_service)):
@@ -89,7 +90,15 @@ def create_app() -> FastAPI:
                 use_knowledge_for_chat=payload.use_knowledge_for_chat,
             )
         )
-        return StreamingResponse(stream, media_type="text/event-stream")
+
+        def guarded_stream():
+            try:
+                for chunk in stream:
+                    yield chunk
+            except Exception:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Streaming failed in mobile API adapter.'})}\n\n"
+
+        return StreamingResponse(guarded_stream(), media_type="text/event-stream")
 
     @app.get("/api/v1/conversations", response_model=list[ConversationSummary])
     def list_conversations(
@@ -100,15 +109,25 @@ def create_app() -> FastAPI:
         return safe_execute(lambda: service.list_conversations(user_id=user_id, device_id=device_id))
 
     @app.get("/api/v1/conversations/{conversation_id}", response_model=ConversationDetail)
-    def get_conversation(conversation_id: str, service: MobileApiService = Depends(get_service)):
-        item = safe_execute(lambda: service.get_conversation(conversation_id))
+    def get_conversation(
+        conversation_id: str,
+        user_id: str = Query(...),
+        device_id: str = Query(...),
+        service: MobileApiService = Depends(get_service),
+    ):
+        item = safe_execute(lambda: service.get_conversation(conversation_id, user_id=user_id, device_id=device_id))
         if not item:
             raise HTTPException(status_code=404, detail="Conversation not found")
         return item
 
     @app.delete("/api/v1/conversations/{conversation_id}", response_model=DeleteResponse)
-    def delete_conversation(conversation_id: str, service: MobileApiService = Depends(get_service)):
-        deleted = safe_execute(lambda: service.delete_conversation(conversation_id))
+    def delete_conversation(
+        conversation_id: str,
+        user_id: str = Query(...),
+        device_id: str = Query(...),
+        service: MobileApiService = Depends(get_service),
+    ):
+        deleted = safe_execute(lambda: service.delete_conversation(conversation_id, user_id=user_id, device_id=device_id))
         if not deleted:
             raise HTTPException(status_code=404, detail="Conversation not found")
         return {"success": True, "id": conversation_id, "message": "Conversation deleted."}

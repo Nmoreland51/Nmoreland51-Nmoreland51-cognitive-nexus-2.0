@@ -118,9 +118,17 @@ class ConversationStore:
             rows = conn.execute(query, tuple(params)).fetchall()
         return [dict(row) for row in rows]
 
-    def get_conversation(self, conversation_id: str) -> dict[str, Any] | None:
+    def get_conversation(self, conversation_id: str, user_id: str | None = None, device_id: str | None = None) -> dict[str, Any] | None:
         with self._conn() as conn:
-            header = conn.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+            query = "SELECT * FROM conversations WHERE id = ?"
+            params: list[Any] = [conversation_id]
+            if user_id is not None:
+                query += " AND user_id = ?"
+                params.append(user_id)
+            if device_id is not None:
+                query += " AND device_id = ?"
+                params.append(device_id)
+            header = conn.execute(query, tuple(params)).fetchone()
             if not header:
                 return None
             messages = conn.execute(
@@ -140,10 +148,18 @@ class ConversationStore:
         ]
         return payload
 
-    def delete_conversation(self, conversation_id: str) -> bool:
+    def delete_conversation(self, conversation_id: str, user_id: str | None = None, device_id: str | None = None) -> bool:
         with self._lock:
             with self._conn() as conn:
-                row = conn.execute("SELECT id FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+                query = "SELECT id FROM conversations WHERE id = ?"
+                params: list[Any] = [conversation_id]
+                if user_id is not None:
+                    query += " AND user_id = ?"
+                    params.append(user_id)
+                if device_id is not None:
+                    query += " AND device_id = ?"
+                    params.append(device_id)
+                row = conn.execute(query, tuple(params)).fetchone()
                 if not row:
                     return False
                 conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
