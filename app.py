@@ -60,6 +60,7 @@ from modules.research import (
 )
 from modules.nexus_config import save_runtime_config
 from modules.nexus_core import NexusCore
+from modules.web_research import search_sources_status
 from modules.reality_research_agent import ResearchRequest
 from modules.response_planner import RESPONSE_MODES
 from nexus_router import (
@@ -1519,8 +1520,24 @@ def render_gallery(settings: dict[str, Any] | None = None, limit: int = 50) -> N
                     st.caption("No JSON metadata was found for this legacy image.")
 
 
+def search_sources_caption() -> str:
+    """One line describing the web search sources, in the order they are tried."""
+
+    parts = []
+    for source in search_sources_status():
+        if not source["available"]:
+            state = f"off ({source['setup']})"
+        elif source["cooldown_seconds"]:
+            state = f"skipped for {source['cooldown_seconds']}s after an error"
+        else:
+            state = "on"
+        parts.append(f"{source['label']}: {state}")
+    return "Search sources, tried in order and switched automatically: " + " → ".join(parts)
+
+
 def render_web_research_tab(settings: dict[str, Any]) -> None:
     st.subheader("Web Research")
+    st.caption(search_sources_caption())
     demo_safe = is_demo_safe(settings)
     query = st.text_input("Search query", placeholder="What should Cognitive Nexus research?")
     col1, col2, col3, col4 = st.columns(4)

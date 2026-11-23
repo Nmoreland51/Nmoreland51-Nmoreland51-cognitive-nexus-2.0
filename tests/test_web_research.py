@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -111,6 +112,7 @@ class WebResearchTests(unittest.TestCase):
 
         self.assertEqual(web_research.unsourced_numbers("Streamlit 1.28.0 came out in 2023.", sources), ["1.28.0", "2023"])
         self.assertEqual(web_research.unsourced_numbers("Python 3.15.2 came out October 25, 2026.", sources), [])
+        self.assertEqual(web_research.unsourced_numbers("The latest LTS is v14 (2020).", sources), ["v14", "2020"])
         self.assertEqual(web_research.unsourced_numbers_note("Latest is v1.67.0", sources), "")
         self.assertIn("1.28.0", web_research.unsourced_numbers_note("Latest is 1.28.0", sources))
 
@@ -160,6 +162,83 @@ class WebResearchTests(unittest.TestCase):
         self.assertIn("2-3 short sentences", prompts[0])
         self.assertNotIn("Source list", prompts[0])
         self.assertLess(len(prompts[0]), 2500)
+
+
+class SearchSourceSwitchingTests(unittest.TestCase):
+    RESULT = [{"title": "Hit", "url": "https://example.com/hit", "snippet": "s", "source": "example.com", "timestamp": ""}]
+
+    def setUp(self) -> None:
+        web_research._search_web_cached.cache_clear()
+        web_research._cooldown_until.clear()
+
+    tearDown = setUp
+
+    def _env(self, **extra: str):
+        return patch.dict(os.environ, {"SEARCH_SOURCES": "searxng,ddgs,wikipedia", "SEARXNG_URL": "http://localhost:8888", **extra})
+
+    def test_switches_to_next_source_on_error_and_skips_it_afterwards(self) -> None:
+        calls: list[str] = []
+
+        def failing(query: str, max_results: int) -> list:
+            calls.append(query)
+            raise RuntimeError("HTTP 429 Too Many Requests")
+
+        with self._env(), patch.dict(
+            web_research._SEARCH_SOURCES, {"searxng": failing, "ddgs": lambda q, n: [dict(r) for r in self.RESULT]}
+        ):
+            first = web_research.search_web("first query")
+            second = web_research.search_web("second query")
+
+        self.assertEqual(first[0]["search_source"], "ddgs")
+        self.assertEqual(second[0]["search_source"], "ddgs")
+        self.assertEqual(calls, ["first query"])  # skipped while cooling down
+        status = {s["name"]: s for s in web_research.search_sources_status()}
+        self.assertGreater(status["searxng"]["cooldown_seconds"], 0)
+
+    def test_switches_on_empty_results_without_cooldown(self) -> None:
+        with self._env(), patch.dict(
+            web_research._SEARCH_SOURCES,
+            {"searxng": lambda q, n: [], "ddgs": lambda q, n: [], "wikipedia": lambda q, n: [dict(r) for r in self.RESULT]},
+        ):
+            results = web_research.search_web("who is someone")
+
+        self.assertEqual(results[0]["search_source"], "wikipedia")
+        self.assertFalse(web_research._cooldown_until)
+
+    def test_raises_when_every_source_fails(self) -> None:
+        with self._env(), patch.dict(
+            web_research._SEARCH_SOURCES, {"searxng": lambda q, n: [], "ddgs": lambda q, n: [], "wikipedia": lambda q, n: []}
+        ):
+            with self.assertRaisesRegex(RuntimeError, "No results found"):
+                web_research.search_web("nothing anywhere")
+
+    def test_unconfigured_sources_are_skipped_with_setup_hint(self) -> None:
+        with patch.dict(os.environ, {"SEARCH_SOURCES": "searxng,brave,ddgs,wikipedia"}, clear=False):
+            os.environ.pop("SEARXNG_URL", None)
+            os.environ.pop("BRAVE_SEARCH_API_KEY", None)
+            status = {s["name"]: s for s in web_research.search_sources_status()}
+
+        self.assertFalse(status["searxng"]["available"])
+        self.assertEqual(status["brave"]["setup"], "set BRAVE_SEARCH_API_KEY")
+        self.assertTrue(status["wikipedia"]["available"])
+
+    def test_source_responses_are_parsed(self) -> None:
+        payloads = {
+            "searxng": {"results": [{"title": "SX", "url": "https://a.example/1", "content": "searx snippet"}]},
+            "brave": {"web": {"results": [{"title": "BR", "url": "https://b.example/1", "description": "brave snippet"}]}},
+            "wikipedia": {"query": {"search": [{"title": "Ollama", "snippet": "<span>Ollama</span> is &quot;local&quot;"}]}},
+        }
+        for name, payload in payloads.items():
+            with self._env(BRAVE_SEARCH_API_KEY="key"), patch.object(web_research, "_get_json", return_value=payload):
+                results = web_research._SEARCH_SOURCES[name]("q", 5)
+            self.assertEqual(len(results), 1, name)
+            self.assertTrue(results[0]["url"].startswith("https://"), name)
+        self.assertEqual(results[0]["url"], "https://en.wikipedia.org/wiki/Ollama")
+        self.assertEqual(results[0]["snippet"], 'Ollama is "local"')
+
+    def test_keyword_query_drops_question_words(self) -> None:
+        self.assertEqual(web_research._keyword_query("who is coryxkenshin"), "coryxkenshin")
+        self.assertEqual(web_research._keyword_query("the latest version of Streamlit"), "version Streamlit")
 
 
 if __name__ == "__main__":

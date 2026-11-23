@@ -67,7 +67,14 @@ pip install -r requirements.txt
 
 The web research feature uses:
 
-- `ddgs` / `duckduckgo-search` for DuckDuckGo-compatible search.
+- Several search sources with automatic switching (chat, Web Research and Bloodhound all use it).
+  They're tried in order; when one errors, is rate-limited or finds nothing, the next one is used,
+  and a source that errors is skipped for 5 minutes. Configure them in `.env` (see `.env.example`):
+  - `SEARXNG_URL`: your own [SearXNG](https://docs.searxng.org/) server (enable the `json` format).
+  - `BRAVE_SEARCH_API_KEY`: a [Brave Search API](https://brave.com/search/api/) key.
+  - `ddgs`: free search-page scraping, used without setup but often rate-limited.
+  - Wikipedia's search API as the last resort (good for who/what questions).
+  The Web Research tab shows which sources are on.
 - `requests`, `beautifulsoup4`, and optional `trafilatura` for page scraping and readable text extraction.
 
 Dependency sets:

@@ -706,7 +706,8 @@ def run_bloodhound_search(
     coverage = {
         "queries_tried": queries,
         "sources_searched": [
-            "DuckDuckGo/DDGS public web",
+            "Web search via "
+            + (", ".join(sorted({str(item.get("search_source")) for item in raw_results if item.get("search_source")})) or "no source"),
             "GitHub/Reddit/StackOverflow/site-specific query variants",
         ] + (["Ahmia/onion index secondary lane", "Tor SOCKS onion fetch"] if config.enable_onion else []),
         "urls_found": [item.get("url") for item in raw_results if item.get("url")],

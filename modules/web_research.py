@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import html
 import json
 import logging
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,7 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from threading import local
 from typing import Any, Callable, Optional
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import requests
 
@@ -118,35 +120,207 @@ def _clean_title(title: str) -> str:
     return _shorten(title, MAX_TITLE_CHARS)
 
 
+# --- Search sources ----------------------------------------------------------------------------
+# search_web tries each available source in order and automatically switches to the next one when
+# a source errors, is rate-limited, or finds nothing. A source that errors is skipped for
+# SEARCH_COOLDOWN_SECONDS so later searches don't wait on it; if every source is cooling down, all
+# are tried anyway. Order and sources are set with environment variables (see .env.example):
+#   searxng   - your own SearXNG server: SEARXNG_URL (needs the JSON format enabled)
+#   brave     - Brave Search API: BRAVE_SEARCH_API_KEY
+#   ddgs      - free search-page scraping through the ddgs library (often rate-limited)
+#   wikipedia - Wikipedia's search API; last resort, good for who/what questions
+DEFAULT_SEARCH_ORDER = "searxng,brave,ddgs,wikipedia"
+SEARCH_COOLDOWN_SECONDS = 300
+SEARCH_REQUEST_TIMEOUT = 10
+API_USER_AGENT = "CognitiveNexus/2.0 (local research assistant)"
+_SOURCE_LABELS = {
+    "searxng": "SearXNG",
+    "brave": "Brave Search API",
+    "ddgs": "Search pages (ddgs)",
+    "wikipedia": "Wikipedia",
+}
+_cooldown_until: dict[str, float] = {}
+
+
+def _search_result(title: str, url: str, snippet: str, timestamp: str = "") -> dict[str, Any]:
+    return {
+        "title": _clean_title(title),
+        "url": url,
+        # Some engines return several results' text as one snippet (2,000+ chars).
+        "snippet": _shorten(clean_text(snippet), MAX_SNIPPET_CHARS),
+        "source": get_domain(url),
+        "timestamp": timestamp or "",
+    }
+
+
+def _get_json(url: str, *, params: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
+    response = requests.get(
+        url,
+        params=params,
+        headers={"User-Agent": API_USER_AGENT, "Accept": "application/json", **(headers or {})},
+        timeout=SEARCH_REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def _search_searxng(query: str, max_results: int) -> list[dict[str, Any]]:
+    base = os.environ.get("SEARXNG_URL", "").rstrip("/")
+    data = _get_json(f"{base}/search", params={"q": query, "format": "json"})
+    return [
+        _search_result(item.get("title", ""), item.get("url", ""), item.get("content", ""), item.get("publishedDate") or "")
+        for item in data.get("results", [])
+    ][:max_results]
+
+
+def _search_brave(query: str, max_results: int) -> list[dict[str, Any]]:
+    data = _get_json(
+        "https://api.search.brave.com/res/v1/web/search",
+        params={"q": query, "count": min(max_results, 20)},
+        headers={"X-Subscription-Token": os.environ.get("BRAVE_SEARCH_API_KEY", "")},
+    )
+    return [
+        _search_result(item.get("title", ""), item.get("url", ""), item.get("description", ""), item.get("age") or "")
+        for item in (data.get("web") or {}).get("results", [])
+    ][:max_results]
+
+
+def _search_ddgs(query: str, max_results: int) -> list[dict[str, Any]]:
+    if DDGS is None:
+        raise RuntimeError("ddgs is not installed.")
+    try:
+        with DDGS() as ddgs:
+            items = ddgs.text(query, max_results=max_results)
+    except Exception as exc:
+        # ddgs reports blocked or empty engines as "No results found"; that's not a source error.
+        if "no results" in str(exc).lower():
+            return []
+        raise
+    return [
+        _search_result(
+            item.get("title", ""),
+            item.get("href") or item.get("url") or "",
+            item.get("body", "") or item.get("snippet", ""),
+            item.get("date") or item.get("timestamp") or "",
+        )
+        for item in items
+    ]
+
+
+# Wikipedia's search needs every word to match, so question and filler words are dropped first.
+_WIKIPEDIA_FILLER = {
+    "a", "about", "an", "are", "current", "did", "do", "does", "find", "for", "how", "in", "is",
+    "latest", "look", "me", "newest", "of", "on", "please", "recent", "search", "tell", "the",
+    "to", "up", "was", "web", "were", "what", "when", "where", "which", "who", "why",
+}
+
+
+def _keyword_query(query: str) -> str:
+    words = [word for word in re.findall(r"[\w.+#-]+", query) if word.lower() not in _WIKIPEDIA_FILLER]
+    return " ".join(words) or query
+
+
+def _search_wikipedia(query: str, max_results: int) -> list[dict[str, Any]]:
+    lang = os.environ.get("WIKIPEDIA_LANG", "en")
+    data = _get_json(
+        f"https://{lang}.wikipedia.org/w/api.php",
+        params={
+            "action": "query",
+            "list": "search",
+            "srsearch": _keyword_query(query),
+            "srlimit": max_results,
+            "format": "json",
+            "utf8": 1,
+        },
+    )
+    return [
+        _search_result(
+            f"{hit['title']} - Wikipedia",
+            f"https://{lang}.wikipedia.org/wiki/{quote(hit['title'].replace(' ', '_'))}",
+            html.unescape(re.sub(r"<[^>]+>", "", hit.get("snippet", ""))),
+            hit.get("timestamp", ""),
+        )
+        for hit in data.get("query", {}).get("search", [])
+    ]
+
+
+_SEARCH_SOURCES: dict[str, Callable[[str, int], list[dict[str, Any]]]] = {
+    "searxng": _search_searxng,
+    "brave": _search_brave,
+    "ddgs": _search_ddgs,
+    "wikipedia": _search_wikipedia,
+}
+
+
+def _source_setup_hint(name: str) -> str:
+    """Empty when the source can be used, otherwise what it needs."""
+
+    if name == "searxng" and not os.environ.get("SEARXNG_URL"):
+        return "set SEARXNG_URL"
+    if name == "brave" and not os.environ.get("BRAVE_SEARCH_API_KEY"):
+        return "set BRAVE_SEARCH_API_KEY"
+    if name == "ddgs" and DDGS is None:
+        return "pip install ddgs"
+    return ""
+
+
+def search_sources_status() -> list[dict[str, Any]]:
+    """Search sources in the order search_web tries them, with setup and cooldown state."""
+
+    now = time.monotonic()
+    order = os.environ.get("SEARCH_SOURCES", DEFAULT_SEARCH_ORDER)
+    status = []
+    for name in dict.fromkeys(part.strip().lower() for part in order.split(",")):
+        if name not in _SEARCH_SOURCES:
+            continue
+        hint = _source_setup_hint(name)
+        status.append(
+            {
+                "name": name,
+                "label": _SOURCE_LABELS[name],
+                "available": not hint,
+                "setup": hint,
+                "cooldown_seconds": max(0, int(_cooldown_until.get(name, 0) - now)),
+            }
+        )
+    return status
+
+
 @lru_cache(maxsize=64)
 def _search_web_cached(query: str, max_results: int) -> tuple[str, ...]:
-    """Search the web with DuckDuckGo/DDGS and cache repeated queries."""
+    """Search with automatic switching between sources and cache successful queries."""
 
-    if DDGS is None:
-        raise RuntimeError("duckduckgo-search is not installed. Add it to requirements.txt.")
+    available = [source for source in search_sources_status() if source["available"]]
+    if not available:
+        raise RuntimeError("No search source is available. Set SEARXNG_URL or BRAVE_SEARCH_API_KEY, or install ddgs.")
+    ready = [source for source in available if not source["cooldown_seconds"]] or available
 
-    logger.info("Running web search query=%r max_results=%s", query, max_results)
-    results: list[dict[str, Any]] = []
-    with DDGS() as ddgs:
-        for item in ddgs.text(query, max_results=max_results):
-            url = item.get("href") or item.get("url") or ""
-            results.append(
-                {
-                    "title": _clean_title(item.get("title", "")),
-                    "url": url,
-                    # Some engines return several results' text as one snippet (2,000+ chars).
-                    "snippet": _shorten(clean_text(item.get("body", "") or item.get("snippet", "")), MAX_SNIPPET_CHARS),
-                    "source": get_domain(url),
-                    "timestamp": item.get("date") or item.get("timestamp") or "",
-                }
-            )
+    logger.info("Running web search query=%r max_results=%s sources=%s", query, max_results, [s["name"] for s in ready])
+    problems: list[str] = []
+    for source in ready:
+        name = source["name"]
+        try:
+            results = [item for item in _SEARCH_SOURCES[name](query, max_results) if item.get("url")]
+        except Exception as exc:
+            _cooldown_until[name] = time.monotonic() + SEARCH_COOLDOWN_SECONDS
+            problems.append(f"{name}: {exc}")
+            logger.warning("Search source %s failed query=%r error=%s; switching to the next source", name, query, exc)
+            continue
+        if not results:
+            problems.append(f"{name}: no results")
+            logger.info("Search source %s found nothing query=%r; switching to the next source", name, query)
+            continue
+        _cooldown_until.pop(name, None)
+        for item in results:
+            item["search_source"] = name
+        logger.info("Web search completed query=%r source=%s result_count=%s", query, name, len(results))
+        return tuple(json.dumps(item, ensure_ascii=False, sort_keys=True) for item in results[:max_results])
 
-    logger.info("Web search completed query=%r result_count=%s", query, len(results))
-    return tuple(json.dumps(item, ensure_ascii=False, sort_keys=True) for item in results[:max_results])
+    raise RuntimeError("No results found (" + "; ".join(problems) + ")")
 
 
 def search_web(query: str, max_results: int = 5) -> list[dict[str, Any]]:
-    """Search the web with DuckDuckGo/DDGS."""
+    """Search the web, switching automatically between the configured sources."""
 
     return [json.loads(item) for item in _search_web_cached(query.strip(), int(max_results))]
 
@@ -399,9 +573,9 @@ the question, say so.
 """
 
 
-# Version-like numbers ("1.28.0", "v3.15") and years. A small local model sometimes fills these in
-# from its training data when the sources don't contain them.
-_FACT_NUMBER = re.compile(r"(?<![\d.])\d+(?:\.\d+)+|\b(?:19|20)\d{2}\b")
+# Version-like numbers ("1.28.0", "v3.15", "v14") and years. A small local model sometimes fills
+# these in from its training data when the sources don't contain them.
+_FACT_NUMBER = re.compile(r"(?<![\d.])\d+(?:\.\d+)+|\b[vV]\d+\b(?!\.\d)|\b(?:19|20)\d{2}\b")
 
 
 def unsourced_numbers(answer: str, source_text: str) -> list[str]:
