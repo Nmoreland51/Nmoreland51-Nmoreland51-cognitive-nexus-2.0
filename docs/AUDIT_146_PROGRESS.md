@@ -8,24 +8,24 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 15 |
-| PARTIAL | 52 |
-| MISSING | 78 |
+| COMPLETE | 20 |
+| PARTIAL | 51 |
+| MISSING | 74 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
 | Section | Complete | Partial | Missing | N/A |
 |---|---|---|---|---|
 | 1. Fix the foundations and release confusion (P0) | 3 | 6 | 1 | 0 |
-| 2. Make core AI chat genuinely reliable (P1) | 0 | 8 | 5 | 0 |
+| 2. Make core AI chat genuinely reliable (P1) | 4 | 6 | 3 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 6 | 7 | 2 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 1 | 6 | 7 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 0 | 0 | 17 | 0 |
 | 6. Make external actions and automation useful (P1) | 0 | 0 | 11 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 4 | 10 | 1 |
 | 8. Performance and local hardware (P1) | 0 | 5 | 6 | 0 |
-| 9. Security, privacy and data integrity (P0) | 1 | 6 | 6 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 4 | 5 | 7 | 0 |
+| 9. Security, privacy and data integrity (P0) | 2 | 6 | 5 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 4 | 6 | 6 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
 
 ## How to continue
@@ -59,6 +59,7 @@ This backlog is worked in phases. Whoever continues should read this section, th
 Updated at the end of each work batch; see the newest entry at the bottom.
 
 - 2026-11-23: ledger created from the code at commit `f5d234d`. Next: Phase 1 (dependency lock, lint and security scans in CI; cloud-failover privacy; memory locking and provenance; token-aware context; semantic retrieval; research prompt-injection defence).
+- 2026-11-23, after Phase 1a and 1b: CI now runs lint, type checks, the secret scan and a dependency audit against pinned versions (Phase 1a). Providers: cloud fallback is off unless chosen, the fallback notice is never treated as a model answer, providers are proven with a real test prompt, the Anthropic default model and request are current, failures are logged by kind, and every answer is labelled with who wrote it (Phase 1b, commits de2332c, 725edd5, 4963836). Next: Phase 1c (cross-process locking for the JSON stores; fact records with provenance, conflicts and schema migrations; a token-aware context budget; export, encrypted backup, restore and selective wipe), then 1d (semantic embeddings; PDF and DOCX ingestion), then 1e (prompt-injection defence for research and the research benchmarks).
 
 ## Items that need the owner
 
@@ -67,7 +68,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **001** (PARTIAL): Owner to confirm which repository is canonical; then the other two READMEs can point here.
 - **003** (MISSING): Owner decision on which Android pull requests and branches to merge or close.
 - **004** (PARTIAL): Owner to merge the work branch into main (pull request not opened yet).
-- **014** (MISSING): OPENAI_API_KEY and ANTHROPIC_API_KEY to validate requests against the live APIs.
+- **014** (PARTIAL): An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
 - **081** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **085** (PARTIAL): A phone and a private network (for example Tailscale) to test from home and cellular connections.
 - **086** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
@@ -170,27 +171,30 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** answer_quality_eval.py, conversation_regression_eval.py and response_speed_eval.py exist and can run against a live model. Results are not recorded anywhere; only a handful of live chats were checked by hand on 2026-11-23.
 
-### 012 · P1 · observed · PARTIAL
+### 012 · P1 · observed · COMPLETE
 
 > Stop showing desktop fallback text as if a real model generated it; identify the failed provider.
 
-- **Evidence:** The streamed chat fallback reply starts with 'Fallback:' and now names the provider that failed and why. The non-streaming ProviderRouter.generate path (used for research summaries) still returns the bare fallback text, which callers can mistake for a model answer.
-- **Tests:** tests/test_provider_router.py (fallback reply tests).
-- **Commits:** f5d234d
+- **Evidence:** ProviderRouter.generate reports success only when a real model answered in full; the fallback notice comes back with success=False and names the provider that failed and why. Callers that store or present model text (research summaries, Bloodhound and Reality-First synthesis, knowledge answers) use generate_or_raise, so a failure is shown as a notice and nothing is saved to memory as a 'research summary'. Chat labels such a turn 'No model answered' under the reply, and an answer cut off mid-stream is marked as cut off instead of being followed by another provider's text. Run live on 2026-11-23: with Ollama unreachable the result was success=False with the reason stated; with Ollama up, a real reply was labelled 'Answered by Ollama / dolphin3:8b'.
+- **Tests:** tests/test_provider_truth.py (fallback is never success, generate_or_raise, partial answers); tests/test_model_failure_paths.py (summaries, memory, knowledge answers, chat labels).
+- **Commits:** f5d234d, de2332c, 725edd5, 4963836
 
-### 013 · P1 · observed · PARTIAL
+### 013 · P1 · observed · COMPLETE
 
 > Require an inference smoke test before a provider is marked truly working, not just an installed key or model.
 
-- **Evidence:** Providers are marked available from configuration alone (Ollama /api/tags, presence of an API key). The app warms the selected Ollama model on start, but no inference result is required before a provider is shown as working.
-- **Commits:** 58e902f
+- **Evidence:** A provider is shown as working only after it has produced text. At start the app sends the selected Ollama model a real test prompt (ProviderRouter.verify_ollama) and the sidebar shows 'testing', 'working (answered a test prompt in N s)' or the failure; every real answer or failure updates that record. Diagnostics lists each provider as Offline / Set up, not tested / Working (produced text) / Failed its last request, and has a 'Send a test prompt' button for any provider. Cloud providers are not tested automatically because each test is billed; they stay 'Set up, not tested' until the button is used or they answer. Run live on 2026-11-23 against dolphin3:8b: the test prompt answered in 1.4 to 2.0 s with the model loaded.
+- **Tests:** tests/test_provider_truth.py::test_verify_ollama_* and test_a_real_answer_or_failure_updates_what_is_known_about_a_provider; tests/test_app_controls.py::test_model_check_caption_only_says_working_after_text_came_back.
+- **Commits:** 58e902f, de2332c, 725edd5
 
-### 014 · P1 · observed · MISSING
+### 014 · P1 · observed · PARTIAL
 
 > Modernize obsolete or unavailable default cloud model identifiers and validate current API compatibility.
 
-- **Evidence:** Defaults are still openai_model='gpt-4.1-mini' and anthropic_model='claude-sonnet-4-20250514' (modules/nexus_config.py). Neither was checked against the current APIs.
-- **Needs:** OPENAI_API_KEY and ANTHROPIC_API_KEY to validate requests against the live APIs.
+- **Evidence:** Anthropic: the default model claude-sonnet-4-20250514 was retired on 2026-06-15, so every request would have failed. The default is now claude-sonnet-5-5; retired IDs found in saved settings or .env are replaced with a note; the request was rewritten for the current Messages API (max_tokens sized for thinking, effort setting, refusal stop reason handled before reading content, server-side refusal fallback, text blocks only, no sampling parameters, one retry with the plain request if the optional fields are rejected). OpenAI: the default gpt-4.1-mini still works but OpenAI's deprecations page (read 2026-11-23) lists it for shutdown on 2027-01-14 with gpt-6-luna as the replacement; the app warns in Diagnostics and switches on that date. Neither provider has been run against its live API from this repository.
+- **Tests:** tests/test_provider_truth.py (request shape, usage and cost, refusals, empty replies, 400 retry, retired and scheduled model IDs, shipped config files). All with stand-in HTTP responses.
+- **Commits:** de2332c, 4963836
+- **Needs:** An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
 
 ### 015 · P1 · recommended · PARTIAL
 
@@ -198,11 +202,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** Routing uses a static provider order, a throughput profile and a model preference list (modules/providers.py rank_ollama_models). Nothing uses measured latency, cost or past success.
 
-### 016 · P1 · recommended · MISSING
+### 016 · P1 · recommended · COMPLETE
 
 > Preserve user-selected provider and model; never silently substitute a paid cloud provider.
 
-- **Evidence:** ProviderRouter.stream walks the provider order; if Ollama fails and a cloud key is set, the prompt goes to OpenAI or Anthropic without the user choosing that.
+- **Evidence:** The first provider in the order is the user's choice and is always used. OpenAI and Anthropic lower in the order are skipped unless 'Allow cloud fallback' is turned on (setting allow_cloud_fallback / ALLOW_CLOUD_FALLBACK, default off); the reply and Diagnostics say which cloud provider was set up but not used. Cloud providers are only asked for their own model names, so the Ollama chat model (or a local model whose name starts with 'o') is no longer sent to OpenAI as a model name. If the chosen Ollama model is not installed and another one answers, the label under the answer says so. The cloud paths were tested with stand-in providers only, because no cloud key is available.
+- **Tests:** tests/test_provider_truth.py::test_local_failure_does_not_send_the_prompt_to_a_configured_cloud_provider, test_cloud_fallback_runs_when_the_saved_setting_allows_it, test_a_request_can_allow_or_forbid_cloud_fallback_regardless_of_the_saved_setting, test_a_cloud_provider_the_user_put_first_is_used_without_the_fallback_setting, test_cloud_providers_are_only_asked_for_their_own_models; tests/test_model_failure_paths.py::test_label_mentions_a_substituted_model.
+- **Commits:** de2332c, 725edd5, 4963836
 
 ### 017 · P1 · recommended · MISSING
 
@@ -236,19 +242,21 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Evidence:** modules/response_planner.py handles follow-ups, corrections and backchannels with tests; conversation_regression_eval.py passes 50 of 55 dry-run scenarios. No live multi-turn evaluation is recorded.
 - **Commits:** 1e83af2
 
-### 022 · P1 · recommended · PARTIAL
+### 022 · P1 · recommended · COMPLETE
 
 > Add model/timeouts/retry behavior with useful errors, not accidental generic responses.
 
-- **Evidence:** Ollama waits at least 120 s for the first token instead of failing at 12 s, and the fallback reply states the failure. There is no retry policy.
-- **Tests:** tests/test_provider_router.py.
-- **Commits:** 58e902f, f5d234d
+- **Evidence:** Ollama: at least 120 s for the first token, one retry when the connection is refused, error messages inside the stream are raised, and a stream that drops before finishing is reported as a cut-off answer. Cloud calls: up to two retries on rate limits, overloads and dropped connections, honouring Retry-After and the API's 'do not retry' header, with the provider's own error message in the result. Failures are worded for a person ('could not connect (is it running?)') and name the provider; the raw error stays in the attempt log. The Ollama paths were run live; the cloud retry paths only with stand-in responses.
+- **Tests:** tests/test_provider_truth.py::test_ollama_connection_refused_is_retried_once, test_ollama_stream_that_drops_before_finishing_is_an_error, test_ollama_error_message_inside_the_stream_is_raised, test_cloud_requests_retry_rate_limits_and_dropped_connections, test_cloud_requests_do_not_retry_when_the_api_says_not_to, test_an_answer_cut_off_midway_is_marked_partial_and_not_glued_to_another_answer; tests/test_provider_router.py (timeouts).
+- **Commits:** 58e902f, f5d234d, de2332c
 
 ### 023 · P1 · recommended · PARTIAL
 
 > Track per-model token counts, throughput, cost and latency in reproducible benchmarks.
 
-- **Evidence:** Each turn records tokens/s and timings for Diagnostics and response_speed_eval.py exists. No reproducible benchmark results are stored.
+- **Evidence:** Each turn records provider, model, tokens per second and timings; cloud answers now record input and output tokens with an estimated cost from published prices, and Ollama reports whether an answer hit its length limit. response_speed_eval.py exists. No benchmark results are stored in the repository yet, so nothing is reproducible from a file.
+- **Tests:** tests/test_provider_truth.py::test_anthropic_usage_and_estimated_cost_are_recorded, test_cost_estimates, test_ollama_reports_when_an_answer_hit_the_length_limit.
+- **Commits:** de2332c
 
 
 ## 3. Fix reality-first reasoning, fact checking, and research (P0)
@@ -889,11 +897,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** No consent or approval flow exists because the engine performs no risky operations yet.
 
-### 119 · P0 · recommended · MISSING
+### 119 · P0 · recommended · COMPLETE
 
 > Ensure model/provider failover cannot accidentally transmit local private documents to a remote API.
 
-- **Evidence:** If Ollama fails and a cloud key is configured, prompts containing local knowledge and memory are sent to the cloud provider automatically (same code path as item 016).
+- **Evidence:** Same gate as item 016: when the local model fails, the prompt (which can contain memory and document text) is not sent to OpenAI or Anthropic unless the user put that provider first or turned on 'Allow cloud fallback'. The sidebar states in one line where prompts can go with the current settings, and each answer's label says whether the prompt stayed on this machine or was sent to a named cloud service. Tested with stand-in cloud providers; no cloud key is available for a live run.
+- **Tests:** tests/test_provider_truth.py::test_local_failure_does_not_send_the_prompt_to_a_configured_cloud_provider and the other cloud-gate tests; tests/test_app_controls.py::test_data_locality_caption_states_where_prompts_can_go; tests/test_model_failure_paths.py::test_label_for_a_cloud_answer_shows_where_the_prompt_went_and_the_cost.
+- **Commits:** de2332c, 725edd5
 
 
 ## 10. Code quality, tests, delivery, and maintenance (P0)
@@ -984,11 +994,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** Reviewed the three documents after the change.
 - **Commits:** dc1662f
 
-### 132 · P0 · recommended · MISSING
+### 132 · P0 · recommended · PARTIAL
 
 > Implement logging/metrics that separate actual errors, model failures, tool failures and degraded-mode fallbacks.
 
-- **Evidence:** Logging uses plain module loggers; errors, model failures, tool failures and fallbacks are not separated or counted.
+- **Evidence:** modules/event_log.py records typed events (model_failure, provider_fallback, provider_skipped, search_source_failure, tool_failure, degraded_mode, error) with counts, kept in memory and appended to logs/events.jsonl; prompts and answers are never logged. The router and web search record their failures, and Diagnostics shows the counts separately with the recent events. Nothing records tool_failure or degraded_mode yet: those belong to the coding-agent tools and the embedding fallback, which are later items.
+- **Tests:** tests/test_event_log.py; tests/test_provider_truth.py::test_failures_and_fallbacks_are_recorded_as_separate_events.
+- **Commits:** de2332c, 725edd5
 
 ### 133 · P0 · recommended · PARTIAL
 
@@ -1032,7 +1044,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Show model, provider, data locality, cost, response time and whether tools really ran.
 
-- **Evidence:** Chat shows the provider and model while generating, and Diagnostics shows the last turn's provider, model, timing and attempts. Data locality, cost and whether tools ran are not shown on the answer.
+- **Evidence:** Every chat reply, Web Research summary and Knowledge answer is labelled with who wrote it (provider and model, or no model), whether the prompt stayed on this machine or went to a named cloud service, the time taken, the cost when a cloud provider reports usage, and the tools that ran (web search, saved knowledge). The label is saved with the chat message. Seen on a real reply on 2026-11-23: 'Answered by Ollama / dolphin3:8b - stayed on this machine - 31.4 s'. The Reality-First and Bloodhound report tabs do not show the label yet, and the Android app is not covered.
+- **Tests:** tests/test_model_failure_paths.py (label_* tests, web research and knowledge results); tests/test_app_controls.py::test_persisted_answer_records_how_it_was_produced.
+- **Commits:** 725edd5, 4963836
 
 ### 139 · P2 · recommended · PARTIAL
 
