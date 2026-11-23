@@ -1,15 +1,17 @@
 """Progress ledger for the 146-item improvement audit.
 
 Source of truth:
-  docs/backlog/items.json    the 146 audit items (imported once from the audit document)
-  docs/backlog/status.json   status, evidence, tests, commits and blockers per item
-  docs/backlog/CONTINUE.md   hand-written continuation notes, included verbatim in the report
+  docs/backlog/items.json          the 146 audit items (imported once from the audit document)
+  docs/backlog/owner_control.json  the owner-control requirement (P0): phases, findings, acceptance tests
+  docs/backlog/status.json         status, evidence, tests, commits and blockers per item (both lists)
+  docs/backlog/CONTINUE.md         hand-written continuation notes, included verbatim in the report
 Rendered report (do not edit by hand):
   docs/AUDIT_146_PROGRESS.md
 
 Usage:
   python tools/audit_ledger.py import <audit.md>     # one-time import of the item list
   python tools/audit_ledger.py set 040 COMPLETE --evidence "..." [--tests "..."] [--commits "abc123"] [--needs "..."]
+  python tools/audit_ledger.py set OC-T06 COMPLETE --evidence "..." --tests "..."   # owner-control ids work the same way
   python tools/audit_ledger.py apply <updates.json>  # several items at once: {"040": {"status": ..., "evidence": ...}}
   python tools/audit_ledger.py render
   python tools/audit_ledger.py check                 # used by CI: all items accounted for, report up to date
@@ -26,6 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ITEMS_FILE = ROOT / "docs" / "backlog" / "items.json"
+OWNER_FILE = ROOT / "docs" / "backlog" / "owner_control.json"
 STATUS_FILE = ROOT / "docs" / "backlog" / "status.json"
 CONTINUE_FILE = ROOT / "docs" / "backlog" / "CONTINUE.md"
 REPORT_FILE = ROOT / "docs" / "AUDIT_146_PROGRESS.md"
@@ -59,9 +62,15 @@ def import_items(audit_path: Path) -> int:
     return len(items)
 
 
+def owner_items() -> dict:
+    """The owner-control requirement's items, by id (empty before the requirement was registered)."""
+
+    return _load(OWNER_FILE).get("items", {})
+
+
 def set_status(item_id: str, status: str, evidence: str, tests: str, commits: str, needs: str | None) -> None:
     items = _load(ITEMS_FILE)["items"]
-    if item_id not in items:
+    if item_id not in items and item_id not in owner_items():
         raise SystemExit(f"Unknown item {item_id}")
     if status not in STATUSES:
         raise SystemExit(f"Status must be one of {STATUSES}")
@@ -113,11 +122,39 @@ def render() -> str:
             f"| {section['number']}. {section['title']} ({section['priority']}) | {per.get('COMPLETE', 0)} | "
             f"{per.get('PARTIAL', 0)} | {per.get('MISSING', 0)} | {per.get('NOT APPLICABLE', 0)} |"
         )
+    owner = _load(OWNER_FILE)
+    if owner.get("items"):
+        owned = Counter(statuses.get(item_id, {}).get("status", "MISSING") for item_id in owner["items"])
+        lines += [
+            "",
+            "Owner-control requirement (Priority 0, cuts across the items above): "
+            + ", ".join(f"{owned.get(status, 0)} {status.lower()}" for status in STATUSES)
+            + f" of {len(owner['items'])}. See the section after *Items that need the owner*.",
+        ]
     lines += ["", "## How to continue", ""]
     lines += (CONTINUE_FILE.read_text(encoding="utf-8").strip().splitlines() if CONTINUE_FILE.exists() else ["No notes yet."])
-    blocked = [(item_id, statuses[item_id]) for item_id in sorted(items) if statuses.get(item_id, {}).get("needs")]
+    blocked = [(item_id, statuses[item_id]) for item_id in sorted([*items, *owner.get("items", {})]) if statuses.get(item_id, {}).get("needs")]
     lines += ["", "## Items that need the owner", "", "Hardware, credentials, paid services or approval that this work could not supply.", ""]
     lines += [f"- **{item_id}** ({entry['status']}): {entry['needs']}" for item_id, entry in blocked] or ["None."]
+    if owner.get("items"):
+        lines += ["", "## P0. Owner control (cross-cutting requirement)", "", owner.get("about", ""), ""]
+        lines += [
+            "The register of every restriction and behaviour-affecting mechanism is `docs/OWNER_CONTROL_RESTRICTIONS.md`; "
+            "the specification, the owner's decisions and the map from acceptance tests to test files are in `docs/OWNER_CONTROL.md`.",
+        ]
+        for group in owner.get("groups", []):
+            lines += ["", f"### {group['title']}", ""]
+            for item_id in sorted(owner["items"]):
+                item = owner["items"][item_id]
+                if item["group"] != group["key"]:
+                    continue
+                entry = statuses.get(item_id, {})
+                lines += [f"#### {item_id} · {entry.get('status', 'MISSING')}", "", f"> {item['text']}", ""]
+                lines.append(f"- **Evidence:** {entry.get('evidence', 'Not examined yet.')}")
+                for label, key in (("Tests", "tests"), ("Commits", "commits"), ("Needs", "needs")):
+                    if entry.get(key):
+                        lines.append(f"- **{label}:** {entry[key]}")
+                lines.append("")
     for section in sections:
         lines += ["", f"## {section['number']}. {section['title']} ({section['priority']})", ""]
         for item_id in sorted(items):
@@ -143,7 +180,7 @@ def check() -> list[str]:
     problems = []
     if len(data.get("items", {})) != 146:
         problems.append(f"expected 146 items, found {len(data.get('items', {}))}")
-    for item_id in sorted(data.get("items", {})):
+    for item_id in sorted([*data.get("items", {}), *owner_items()]):
         entry = statuses.get(item_id)
         if not entry:
             problems.append(f"{item_id}: no status recorded")
