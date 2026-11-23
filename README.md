@@ -139,10 +139,10 @@ The Image Generation tab is local-first and supports:
 
 - Automatic1111 Stable Diffusion WebUI API at `http://127.0.0.1:7860`.
 - ComfyUI at `http://127.0.0.1:8188` with uploaded or saved API workflow JSON.
-- Optional local Diffusers generation when these heavier packages are installed:
+- Optional local Diffusers generation when these heavier packages are installed (CPU works; ~3 minutes per 512x512 image, ~2 GB model download on first use):
 
 ```powershell
-pip install torch diffusers pillow transformers accelerate safetensors
+pip install -r requirements/images.txt
 ```
 
 For Automatic1111, start the WebUI with API support, for example:

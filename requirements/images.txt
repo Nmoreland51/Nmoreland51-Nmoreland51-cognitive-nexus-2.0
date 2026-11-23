@@ -1,0 +1,14 @@
+# Optional: local image generation with Diffusers (Image Generation tab -> Local Diffusers).
+#   pip install -r requirements/images.txt
+#
+# On Windows the default PyPI torch wheel is the CPU build (~0.8 GB installed). Expect about
+# 3 minutes per 512x512 image on a 6-core laptop CPU. With an NVIDIA GPU, install the CUDA build
+# from https://pytorch.org/get-started/locally/ instead.
+#
+# The first image downloads Stable Diffusion 1.5 fp16 weights (~2.0 GB) into the Hugging Face cache.
+-r core.txt
+torch>=2.2
+diffusers>=0.27
+transformers>=4.40
+accelerate>=0.30
+safetensors>=0.4

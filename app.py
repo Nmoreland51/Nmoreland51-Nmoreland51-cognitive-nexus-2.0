@@ -856,49 +856,6 @@ def build_chat_prompt(user_message: str, settings: dict[str, Any], route_decisio
     return prompt
 
 
-def should_run_chat_search(message: str) -> Optional[str]:
-    lowered = message.lower().strip()
-    prefixes = [
-        "search the web for",
-        "search web for",
-        "web search for",
-        "look up",
-        "find online",
-        "find current info about",
-        "research",
-        "latest",
-    ]
-    for prefix in prefixes:
-        if lowered.startswith(prefix):
-            return message[len(prefix) :].strip() or message
-    if any(token in lowered for token in ["latest ", "current ", "recent ", "today ", "breaking "]):
-        return message.strip()
-    return None
-
-
-def answer_with_web_search(query: str, settings: dict[str, Any], model_override: Optional[str] = None) -> str:
-    routed_settings = dict(settings)
-    if model_override:
-        routed_settings["selected_model"] = model_override
-    research = get_nexus_core().run_web_research(query, routed_settings, max_results=5, save_locally=True)
-    if not research["results"]:
-        errors = "\n".join(f"- {error}" for error in research["errors"])
-        return f"I could not find web results for that query.\n\n{errors}".strip()
-    answer = research["summary"]
-    if settings["show_sources"]:
-        sources = "\n".join(
-            f"- [{item.get('title') or item.get('url')}]({item.get('url')}) ({item.get('source')})"
-            for item in research["results"]
-            if item.get("url")
-        )
-        if sources and "source" not in answer.lower():
-            answer = f"{answer}\n\nSources:\n{sources}"
-    saved_paths = research.get("saved_paths") or {}
-    if saved_paths:
-        answer = f"{answer}\n\nSaved research:\n- JSON: `{saved_paths.get('json')}`\n- Markdown: `{saved_paths.get('markdown')}`"
-    return answer
-
-
 def is_capability_question(message: str) -> bool:
     lowered = " ".join((message or "").lower().strip().split())
     capability_phrases = [
