@@ -10,6 +10,7 @@ Rendered report (do not edit by hand):
 Usage:
   python tools/audit_ledger.py import <audit.md>     # one-time import of the item list
   python tools/audit_ledger.py set 040 COMPLETE --evidence "..." [--tests "..."] [--commits "abc123"] [--needs "..."]
+  python tools/audit_ledger.py apply <updates.json>  # several items at once: {"040": {"status": ..., "evidence": ...}}
   python tools/audit_ledger.py render
   python tools/audit_ledger.py check                 # used by CI: all items accounted for, report up to date
 """
@@ -168,6 +169,7 @@ def main() -> int:
     setter.add_argument("--tests", default="")
     setter.add_argument("--commits", default="")
     setter.add_argument("--needs", default=None)
+    sub.add_parser("apply").add_argument("updates")
     sub.add_parser("render")
     sub.add_parser("check")
     args = parser.parse_args()
@@ -176,7 +178,12 @@ def main() -> int:
         print(f"imported {import_items(Path(args.audit))} items")
     elif args.command == "set":
         set_status(args.item, args.status, args.evidence, args.tests, args.commits, args.needs)
-    if args.command in {"set", "render"}:
+    elif args.command == "apply":
+        updates = json.loads(Path(args.updates).read_text(encoding="utf-8"))
+        for item_id, entry in sorted(updates.items()):
+            set_status(item_id, entry["status"], entry.get("evidence", ""), entry.get("tests", ""), entry.get("commits", ""), entry.get("needs"))
+        print(f"updated {len(updates)} items")
+    if args.command in {"set", "apply", "render"}:
         REPORT_FILE.write_bytes(render().encode("utf-8"))
         print(f"rendered {REPORT_FILE.relative_to(ROOT)}")
     if args.command == "check":

@@ -6,8 +6,10 @@
   "status": "PARTIAL"
  },
  "002": {
-  "evidence": "No desktop build is distributed from this repository (QUICK_START.md described an .exe whose build scripts are not in the repo). The Android release workflow builds APKs but nothing records which engine commit a build was tested against.",
-  "status": "MISSING"
+  "commits": "be4bb0a",
+  "evidence": "cognitive_nexus/version.py reports the version and the exact git commit a running copy was started from (or a BUILD_COMMIT file in a packaged build). The app does not show it yet, no desktop build is distributed, and the Android release workflow does not record the engine commit it was tested against.",
+  "status": "PARTIAL",
+  "tests": "tests/test_version.py."
  },
  "003": {
   "evidence": "Not reconciled. The Android repository still has open work on side branches per its ANDROID_PORT_STATUS.md.",
@@ -494,9 +496,10 @@
   "status": "MISSING"
  },
  "110": {
-  "commits": "351c51d",
-  "evidence": ".env is ignored by git so API keys cannot be committed by accident. There is no automated secret scan of the repository, logs or image metadata.",
-  "status": "PARTIAL"
+  "commits": "351c51d, ce2c584",
+  "evidence": "tools/check_repo_hygiene.py scans every tracked file for API keys, tokens and private keys on each push (none found in 588 files) and .env is ignored. Logs, model prompts, image metadata and the Android APK are not scanned.",
+  "status": "PARTIAL",
+  "tests": "tests/test_repo_hygiene.py; CI 'checks' job."
  },
  "111": {
   "evidence": "The Android backend requires a bearer token of at least 32 characters compared in constant time (backend/server.py). There is no rotation, rate limiting, revocation or per-device access.",
@@ -507,10 +510,11 @@
   "status": "MISSING"
  },
  "113": {
-  "commits": "351c51d",
-  "evidence": "New local secrets are ignored (.env). The public repository still tracks personal runtime data: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl and six generated images with prompts.",
-  "needs": "Owner approval to remove those files from tracking and purge them from history (a history rewrite with force-push). Untracking also deletes the files from other clones when they pull.",
-  "status": "PARTIAL"
+  "commits": "351c51d, ce2c584",
+  "evidence": "CI now fails if any new private runtime file (chat history, profiles, feedback, research output, logs, .env) is committed. Sixteen such files committed earlier are still tracked and public: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl, data/memory_candidates.json and six generated images with prompts.",
+  "needs": "Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.",
+  "status": "PARTIAL",
+  "tests": "tests/test_repo_hygiene.py::test_private_runtime_data_is_rejected_unless_grandfathered."
  },
  "114": {
   "evidence": "No written access model. The desktop app is single-user by design and the Android backend uses one shared token.",
@@ -527,8 +531,10 @@
   "tests": "tests/test_file_utils.py."
  },
  "117": {
-  "evidence": "No dependency vulnerability scanning; dependencies are not pinned.",
-  "status": "MISSING"
+  "commits": "ce2c584",
+  "evidence": "CI runs pip-audit against the pinned dependency set on every push (no known vulnerabilities on 2026-11-23). Downloads are not hash-verified and model downloads (Ollama, Hugging Face) are not signature-checked.",
+  "status": "PARTIAL",
+  "tests": "CI 'checks' job; tools/run_checks.py --audit."
  },
  "118": {
   "evidence": "No consent or approval flow exists because the engine performs no risky operations yet.",
@@ -559,12 +565,16 @@
   "tests": "276 tests collected and passing in CI."
  },
  "124": {
-  "evidence": "CI has no linting, formatting, type checking or security scanning.",
-  "status": "MISSING"
+  "commits": "944dbc0, ce2c584",
+  "evidence": "CI runs ruff (syntax errors and pyflakes rules), mypy on the modules listed in mypy.ini, the secret scan and pip-audit. No formatter is enforced and most older modules are not type-checked. The first lint run found a real bug (unreachable deep-mode budget).",
+  "status": "PARTIAL",
+  "tests": "CI 'checks' job; tests/test_response_planner.py::test_deep_mode_gets_its_larger_token_budget."
  },
  "125": {
-  "evidence": "requirements use lower bounds only; no lock or constraints file. Compatible Python versions are not documented outside the CI matrix.",
-  "status": "MISSING"
+  "commits": "ce2c584",
+  "evidence": "requirements/constraints.txt pins all 81 installed packages; CI installs with it. Supported Python versions are documented there and in the workflow: 3.11 to 3.13, with the pinned set valid for 3.12 and 3.13 (the pinned NumPy has no 3.11 build, so 3.11 is tested unpinned).",
+  "status": "COMPLETE",
+  "tests": "Pinned install resolved for Python 3.12 and 3.13 on Windows and Linux (pip dry-run), and the full suite passed in a fresh virtualenv built from the pins."
  },
  "126": {
   "evidence": "All automated tests mock the model. Live checks against Ollama were done by hand on 2026-11-23 and are not repeatable as a test.",
@@ -580,14 +590,15 @@
   "status": "MISSING"
  },
  "129": {
-  "commits": "9899eb8",
-  "evidence": "CI runs on every push so pull requests show a result. Branch protection is not configured and release builds are not tied to commit SHAs.",
+  "commits": "9899eb8, ce2c584, be4bb0a",
+  "evidence": "CI runs tests and checks on every push, so pull requests show a result, and builds can now be tied to a commit through cognitive_nexus/version.py. Branch protection is not configured.",
   "needs": "Owner approval to change the repository's branch protection settings.",
   "status": "PARTIAL"
  },
  "130": {
-  "evidence": "No architectural decision record, code owners file, milestones or definition of done.",
-  "status": "MISSING"
+  "commits": "be4bb0a",
+  "evidence": "docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. Issues and milestones are not set up; the audit ledger currently serves as the backlog.",
+  "status": "PARTIAL"
  },
  "131": {
   "commits": "dc1662f",
@@ -610,8 +621,10 @@
   "status": "MISSING"
  },
  "135": {
-  "evidence": "No versioned releases, changelog or rollback procedure.",
-  "status": "MISSING"
+  "commits": "be4bb0a",
+  "evidence": "CHANGELOG.md, a version number (cognitive_nexus/version.py) and known limitations (docs/STATUS.md) exist. No release has been tagged or published and there is no rollback procedure.",
+  "needs": "Owner approval to tag and publish a release.",
+  "status": "PARTIAL"
  },
  "136": {
   "evidence": "Not decided.",

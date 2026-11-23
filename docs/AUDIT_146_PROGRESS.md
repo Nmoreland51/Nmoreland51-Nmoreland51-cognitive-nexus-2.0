@@ -8,15 +8,15 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 14 |
-| PARTIAL | 47 |
-| MISSING | 84 |
+| COMPLETE | 15 |
+| PARTIAL | 52 |
+| MISSING | 78 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
 | Section | Complete | Partial | Missing | N/A |
 |---|---|---|---|---|
-| 1. Fix the foundations and release confusion (P0) | 3 | 5 | 2 | 0 |
+| 1. Fix the foundations and release confusion (P0) | 3 | 6 | 1 | 0 |
 | 2. Make core AI chat genuinely reliable (P1) | 0 | 8 | 5 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 6 | 7 | 2 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 1 | 6 | 7 | 0 |
@@ -24,8 +24,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 6. Make external actions and automation useful (P1) | 0 | 0 | 11 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 4 | 10 | 1 |
 | 8. Performance and local hardware (P1) | 0 | 5 | 6 | 0 |
-| 9. Security, privacy and data integrity (P0) | 1 | 5 | 7 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 3 | 2 | 11 | 0 |
+| 9. Security, privacy and data integrity (P0) | 1 | 6 | 6 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 4 | 5 | 7 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
 
 ## How to continue
@@ -77,10 +77,11 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **093** (MISSING): ComfyUI or Automatic1111 running, plus a phone.
 - **094** (MISSING): Owner decision to merge or reject it.
 - **095** (MISSING): Depends on item 094.
-- **113** (PARTIAL): Owner approval to remove those files from tracking and purge them from history (a history rewrite with force-push). Untracking also deletes the files from other clones when they pull.
+- **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
 - **134** (MISSING): Code-signing certificates and the Android signing keys (repository secrets).
+- **135** (PARTIAL): Owner approval to tag and publish a release.
 - **136** (MISSING): Owner decision: is the default product an everyday assistant, a research workbench, a software agent, or selectable modes?
 - **145** (MISSING): Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.
 - **146** (MISSING): Owner decision (the audit marks this 'if desired').
@@ -95,11 +96,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Commits:** dc1662f
 - **Needs:** Owner to confirm which repository is canonical; then the other two READMEs can point here.
 
-### 002 · P0 · observed · MISSING
+### 002 · P0 · observed · PARTIAL
 
 > Identify the exact tested commit that each distributed desktop build and Android APK runs.
 
-- **Evidence:** No desktop build is distributed from this repository (QUICK_START.md described an .exe whose build scripts are not in the repo). The Android release workflow builds APKs but nothing records which engine commit a build was tested against.
+- **Evidence:** cognitive_nexus/version.py reports the version and the exact git commit a running copy was started from (or a BUILD_COMMIT file in a packaged build). The app does not show it yet, no desktop build is distributed, and the Android release workflow does not record the engine commit it was tested against.
+- **Tests:** tests/test_version.py.
+- **Commits:** be4bb0a
 
 ### 003 · P0 · observed · MISSING
 
@@ -827,8 +830,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Keep secrets out of repo files, image metadata, model prompts, logs and mobile APKs.
 
-- **Evidence:** .env is ignored by git so API keys cannot be committed by accident. There is no automated secret scan of the repository, logs or image metadata.
-- **Commits:** 351c51d
+- **Evidence:** tools/check_repo_hygiene.py scans every tracked file for API keys, tokens and private keys on each push (none found in 588 files) and .env is ignored. Logs, model prompts, image metadata and the Android APK are not scanned.
+- **Tests:** tests/test_repo_hygiene.py; CI 'checks' job.
+- **Commits:** 351c51d, ce2c584
 
 ### 111 · P0 · recommended · PARTIAL
 
@@ -846,9 +850,10 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Avoid accidental public upload of data through GitHub Pages live-bank, Git commits, logs or demo modes.
 
-- **Evidence:** New local secrets are ignored (.env). The public repository still tracks personal runtime data: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl and six generated images with prompts.
-- **Commits:** 351c51d
-- **Needs:** Owner approval to remove those files from tracking and purge them from history (a history rewrite with force-push). Untracking also deletes the files from other clones when they pull.
+- **Evidence:** CI now fails if any new private runtime file (chat history, profiles, feedback, research output, logs, .env) is committed. Sixteen such files committed earlier are still tracked and public: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl, data/memory_candidates.json and six generated images with prompts.
+- **Tests:** tests/test_repo_hygiene.py::test_private_runtime_data_is_rejected_unless_grandfathered.
+- **Commits:** 351c51d, ce2c584
+- **Needs:** Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 
 ### 114 · P0 · observed · MISSING
 
@@ -870,11 +875,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** tests/test_file_utils.py.
 - **Commits:** 0de33c3
 
-### 117 · P0 · recommended · MISSING
+### 117 · P0 · recommended · PARTIAL
 
 > Use dependency vulnerability scanning and signed/trusted download processes.
 
-- **Evidence:** No dependency vulnerability scanning; dependencies are not pinned.
+- **Evidence:** CI runs pip-audit against the pinned dependency set on every push (no known vulnerabilities on 2026-11-23). Downloads are not hash-verified and model downloads (Ollama, Hugging Face) are not signature-checked.
+- **Tests:** CI 'checks' job; tools/run_checks.py --audit.
+- **Commits:** ce2c584
 
 ### 118 · P0 · recommended · MISSING
 
@@ -919,17 +926,21 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** 276 tests collected and passing in CI.
 - **Commits:** 9899eb8
 
-### 124 · P0 · recommended · MISSING
+### 124 · P0 · recommended · PARTIAL
 
 > Add type checking, formatting, linting and security scanning in CI.
 
-- **Evidence:** CI has no linting, formatting, type checking or security scanning.
+- **Evidence:** CI runs ruff (syntax errors and pyflakes rules), mypy on the modules listed in mypy.ini, the secret scan and pip-audit. No formatter is enforced and most older modules are not type-checked. The first lint run found a real bug (unreachable deep-mode budget).
+- **Tests:** CI 'checks' job; tests/test_response_planner.py::test_deep_mode_gets_its_larger_token_budget.
+- **Commits:** 944dbc0, ce2c584
 
-### 125 · P0 · observed · MISSING
+### 125 · P0 · observed · COMPLETE
 
 > Pin/lock dependency versions to reproduce releases and document compatible Python versions.
 
-- **Evidence:** requirements use lower bounds only; no lock or constraints file. Compatible Python versions are not documented outside the CI matrix.
+- **Evidence:** requirements/constraints.txt pins all 81 installed packages; CI installs with it. Supported Python versions are documented there and in the workflow: 3.11 to 3.13, with the pinned set valid for 3.12 and 3.13 (the pinned NumPy has no 3.11 build, so 3.11 is tested unpinned).
+- **Tests:** Pinned install resolved for Python 3.12 and 3.13 on Windows and Linux (pip dry-run), and the full suite passed in a fresh virtualenv built from the pins.
+- **Commits:** ce2c584
 
 ### 126 · P0 · recommended · MISSING
 
@@ -954,15 +965,16 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Require green CI for pull requests and track release builds to specific Git commit SHAs.
 
-- **Evidence:** CI runs on every push so pull requests show a result. Branch protection is not configured and release builds are not tied to commit SHAs.
-- **Commits:** 9899eb8
+- **Evidence:** CI runs tests and checks on every push, so pull requests show a result, and builds can now be tied to a commit through cognitive_nexus/version.py. Branch protection is not configured.
+- **Commits:** 9899eb8, ce2c584, be4bb0a
 - **Needs:** Owner approval to change the repository's branch protection settings.
 
-### 130 · P0 · recommended · MISSING
+### 130 · P0 · recommended · PARTIAL
 
 > Write a current architectural decision record, code owners, issues/milestones and definition of done.
 
-- **Evidence:** No architectural decision record, code owners file, milestones or definition of done.
+- **Evidence:** docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. Issues and milestones are not set up; the audit ledger currently serves as the backlog.
+- **Commits:** be4bb0a
 
 ### 131 · P0 · observed · COMPLETE
 
@@ -992,11 +1004,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Evidence:** No signed desktop or mobile builds.
 - **Needs:** Code-signing certificates and the Android signing keys (repository secrets).
 
-### 135 · P0 · recommended · MISSING
+### 135 · P0 · recommended · PARTIAL
 
 > Publish versioned releases, change logs, known limitations, and rollback procedures.
 
-- **Evidence:** No versioned releases, changelog or rollback procedure.
+- **Evidence:** CHANGELOG.md, a version number (cognitive_nexus/version.py) and known limitations (docs/STATUS.md) exist. No release has been tagged or published and there is no rollback procedure.
+- **Commits:** be4bb0a
+- **Needs:** Owner approval to tag and publish a release.
 
 
 ## 11. Usability, transparency, and long-term polish (P2)
