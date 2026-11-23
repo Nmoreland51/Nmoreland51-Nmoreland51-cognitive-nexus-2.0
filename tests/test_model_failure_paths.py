@@ -348,6 +348,53 @@ def test_label_for_a_cut_off_answer_and_a_skipped_cloud_provider():
     assert skipped.endswith("(Anthropic is set up but cloud fallback is off.)")
 
 
+def test_label_mentions_a_substituted_model():
+    note = "Requested Ollama model 'missing:model' is not installed; using 'llama3.2:3b'."
+    line = describe_answer(answer_meta({"provider": "ollama", "model": "llama3.2:3b", "success": True, "model_note": note}))
+
+    assert line.endswith(f"Note: {note}")
+
+
+def test_web_research_result_says_who_wrote_the_summary():
+    core = core_with_dead_model()
+    with patch.object(web_research, "gather_research", return_value=gathered()), patch.object(
+        web_research, "add_research_to_memory", return_value={"stored": True}
+    ):
+        session = core.run_web_research("latest streamlit", chat_settings(), save_locally=False)
+
+    label = describe_answer(session["produced_by"])
+    assert label.startswith("Web search; no model wrote a summary")
+    assert "connection refused" in label
+
+    core.provider_router._stream_ollama = lambda _request, _info, _model: iter(["Streamlit 1.67.0 is the latest."])  # type: ignore[method-assign]
+    with patch.object(web_research, "gather_research", return_value=gathered()), patch.object(
+        web_research, "add_research_to_memory", return_value={"stored": True}
+    ):
+        session = core.run_web_research("latest streamlit", chat_settings(), save_locally=False)
+
+    assert session["summary_generated"] is True
+    assert describe_answer(session["produced_by"]).startswith("Web search, written up by Ollama / fake-local-model")
+
+
+def test_knowledge_result_says_whether_a_model_answered():
+    core = core_with_dead_model()
+    core._research_module = FakeKnowledge()
+
+    extractive = core.answer_knowledge("when is the backup?", chat_settings(knowledge_use_ai=False))
+    assert describe_answer(extractive["produced_by"]).startswith("Passages from your saved knowledge, no model used")
+
+    failed = core.answer_knowledge("when is the backup?", chat_settings(knowledge_use_ai=True))
+    assert failed["model_answered"] is False
+    failed_label = describe_answer(failed["produced_by"])
+    assert failed_label.startswith("Passages from your saved knowledge, no model used")
+    assert "connection refused" in failed_label
+
+    core.provider_router._stream_ollama = lambda _request, _info, _model: iter(["At 02:00."])  # type: ignore[method-assign]
+    answered = core.answer_knowledge("when is the backup?", chat_settings(knowledge_use_ai=True))
+    assert answered["model_answered"] is True
+    assert describe_answer(answered["produced_by"]).startswith("Answered by Ollama / fake-local-model · stayed on this machine")
+
+
 def test_label_is_empty_when_nothing_is_known():
     assert describe_answer(None) == ""
     assert describe_answer(answer_meta({})) == ""

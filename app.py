@@ -1651,6 +1651,9 @@ def render_web_research_tab(settings: dict[str, Any]) -> None:
             st.warning("\n".join(research["errors"]))
         st.markdown("### Summary")
         st.markdown(research["summary"])
+        research_label = "" if demo_safe else describe_answer(research.get("produced_by"))
+        if research_label:
+            st.caption(research_label)
         if research.get("saved_paths"):
             if demo_safe:
                 st.success("Research saved locally. File paths hidden in Demo Safe Mode.")
@@ -1752,6 +1755,9 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
             return
         result = get_nexus_core().answer_knowledge(query, settings, top_k=top_k)
         st.markdown(result["answer"])
+        knowledge_label = "" if demo_safe else describe_answer(result.get("produced_by"))
+        if knowledge_label:
+            st.caption(knowledge_label)
         if demo_safe:
             st.caption(f"Retrieved chunks hidden in Demo Safe Mode ({len(result.get('results') or [])} result(s)).")
         else:

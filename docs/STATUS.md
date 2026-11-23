@@ -21,7 +21,9 @@ This page replaces the readiness claims in the older reports in this repository 
 | Bloodhound search | Mocked | No | |
 | Files / Knowledge storage and retrieval | Yes | No | |
 | Image generation through Automatic1111 or ComfyUI | Mocked | No | Neither was installed on the test machine |
-| OpenAI and Anthropic providers | Detection only | No | No API keys were available. Default model names were not checked against the current APIs |
+| OpenAI and Anthropic providers | Mocked | No | No API keys were available, so neither has answered a real request. The Anthropic request was rewritten for the current API and its retired default model replaced (`claude-sonnet-5-5`). OpenAI's default `gpt-4.1-mini` works until 2027-01-14 according to OpenAI's deprecation page |
+| Cloud fallback stays off unless chosen | Yes | Partly | Tested with stand-in cloud providers. Live, only the no-key case could be run: with the local model unreachable, the reply said what failed |
+| "Who answered" label and provider test prompt | Yes | Yes | Seen on a real reply: "Answered by Ollama / dolphin3:8b, stayed on this machine, 31.4 s" |
 | Hugging Face local provider | Detection only | No | |
 | Onion search | No | No | Off by default |
 | Android app | n/a | No | Separate repository. It needs this engine running on a computer; it does not run models on the phone |
@@ -34,7 +36,8 @@ This page replaces the readiness claims in the older reports in this repository 
 - **Memory** is stored in JSON files. Saves are atomic, but two programs writing at once (desktop and phone backend) can still overwrite each other.
 - **Knowledge search** uses hash-vector embeddings by default, which match shared words rather than meaning.
 - **URL fetching** refuses local and private addresses, but does not pin DNS between the check and the connection.
-- **Dependencies** are not pinned to exact versions.
+- **Cloud providers** have never been run against the real services from this repository. Use "Send a test prompt" in Diagnostics after adding a key.
+- **Cost figures** for cloud answers are estimates from published prices; the provider's bill is the real number.
 
 ## Repositories
 
@@ -46,5 +49,5 @@ This page replaces the readiness claims in the older reports in this repository 
 
 These files describe the project as it was in mid-2026 and are kept for history. Where they disagree with this page, this page is current.
 
-- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has more than 270 tests, and the limits above still apply.
+- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has more than 350 tests, and the limits above still apply.
 - `QUICK_START.md` describes a packaged `.exe` build. The scripts it names (`build_executable.bat`, `launch_cognitive_nexus.bat`) are not in this repository. Use the Install and Run sections of `README.md`.

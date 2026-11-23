@@ -30,6 +30,7 @@ from modules.reality_research_agent import (
     is_verification_request,
     run_reality_research,
 )
+from modules.answer_meta import answer_meta
 from modules.research import get_research_module, query_knowledge
 from modules.response_planner import (
     ResponsePlan,
@@ -492,6 +493,27 @@ class NexusCore:
 
         request = self._provider_request(prompt, settings, options, model=settings.get("selected_model") or "")
         return self.provider_router.generate_or_raise(request).text
+
+    def _produced_by(self, provider: str, started: float, *, answered: bool, tools: list[str]) -> dict[str, Any]:
+        """How a research or knowledge result was produced, from the router's last request."""
+
+        model_meta = dict(getattr(self.provider_router, "last_stream_metadata", {}) or {})
+        tool_path = provider in {"web_research", "reality_research_agent", "bloodhound_search"}
+        return answer_meta(
+            {
+                "provider": provider if (tool_path or not answered) else str(model_meta.get("provider") or provider),
+                "model_provider": str(model_meta.get("provider") or ""),
+                "model": str(model_meta.get("model") or ""),
+                "success": answered,
+                "partial": bool(model_meta.get("partial")),
+                "elapsed": time.perf_counter() - started,
+                "fallback_reason": "" if answered else str(model_meta.get("fallback_reason") or ""),
+                "skipped_cloud": list(model_meta.get("skipped_cloud") or []),
+                "usage": dict(model_meta.get("usage") or {}),
+                "model_note": str(model_meta.get("model_note") or ""),
+                "tools_run": tools,
+            }
+        )
 
     def _apply_throughput_profile(
         self,
@@ -1638,6 +1660,7 @@ class NexusCore:
             "partial": bool(provider_meta.get("partial")),
             "skipped_cloud": list(provider_meta.get("skipped_cloud") or []),
             "usage": dict(provider_meta.get("usage") or {}),
+            "model_note": str(provider_meta.get("model_note") or ""),
             "retrieval": retrieval_meta,
             "sources": source_count,
             "throughput": {
@@ -1686,7 +1709,9 @@ class NexusCore:
             def ai_callback(prompt: str) -> str:
                 return self._model_text(prompt, settings, options)
 
-        return run_research_session(
+        started = time.perf_counter()
+        self.provider_router.last_stream_metadata = {}
+        session = run_research_session(
             query,
             max_results=max_results,
             scrape_pages=scrape_pages,
@@ -1696,6 +1721,10 @@ class NexusCore:
             ai_callback=ai_callback,
             brief=brief,
         )
+        session["produced_by"] = self._produced_by(
+            "web_research", started, answered=bool(session.get("summary_generated")), tools=["web_search"]
+        )
+        return session
 
     def run_bloodhound_search(self, query: str, settings: dict[str, Any]) -> dict[str, Any]:
         """Run Bloodhound Search Mode through the shared provider router."""
@@ -1763,6 +1792,8 @@ class NexusCore:
         def ai_callback(prompt: str) -> str:
             return self._model_text(prompt, settings, {"temperature": 0.25, "num_predict": 420, "num_ctx": 4096})
 
+        started = time.perf_counter()
+        self.provider_router.last_stream_metadata = {}
         result = query_knowledge(
             module,
             query,
@@ -1771,6 +1802,9 @@ class NexusCore:
             provider_ready=use_ai_synthesis,
             top_k=top_k,
             ai_callback=ai_callback if use_ai_synthesis else None,
+        )
+        result["produced_by"] = self._produced_by(
+            "local_knowledge", started, answered=bool(result.get("model_answered")), tools=["local_knowledge"]
         )
         result["answer"] = self._audit_answer(
             str(result.get("answer", "")),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -42,13 +43,37 @@ RETIRED_MODEL_IDS = {
 }
 
 
-def current_model_id(model: str) -> tuple[str, str]:
-    """Return (usable model ID, note). The note is empty unless a retired ID was replaced."""
+# Models with an announced shutdown date: (date it stops working, replacement the vendor names).
+# Sources, read 2026-11-23: OpenAI's deprecations page (the row for gpt-4.1-mini-2025-04-14,
+# which the undated alias points to) and Anthropic's model reference.
+SCHEDULED_SHUTDOWNS = {
+    "gpt-4.1-mini": ("2027-01-14", "gpt-6-luna"),
+    "gpt-4.1-mini-2025-04-14": ("2027-01-14", "gpt-6-luna"),
+    "claude-sonnet-4-5": ("2026-11-30", "claude-sonnet-5-5"),
+    "claude-sonnet-4-5-20250929": ("2026-11-30", "claude-sonnet-5-5"),
+}
+
+
+def current_model_id(model: str, today: date | None = None) -> tuple[str, str]:
+    """Return (usable model ID, note).
+
+    A retired ID is replaced. An ID with an announced shutdown date is kept until that date,
+    with a warning, and replaced from that date on. The note is empty when nothing applies.
+    """
 
     name = str(model or "").strip()
     replacement = RETIRED_MODEL_IDS.get(name)
     if replacement:
         return replacement, f"Model '{name}' has been retired by Anthropic; using '{replacement}' instead."
+    scheduled = SCHEDULED_SHUTDOWNS.get(name)
+    if scheduled:
+        shutdown, replacement = scheduled
+        if (today or date.today()) >= date.fromisoformat(shutdown):
+            return replacement, f"Model '{name}' was shut down on {shutdown}; using '{replacement}' instead."
+        return name, (
+            f"Model '{name}' is scheduled to stop working on {shutdown}. "
+            f"Its vendor recommends '{replacement}'; change the model setting before then."
+        )
     return name, ""
 
 
@@ -126,9 +151,14 @@ def load_runtime_config(path: Path = DEFAULT_CONFIG_FILE) -> dict[str, Any]:
         pass
 
     config["ollama_url"] = os.environ.get("OLLAMA_URL", str(config["ollama_url"])).rstrip("/")
-    config["openai_model"] = os.environ.get("OPENAI_MODEL", str(config["openai_model"]))
-    config["anthropic_model"], model_note = current_model_id(os.environ.get("ANTHROPIC_MODEL") or str(config["anthropic_model"]))
-    config["model_id_notes"] = [model_note] if model_note else []
+    config["openai_model"], openai_note = current_model_id(os.environ.get("OPENAI_MODEL") or str(config["openai_model"]))
+    config["anthropic_model"], anthropic_note = current_model_id(os.environ.get("ANTHROPIC_MODEL") or str(config["anthropic_model"]))
+    # Shown in Diagnostics, and only for a provider that is actually set up.
+    config["model_id_notes"] = [
+        note
+        for note, key in ((openai_note, "OPENAI_API_KEY"), (anthropic_note, "ANTHROPIC_API_KEY"))
+        if note and os.environ.get(key)
+    ]
     config["anthropic_effort"] = os.environ.get("ANTHROPIC_EFFORT", str(config.get("anthropic_effort") or "low"))
     config["allow_cloud_fallback"] = _env_bool("ALLOW_CLOUD_FALLBACK", bool(config.get("allow_cloud_fallback", False)))
     config["hf_local_model"] = os.environ.get("HF_LOCAL_MODEL", str(config["hf_local_model"]))

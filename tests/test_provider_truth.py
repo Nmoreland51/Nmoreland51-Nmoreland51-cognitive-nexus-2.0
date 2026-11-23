@@ -519,23 +519,43 @@ def test_retired_claude_model_ids_are_replaced_with_a_note():
     assert current_model_id("claude-opus-5-5") == ("claude-opus-5-5", "")
 
 
+def test_a_model_with_an_announced_shutdown_is_kept_until_the_date_then_replaced():
+    from datetime import date
+
+    before, warning = current_model_id("gpt-4.1-mini", today=date(2026, 11, 23))
+    assert before == "gpt-4.1-mini"
+    assert "2027-01-14" in warning and "gpt-6-luna" in warning
+
+    after, note = current_model_id("gpt-4.1-mini", today=date(2027, 1, 14))
+    assert after == "gpt-6-luna"
+    assert "was shut down on 2027-01-14" in note
+
+    assert current_model_id("claude-sonnet-4-5", today=date(2026, 12, 1))[0] == "claude-sonnet-5-5"
+
+
 def test_a_saved_retired_model_id_is_replaced_when_config_loads(tmp_path, monkeypatch):
     saved = tmp_path / "nexus_config.json"
     saved.write_text(json.dumps({"anthropic_model": "claude-sonnet-4-20250514"}), encoding="utf-8")
     monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ALLOW_CLOUD_FALLBACK", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
     monkeypatch.setattr(nexus_config, "load_env_file", lambda *args, **kwargs: None)
 
     config = nexus_config.load_runtime_config(saved)
 
     assert config["anthropic_model"] == "claude-sonnet-5-5"
-    assert "retired" in config["model_id_notes"][0]
+    # Only the provider with a key gets a note; the OpenAI shutdown warning is not shown without one.
+    assert len(config["model_id_notes"]) == 1 and "retired" in config["model_id_notes"][0]
     assert config["allow_cloud_fallback"] is False
 
 
 def test_environment_can_turn_cloud_fallback_on(tmp_path, monkeypatch):
     monkeypatch.setenv("ALLOW_CLOUD_FALLBACK", "true")
     monkeypatch.setenv("ANTHROPIC_MODEL", "claude-opus-5-5")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(nexus_config, "load_env_file", lambda *args, **kwargs: None)
 
     config = nexus_config.load_runtime_config(tmp_path / "missing.json")

@@ -80,6 +80,10 @@ def answer_meta(provider_result: dict[str, Any] | None) -> dict[str, Any]:
     skipped = [str(name) for name in result.get("skipped_cloud") or []]
     if skipped:
         meta["skipped_cloud"] = skipped
+    note = str(result.get("model_note") or "").strip()
+    if note:
+        # For example: the chosen model is not installed and another one answered instead.
+        meta["note"] = note[:300]
     return meta
 
 
@@ -115,6 +119,8 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
         parts.append("No model answered (this is the app's fallback notice)")
     elif provider == "local_knowledge_fallback":
         parts.append("Passages from your saved knowledge; no model was available")
+    elif provider == "local_knowledge":
+        parts.append("Passages from your saved knowledge, no model used")
     elif provider in BUILT_IN_PROVIDERS:
         parts.append("Built-in reply, no model used")
     elif answered:
@@ -154,6 +160,8 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
     line = " · ".join(parts)
     if reason and not answered and provider not in BUILT_IN_PROVIDERS and provider != "local_knowledge_fallback":
         line += f". Reason: {reason}"
+    if meta.get("note"):
+        line += f". Note: {meta['note']}"
     skipped = meta.get("skipped_cloud") or []
     if skipped and not answered:
         line += f" ({', '.join(CLOUD_MODEL_PROVIDERS.get(name, name) for name in skipped)} is set up but cloud fallback is off.)"
