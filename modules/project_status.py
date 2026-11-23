@@ -122,6 +122,7 @@ def get_environment_status() -> Dict[str, Any]:
         "ollama_url": os.environ.get("OLLAMA_URL", "http://localhost:11434"),
         "openai_api_key_set": bool(os.environ.get("OPENAI_API_KEY")),
         "anthropic_api_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "xai_api_key_set": bool(os.environ.get("XAI_API_KEY")),
     }
 
 

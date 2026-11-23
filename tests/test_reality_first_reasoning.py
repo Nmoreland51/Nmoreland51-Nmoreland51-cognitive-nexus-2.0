@@ -7,17 +7,28 @@ from core.reasoning.reality_model import model_reality
 
 
 class RealityFirstReasoningTests(unittest.TestCase):
-    def test_time_machine_blocks_procedural_fiction(self):
+    def test_time_machine_is_labelled_fiction_and_still_written(self):
         assessment = analyze_epistemic_request("How do I build a time machine with temporal stabilizers?")
         self.assertEqual(assessment.reality.reality_status, "fictional_construct")
         self.assertFalse(assessment.feasibility.procedural_allowed)
-        self.assertIn("Do not provide step-by-step", assessment.constraints.instruction)
+        # Default reality check labels fiction and does not withhold the answer.
+        self.assertTrue(assessment.constraints.allow_procedural_framing)
+        self.assertIn("Write it as asked, in full detail.", assessment.constraints.instruction)
+        self.assertNotIn("Do not provide step-by-step", assessment.constraints.instruction)
 
-    def test_perpetual_motion_is_impossible(self):
+    def test_perpetual_motion_is_impossible_and_answered_in_full(self):
         assessment = analyze_epistemic_request("Give me steps to build a perpetual motion machine.")
         self.assertEqual(assessment.reality.reality_status, "impossible_under_current_science")
         self.assertEqual(assessment.feasibility.level, "impossible")
-        self.assertFalse(assessment.constraints.allow_procedural_framing)
+        self.assertFalse(assessment.feasibility.procedural_allowed)
+        self.assertTrue(assessment.constraints.allow_procedural_framing)
+        self.assertIn("Answer the question in full.", assessment.constraints.instruction)
+        withheld = analyze_epistemic_request(
+            "Give me steps to build a perpetual motion machine.",
+            reality_check="withhold",
+        )
+        self.assertFalse(withheld.constraints.allow_procedural_framing)
+        self.assertIn("Do not provide step-by-step", withheld.constraints.instruction)
 
     def test_wormholes_are_theoretical_not_engineering(self):
         assessment = analyze_epistemic_request("How would engineers build a wormhole prototype?")

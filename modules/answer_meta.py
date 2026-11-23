@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 LOCAL_MODEL_PROVIDERS = {"ollama": "Ollama", "huggingface_local": "Local Transformers"}
-CLOUD_MODEL_PROVIDERS = {"openai": "OpenAI", "anthropic": "Anthropic"}
+CLOUD_MODEL_PROVIDERS = {"openai": "OpenAI", "anthropic": "Anthropic", "xai": "xAI"}
 # Paths that searched the web. The search queries and page requests leave this machine even when
 # the model that summarizes the pages is local.
 WEB_TOOL_PROVIDERS = {
@@ -80,6 +80,15 @@ def answer_meta(provider_result: dict[str, Any] | None) -> dict[str, Any]:
     skipped = [str(name) for name in result.get("skipped_cloud") or []]
     if skipped:
         meta["skipped_cloud"] = skipped
+    if result.get("data_destination"):
+        meta["data_destination"] = str(result["data_destination"])[:400]
+    if result.get("failover_from"):
+        meta["failover_from"] = str(result["failover_from"])
+        meta["failover_reason"] = str(result.get("failover_reason") or "")[:300]
+    calls = list(result.get("tool_calls") or []) or list((result.get("usage") or {}).get("tool_calls") or [])
+    for call in calls:
+        if isinstance(call, dict) and call.get("name") and str(call["name"]) not in tools:
+            tools.append(str(call["name"]))
     if result.get("declined_by_model") and answered:
         # The answer opens like a refusal. It is the model's own: the app sent the request on unchanged.
         meta["declined_by_model"] = True
@@ -169,6 +178,12 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
         line += f". Reason: {reason}"
     if meta.get("note"):
         line += f". Note: {meta['note']}"
+    if meta.get("failover_from"):
+        line += f". Switched from {meta['failover_from']}"
+        if meta.get("failover_reason"):
+            line += f" because: {meta['failover_reason']}"
+    if meta.get("data_destination"):
+        line += f". Data: {meta['data_destination']}"
     if meta.get("declined_by_model"):
         # Where a refusal came from. The app has no topic filter, so this one is the model's.
         whose = f"{CLOUD_MODEL_PROVIDERS[model_provider]}'s model" if model_provider in CLOUD_MODEL_PROVIDERS else "the model"

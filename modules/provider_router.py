@@ -47,6 +47,14 @@ class ProviderRequest:
     max_tokens: int = 512
     # None = use the configured allow_cloud_fallback setting.
     allow_cloud_fallback: bool | None = None
+    # Prior turns. When set, they are sent with the prompt. Empty means prompt + system_prompt only.
+    messages: list[dict[str, Any]] = field(default_factory=list)
+    # Function tools for providers that support them (xAI Responses API). The handler is
+    # called as handler(name, arguments) and must be idempotent for a given call_id; the
+    # router remembers call ids it has already executed.
+    tools: list[dict[str, Any]] = field(default_factory=list)
+    tool_handler: Any = None
+    previous_response_id: str = ""
 
 
 @dataclass
@@ -103,7 +111,9 @@ OLLAMA_DEFAULT_KEEP_ALIVE = "24h"
 
 
 # Providers that send the prompt (and any memory or document text inside it) to another company.
-CLOUD_PROVIDERS = frozenset({"openai", "anthropic"})
+# xAI is included so it obeys the same "off unless the owner chose it" rule. It is not in the
+# default provider order; adding the name here does not send any prompt anywhere.
+CLOUD_PROVIDERS = frozenset({"openai", "anthropic", "xai"})
 CLOUD_SKIPPED = "Skipped: cloud fallback is off, so the prompt stays on this machine."
 FALLBACK_SERVED = "No model answered; this is the app's fallback notice."
 
@@ -146,12 +156,23 @@ def _is_openai_model(name: str) -> bool:
     return bool(re.match(r"^(gpt-|chatgpt-|o\d)", str(name or "")))
 
 
+def _is_xai_model(name: str) -> bool:
+    """True for Grok model ids. A local or OpenAI name must not be sent to xAI as the model."""
+
+    return str(name or "").lower().startswith("grok")
+
+
 def _cloud_model(provider: str, requested: str, info: "ProviderInfo") -> str:
     """The model to ask a cloud provider for: the requested one if it belongs to that provider,
     otherwise the provider's configured default (the chat model picked for Ollama does not)."""
 
     requested = str(requested or "").strip()
-    belongs = requested.startswith("claude") if provider == "anthropic" else _is_openai_model(requested)
+    if provider == "anthropic":
+        belongs = requested.startswith("claude")
+    elif provider == "xai":
+        belongs = _is_xai_model(requested)
+    else:
+        belongs = _is_openai_model(requested)
     if belongs:
         return requested
     return info.models[0] if info.models else ""
@@ -223,6 +244,8 @@ class ProviderRouter:
         self._token_correction: dict[str, float] = {}
         # (provider, model) -> result of the last real test generation.
         self._verification: dict[tuple[str, str], dict[str, Any]] = {}
+        # call_id -> tool output already produced. A retry must not run the tool again.
+        self._tool_outputs: dict[str, str] = {}
 
     def invalidate_status_cache(self) -> None:
         self._status_cache.clear()
@@ -469,6 +492,19 @@ class ProviderRouter:
             base_url="https://api.openai.com/v1",
         )
 
+    def _detect_xai(self) -> ProviderInfo:
+        from modules.xai_provider import DEFAULT_MODEL, configured
+
+        ok, message = configured()
+        model = str(self.config.get("xai_model") or DEFAULT_MODEL)
+        return ProviderInfo(
+            name="xai",
+            available=ok,
+            message=message,
+            models=[model] if ok else [],
+            base_url="https://api.x.ai/v1",
+        )
+
     def _detect_anthropic(self) -> ProviderInfo:
         if not os.environ.get("ANTHROPIC_API_KEY"):
             return ProviderInfo(name="anthropic", available=False, message="ANTHROPIC_API_KEY is not set.")
@@ -627,14 +663,34 @@ class ProviderRouter:
                 return
             model, model_note = request.model, ""
             emitted = False
+            tools_before = len(self._tool_outputs)
             try:
                 model, model_note = self._resolve_model(request, info)
                 extra: dict[str, Any] = {}
+                if tried_failures:
+                    extra["failover_from"] = ", ".join(
+                        dict.fromkeys(
+                            str(item.get("provider"))
+                            for item in attempts
+                            if item.get("provider") not in {provider, "fallback"} and item.get("error") != CLOUD_SKIPPED
+                        )
+                    )
+                    extra["failover_reason"] = "; ".join(tried_failures)
                 if provider == "ollama":
                     for chunk in self._stream_ollama(request, info, model):
                         emitted = True
                         yield chunk
                     extra["throughput"] = dict(self._last_ollama_throughput or {})
+                elif provider == "xai":
+                    for chunk in self._stream_xai(request, info, model):
+                        emitted = True
+                        yield chunk
+                    model = str(self._last_cloud_usage.get("model") or model or (info.models[0] if info.models else ""))
+                    extra["usage"] = dict(self._last_cloud_usage)
+                    if self._last_cloud_usage.get("data_destination"):
+                        extra["data_destination"] = self._last_cloud_usage["data_destination"]
+                    if self._last_cloud_usage.get("tool_calls"):
+                        extra["tool_calls"] = list(self._last_cloud_usage["tool_calls"])
                 else:
                     self._last_cloud_usage = {}
                     if provider == "openai":
@@ -672,7 +728,14 @@ class ProviderRouter:
                 last_error = f"{provider}: {_plain_error(exc)}"
                 tried_failures.append(last_error)
                 record_event("model_failure", last_error, provider=provider, model=model)
-                attempts.append({"provider": provider, "success": False, "error": str(exc)})
+                attempt_record: dict[str, Any] = {"provider": provider, "success": False, "error": str(exc)}
+                kind = getattr(exc, "kind", "")
+                if kind:
+                    attempt_record["error_kind"] = kind
+                status = getattr(exc, "status", None)
+                if status:
+                    attempt_record["status"] = status
+                attempts.append(attempt_record)
                 self._note_outcome(provider, model, False, str(exc))
                 if emitted:
                     # Part of an answer is already on screen. Moving to the next provider now
@@ -680,6 +743,11 @@ class ProviderRouter:
                     finish(provider, model, success=False, partial=True, model_note=model_note)
                     shown = last_error if len(last_error) <= 200 else last_error[:199] + "…"
                     yield f"\n\n[The answer was cut off: {shown}]"
+                    return
+                if len(self._tool_outputs) > tools_before:
+                    # A tool already ran. Another provider must not run it again, and the
+                    # fallback notice is not a model answer (success stays false).
+                    finish(provider, model, success=False, tool_side_effect=True, model_note=model_note)
                     return
                 continue
         record_event("provider_fallback", "No model answered; fallback notice served", reason=last_error)
@@ -838,6 +906,33 @@ class ProviderRouter:
         except ValueError:
             detail = response.text[:200]
         raise RuntimeError(f"{provider} API returned HTTP {response.status_code}: {detail or 'no details'}")
+
+    def _stream_xai(self, request: ProviderRequest, info: ProviderInfo, model: str = "") -> Generator[str, None, None]:
+        """Stream text from the xAI Responses API. Raises XAIError; never yields a stand-in answer."""
+
+        from modules.xai_provider import data_destination, stream_completion
+
+        self._last_cloud_usage = {
+            "model": model,
+            "data_destination": data_destination(bool(self.config.get("xai_store_responses", False))),
+            "store": bool(self.config.get("xai_store_responses", False)),
+        }
+        yield from stream_completion(
+            self._session,
+            model=model or (info.models[0] if info.models else ""),
+            prompt=request.prompt,
+            system_prompt=request.system_prompt,
+            messages=list(request.messages or []),
+            tools=list(request.tools or []),
+            tool_handler=request.tool_handler,
+            previous_response_id=request.previous_response_id,
+            max_output_tokens=int(request.max_tokens or request.options.get("num_predict", 512)),
+            store=bool(self.config.get("xai_store_responses", False)),
+            reasoning_effort=str(self.config.get("xai_reasoning_effort") or "low"),
+            timeout=float(request.timeout or 120.0),
+            tool_outputs=self._tool_outputs,
+            usage_out=self._last_cloud_usage,
+        )
 
     def _generate_openai(self, request: ProviderRequest, info: ProviderInfo) -> str:
         api_key = os.environ["OPENAI_API_KEY"]

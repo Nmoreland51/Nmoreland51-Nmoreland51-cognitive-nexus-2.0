@@ -58,7 +58,7 @@ class RouterModel:
                 allow_cloud_fallback=self.allow_cloud,
             )
         )
-        usage = dict(getattr(self.router, "_last_cloud_usage", {}) or {}) if result.provider in {"openai", "anthropic"} else {}
+        usage = dict(getattr(self.router, "_last_cloud_usage", {}) or {}) if result.provider in {"openai", "anthropic", "xai"} else {}
         return ModelReply(
             text=result.text,
             tokens_in=int(usage.get("input_tokens") or estimate_tokens(prompt)),

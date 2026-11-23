@@ -103,7 +103,7 @@ class ConversationRegressionEvalTests(unittest.TestCase):
         row = evaluate_scenario(scenario, live=False)
 
         self.assertEqual(row["check"], "PASS")
-        self.assertEqual(row["topic"], "direct_harmful_instruction")
+        self.assertEqual(row["topic"], "not_classified")
 
     def test_diagnostics_and_math_track_context_policy(self):
         diagnostics = next(item for item in SCENARIOS if item.category == "diagnostics")

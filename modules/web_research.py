@@ -172,6 +172,8 @@ _RETRY_STATUS = {429, 500, 502, 503, 504}
 _HOST_SPACING_SECONDS = 0.4
 _host_lock = Lock()
 _host_last_request: dict[str, float] = {}
+# trafilatura copies an lxml tree. Two scrapes in flight abort the interpreter (Python 3.13, exit 134).
+_trafilatura_lock = Lock()
 
 
 class _ExpiringCache:
@@ -546,15 +548,16 @@ def _scrape_url_cached(url: str, timeout: int = 8) -> str:
         output.update(soup_payload)
 
         if trafilatura is not None:
-            extracted = trafilatura.extract(
-                html,
-                include_links=True,
-                include_tables=True,
-                include_comments=False,
-                # Without formatting, trafilatura drops headings, e.g. "Version 1.67.0 (latest)"
-                # on Streamlit's release notes, so the answer never reached the model.
-                include_formatting=True,
-            )
+            with _trafilatura_lock:
+                extracted = trafilatura.extract(
+                    html,
+                    include_links=True,
+                    include_tables=True,
+                    include_comments=False,
+                    # Without formatting, trafilatura drops headings, e.g. "Version 1.67.0 (latest)"
+                    # on Streamlit's release notes, so the answer never reached the model.
+                    include_formatting=True,
+                )
             if extracted:
                 output["text"] = clean_text(_flatten_markdown(extracted))
 
@@ -573,7 +576,8 @@ def _published_date(html: str) -> str:
 
     if trafilatura is not None:
         try:
-            metadata = trafilatura.extract_metadata(html)
+            with _trafilatura_lock:
+                metadata = trafilatura.extract_metadata(html)
             date = getattr(metadata, "date", None) if metadata is not None else None
             if date:
                 return str(date)[:10]

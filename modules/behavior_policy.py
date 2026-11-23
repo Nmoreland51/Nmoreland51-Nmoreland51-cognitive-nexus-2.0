@@ -439,12 +439,18 @@ def provider_constraints(provider: str, model: str = "") -> dict[str, str]:
     """What is outside the app's control for one provider, in plain words."""
 
     name = (provider or "").lower()
-    if name in {"openai", "anthropic"}:
-        company = {"openai": "OpenAI", "anthropic": "Anthropic"}[name]
+    if name in {"openai", "anthropic", "xai"}:
+        company = {"openai": "OpenAI", "anthropic": "Anthropic", "xai": "xAI"}[name]
+        limits = (
+            f"{company} applies its own usage policies and may refuse or cut off an answer. "
+            "Cognitive Nexus cannot change that and does not hide it: a refusal is shown as the provider's."
+        )
+        if name == "xai":
+            limits += " Whether xAI keeps the prompt is the xai_store_responses setting (off by default)."
         return {
             "provider": name,
             "runs": f"on {company}'s servers; your prompt and the app's prompt are sent there",
-            "limits": f"{company} applies its own usage policies and may refuse or cut off an answer. Cognitive Nexus cannot change that and does not hide it: a refusal is shown as the provider's.",
+            "limits": limits,
             "controlled_by": company,
         }
     if name in {"ollama", "hf_local"}:

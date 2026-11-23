@@ -739,5 +739,191 @@
   "evidence": "No multi-agent delegation, comparison benchmarks or shared workspaces.",
   "needs": "Owner decision (the audit marks this 'if desired').",
   "status": "MISSING"
+ },
+ "CN-GR-001": {
+  "evidence": "tests/test_owner_control.py::test_the_substring_block_and_the_dead_safety_controls_are_gone_from_the_app passed here.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-002": {
+  "evidence": "The locked prompt that said the persona cannot override it was removed in 1e121fe. tests/test_owner_control.py checks the shown prompt is the sent prompt.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-003": {
+  "evidence": "Profile behavior goes through modules/behavior_policy.py. tests/test_owner_control.py covers the shown prompt and misleading flags.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-004": {
+  "evidence": "analyze_topic_handling no longer sorts topics. This session updated the seven tests that still expected the old categories. tests/test_owner_control.py::test_messages_are_not_sorted_into_topics passed.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-005": {
+  "evidence": "Owner text is not fenced; saved pages are. tests/test_owner_control.py covers that split. A full line inventory is still OC-1.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-006": {
+  "evidence": "tests/test_owner_control.py::test_auto_precision_does_not_touch_the_owners_behaviour_settings passed here.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-007": {
+  "evidence": "Default reality check labels and does not withhold. tests/test_owner_control.py::test_fiction_is_written_as_asked_and_facts_are_labelled and the updated tests/test_reality_first_reasoning.py passed.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-008": {
+  "evidence": "Agent permission tests exist in tests/test_owner_control.py. tests/test_agent_github.py still errors on this machine the same way it did at 561101d.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-009": {
+  "evidence": "provider_constraints reports OpenAI, Anthropic, and now xAI separately from app behavior. Live provider calls were not made.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "CN-GR-010": {
+  "evidence": "A complete restriction inventory has not been written. See OC-1.",
+  "needs": "Still open. This session did not invent a completion.",
+  "status": "MISSING"
+ },
+ "OC-0": {
+  "evidence": "docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/backlog/owner_control.json are in the tree at 561101d. Status rows were empty until this session.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-1": {
+  "evidence": "docs/OWNER_CONTROL_RESTRICTIONS.md does not exist. tools/restriction_register.py has no data file. The commit 561101d says the register was not populated.",
+  "needs": "Still open. This session did not invent a completion.",
+  "status": "MISSING"
+ },
+ "OC-2": {
+  "evidence": "No single approved owner-decision list has been signed off. docs/DECISIONS.md on this branch records only the choices made for the xAI fallback.",
+  "needs": "Still open. This session did not invent a completion.",
+  "status": "MISSING"
+ },
+ "OC-3": {
+  "evidence": "modules/behavior_policy.py is the behavior path added in 1e121fe. This session did not re-design it.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-4": {
+  "evidence": "tests/test_owner_control.py exists and passed in this session (stand-in model). No live cloud or Android run.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-5": {
+  "evidence": "The independent final package (full register, live logs, Android evidence) is not done.",
+  "needs": "Still open. This session did not invent a completion.",
+  "status": "MISSING"
+ },
+ "OC-T01": {
+  "evidence": "tests/test_owner_control.py::test_an_ordinary_question_with_an_alarming_word_reaches_the_model_as_written passed with a stand-in model.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T02": {
+  "evidence": "tests/test_owner_control.py::test_a_substring_never_blocks_a_message passed with a stand-in model.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T03": {
+  "evidence": "tests/test_owner_control.py::test_behaviour_settings_survive_a_restart passed.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T04": {
+  "evidence": "Local routing is covered by existing provider tests with a stand-in. No live Ollama run in this session.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T05": {
+  "evidence": "Hosted-provider limits are described in provider_constraints. No live OpenAI, Anthropic, or xAI call (no keys).",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T06": {
+  "evidence": "tests/test_owner_control.py::test_a_saved_page_with_fake_system_and_owner_lines_stays_material passed.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T07": {
+  "evidence": "tests/test_owner_control.py::test_a_role_play_instruction_reaches_the_model_word_for_word passed with a stand-in model.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T08": {
+  "evidence": "Agent code and tests exist from 3297f44. Several agent tests still fail or error on 561101d and on this branch. Not re-run against a live model here.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T09": {
+  "evidence": "Same as OC-T08. The coding loop is in the tree; this session did not demonstrate a multi-iteration live repair.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T10": {
+  "evidence": "tests/test_owner_control.py covers the agent autonomy setting. tests/test_agent_github.py still errors at setup.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T11": {
+  "evidence": "Job code exists (agent/jobs.py). tests/test_agent_jobs.py::test_a_coding_task_runs_as_a_background_job fails on 561101d and on this branch.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T12": {
+  "evidence": "Cloud fallback off-by-default was already tested. This session added xAI to that rule and tested it with a stand-in HTTP session (tests/test_xai_provider.py). No live failover.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T13": {
+  "evidence": "tests/test_owner_control.py::test_fiction_is_written_as_asked_and_facts_are_labelled passed. Withhold remains available when reality_check=withhold.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T14": {
+  "evidence": "No Android device or emulator was available. The Android repo was not modified.",
+  "needs": "Still open. This session did not invent a completion.",
+  "status": "MISSING"
+ },
+ "OC-T15": {
+  "evidence": "tests/test_owner_control.py::test_saved_settings_and_the_policy_view_hold_no_secrets passed. tools/check_repo_hygiene.py was run on this branch.",
+  "needs": "Live model, and a second session, before this can be called complete.",
+  "status": "PARTIAL",
+  "tests": "See evidence. Not a live-provider or device run."
+ },
+ "OC-T16": {
+  "evidence": "The 146-item ledger was not independently re-verified item by item in this session. Counts were left as they were at 561101d.",
+  "needs": "Still open. This session did not invent a completion.",
+  "status": "MISSING"
  }
 }

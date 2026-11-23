@@ -1718,6 +1718,10 @@ class NexusCore:
             "skipped_cloud": list(provider_meta.get("skipped_cloud") or []),
             "usage": dict(provider_meta.get("usage") or {}),
             "model_note": str(provider_meta.get("model_note") or ""),
+            "data_destination": str(provider_meta.get("data_destination") or provider_meta.get("usage", {}).get("data_destination") or ""),
+            "failover_from": str(provider_meta.get("failover_from") or ""),
+            "failover_reason": str(provider_meta.get("failover_reason") or ""),
+            "tool_calls": list(provider_meta.get("tool_calls") or provider_meta.get("usage", {}).get("tool_calls") or []),
             # A label only: the answer is shown exactly as the model wrote it.
             "declined_by_model": looks_like_model_refusal(provider_result.text),
             "retrieval": retrieval_meta,
