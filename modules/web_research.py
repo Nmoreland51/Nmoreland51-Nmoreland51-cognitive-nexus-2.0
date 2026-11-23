@@ -69,6 +69,24 @@ def clean_text(text: str) -> str:
     return text
 
 
+def _flatten_markdown(text: str) -> str:
+    """Turn trafilatura's markdown into plain text: "## Version 1.67.0" becomes "Version 1.67.0."
+    so headings survive whitespace cleanup as their own sentence, and **bold** markers go away
+    (not __, which would mangle Python names like __init__)."""
+
+    lines = []
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            stripped = stripped.lstrip("#").strip()
+            if not stripped:
+                continue
+            if stripped[-1] not in ".!?:":
+                stripped += "."
+        lines.append(stripped)
+    return "\n".join(lines).replace("**", "")
+
+
 def get_domain(url: str) -> str:
     try:
         return urlparse(url).netloc.replace("www.", "")
@@ -251,9 +269,12 @@ def _scrape_url_cached(url: str, timeout: int = 8) -> str:
                 include_links=True,
                 include_tables=True,
                 include_comments=False,
+                # Without formatting, trafilatura drops headings, e.g. "Version 1.67.0 (latest)"
+                # on Streamlit's release notes, so the answer never reached the model.
+                include_formatting=True,
             )
             if extracted:
-                output["text"] = clean_text(extracted)
+                output["text"] = clean_text(_flatten_markdown(extracted))
 
         output["excerpt"] = output["text"][:1500]
         output["success"] = bool(output["text"])
@@ -378,6 +399,29 @@ the question, say so.
 """
 
 
+# Version-like numbers ("1.28.0", "v3.15") and years. A small local model sometimes fills these in
+# from its training data when the sources don't contain them.
+_FACT_NUMBER = re.compile(r"(?<![\d.])\d+(?:\.\d+)+|\b(?:19|20)\d{2}\b")
+
+
+def unsourced_numbers(answer: str, source_text: str) -> list[str]:
+    """Version numbers and years in the answer that don't appear anywhere in the source text."""
+
+    return [token for token in dict.fromkeys(_FACT_NUMBER.findall(answer or "")) if token not in (source_text or "")]
+
+
+def unsourced_numbers_note(answer: str, source_text: str) -> str:
+    """Warning to append when the answer states numbers its sources don't contain, else ""."""
+
+    missing = unsourced_numbers(answer, source_text)
+    if not missing:
+        return ""
+    return (
+        f"\n\n⚠️ Not found in the sources: {', '.join(missing)}. This may come from the model's older "
+        "training data, so double-check it."
+    )
+
+
 def summarize_research(
     query: str,
     results: list[dict[str, Any]],
@@ -385,7 +429,10 @@ def summarize_research(
     ai_callback: Callable[[str], str] | None = None,
     brief: bool = False,
 ) -> str:
-    """Summarize research with the active provider callback when available."""
+    """Summarize research with the active provider callback when available.
+
+    Version numbers or years the model wrote that aren't in its sources get a warning appended.
+    """
 
     if not _has_research_sources(results, scraped_pages):
         # Without sources the model would only answer from (possibly stale) memory and
@@ -399,10 +446,10 @@ def summarize_research(
         )
 
     try:
-        build_prompt = _build_brief_prompt if brief else _build_research_prompt
-        summary = ai_callback(build_prompt(query, results, scraped_pages))
+        prompt = build_summary_prompt(query, results, scraped_pages, brief=brief)
+        summary = ai_callback(prompt)
         logger.info("Research summary generated query=%r chars=%s", query, len(summary or ""))
-        return summary
+        return (summary or "") + unsourced_numbers_note(summary or "", prompt)
     except Exception as exc:
         logger.warning("Research summarization failed query=%r error=%s", query, exc)
         return f"AI summarization failed: {exc}"

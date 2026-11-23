@@ -53,6 +53,7 @@ from modules.web_research import (
     finish_research_session,
     gather_research,
     run_research_session,
+    unsourced_numbers_note,
 )
 from search.bloodhound_search import (
     BloodhoundConfig,
@@ -1296,8 +1297,9 @@ class NexusCore:
             results = gathered["results"]
             summary_started = time.perf_counter()
             if gathered["has_sources"]:
+                prompt = build_summary_prompt(query, results, gathered["scraped_pages"], brief=True)
                 request = self._provider_request(
-                    build_summary_prompt(query, results, gathered["scraped_pages"], brief=True),
+                    prompt,
                     settings,
                     BRIEF_WEB_SUMMARY_OPTIONS,
                     model=settings.get("selected_model") or "",
@@ -1310,6 +1312,11 @@ class NexusCore:
                 if not summary:
                     summary = "No summary was generated."
                     yield summary
+                # Flag version numbers/years the model wrote that its sources don't contain.
+                note = unsourced_numbers_note(summary, prompt)
+                if note:
+                    summary += note
+                    yield note
             else:
                 # Without sources the model would answer from stale memory; say so instead.
                 summary = NO_RESULTS_SUMMARY

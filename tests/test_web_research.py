@@ -99,6 +99,29 @@ class WebResearchTests(unittest.TestCase):
 
         self.assertIn("Oct. 25, 2026", excerpt)
 
+    def test_flatten_markdown_keeps_headings_as_sentences(self) -> None:
+        text = "# \n\nIntro text.\n\n## Version 1.67.0 (latest)\n\nRelease date: **November 5, 2026**\n\nSee __init__.py"
+
+        flat = web_research.clean_text(web_research._flatten_markdown(text))
+
+        self.assertEqual(flat, "Intro text. Version 1.67.0 (latest). Release date: November 5, 2026 See __init__.py")
+
+    def test_unsourced_numbers_flags_versions_and_years_missing_from_sources(self) -> None:
+        sources = "Version 1.67.0 (latest). Release date: November 5, 2026. Python 3.15.2 was released Oct. 25, 2026."
+
+        self.assertEqual(web_research.unsourced_numbers("Streamlit 1.28.0 came out in 2023.", sources), ["1.28.0", "2023"])
+        self.assertEqual(web_research.unsourced_numbers("Python 3.15.2 came out October 25, 2026.", sources), [])
+        self.assertEqual(web_research.unsourced_numbers_note("Latest is v1.67.0", sources), "")
+        self.assertIn("1.28.0", web_research.unsourced_numbers_note("Latest is 1.28.0", sources))
+
+    def test_summary_gets_warning_for_unsourced_version(self) -> None:
+        results = [{"title": "Release notes", "url": "https://example.com", "snippet": "Version 1.67.0 (latest)", "source": "example.com"}]
+
+        summary = web_research.summarize_research("latest streamlit", results, [], lambda prompt: "The latest is 1.28.0.")
+
+        self.assertTrue(summary.startswith("The latest is 1.28.0."))
+        self.assertIn("Not found in the sources: 1.28.0", summary)
+
     def test_clean_title_splits_glued_titles_and_keeps_normal_ones(self) -> None:
         glued = (
             "CoryxKenshin - Age, Bio, Family | Famous BirthdaysCoryxKenshin - YouTubeCoryxKenshin Biography, "

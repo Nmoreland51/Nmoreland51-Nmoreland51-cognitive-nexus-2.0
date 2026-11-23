@@ -1098,6 +1098,26 @@ class NexusCoreTests(unittest.TestCase):
         self.assertIn("https://www.python.org/downloads/release/python-3152/", text)
         finish.assert_called_once()
 
+    def test_chat_web_answer_warns_about_version_not_in_sources(self):
+        core = NexusCore()
+        settings = self.base_chat_settings()
+        settings["use_web_for_chat"] = True
+        results = [
+            {
+                "title": "Release notes - Streamlit Docs",
+                "url": "https://docs.streamlit.io/develop/quick-reference/release-notes",
+                "snippet": "Version 1.67.0 (latest). Release date: November 5, 2026.",
+                "source": "docs.streamlit.io",
+            }
+        ]
+        with patch("modules.nexus_core.gather_research", return_value=self._web_gathered(results)), patch(
+            "modules.nexus_core.finish_research_session"
+        ), patch.object(core.provider_router, "stream", return_value=iter(["The latest Streamlit is 1.28.0."])):
+            text = "".join(core.stream_chat_response("search the web for the latest version of Streamlit", [], settings))
+
+        self.assertIn("Not found in the sources: 1.28.0", text)
+        self.assertLess(text.index("Not found in the sources"), text.index("Sources:"))
+
     def test_chat_web_search_without_results_skips_model(self):
         core = NexusCore()
         settings = self.base_chat_settings()
