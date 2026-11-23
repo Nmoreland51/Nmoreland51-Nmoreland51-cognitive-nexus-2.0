@@ -48,3 +48,8 @@ dist/
 
 # Leftover temp files from an interrupted atomic save (modules/file_utils.py)
 .*.tmp
+# Lock files, pre-migration backups and set-aside damaged files next to saved data
+*.json.lock
+*.jsonl.lock
+data/*.backup.json
+data/*.damaged-*
