@@ -339,7 +339,8 @@ def _relevant_excerpt(text: str, query: str, max_chars: int = BRIEF_PAGE_CHARS) 
     """Return the sentences of a page that mention the query terms, in page order."""
 
     terms = {word for word in re.findall(r"[a-z0-9][a-z0-9.]*", query.lower()) if len(word) > 2}
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text or "") if s.strip()]
+    # Split only where the next word is capitalized, so "Oct. 25, 2026" or "v3.15. 2" stay together.
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(\[])", text or "") if s.strip()]
     scored = [(sum(term in s.lower() for term in terms), i) for i, s in enumerate(sentences)]
     chosen: list[int] = []
     size = 0

@@ -92,6 +92,13 @@ class WebResearchTests(unittest.TestCase):
 
         self.assertEqual(excerpt, "Python 3.15.2 was released on October 25, 2026.")
 
+    def test_relevant_excerpt_keeps_abbreviated_dates_whole(self) -> None:
+        text = "Release Date: Oct. 25, 2026 This is the second maintenance release of Python 3.15. Docs follow."
+
+        excerpt = web_research._relevant_excerpt(text, "latest Python release", max_chars=300)
+
+        self.assertIn("Oct. 25, 2026", excerpt)
+
     def test_clean_title_splits_glued_titles_and_keeps_normal_ones(self) -> None:
         glued = (
             "CoryxKenshin - Age, Bio, Family | Famous BirthdaysCoryxKenshin - YouTubeCoryxKenshin Biography, "

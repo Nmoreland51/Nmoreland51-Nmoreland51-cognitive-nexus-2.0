@@ -67,8 +67,9 @@ from nexus_router import CATEGORY_LABELS, RouteDecision, RouterConfig, build_rou
 logger = logging.getLogger(__name__)
 
 # Model options for web research summaries. The brief (chat) answer uses the same 2048 context
-# as normal chat, so Ollama keeps one loaded copy of the model (~6s reload otherwise on CPU).
-BRIEF_WEB_SUMMARY_OPTIONS = {"temperature": 0.25, "num_predict": 160, "num_ctx": 2048}
+# as normal chat, so Ollama keeps one loaded copy of the model (~6s reload otherwise on CPU), and
+# temperature 0 so a short answer copied from sources doesn't vary run to run (e.g. which date).
+BRIEF_WEB_SUMMARY_OPTIONS = {"temperature": 0.0, "num_predict": 160, "num_ctx": 2048}
 FULL_WEB_SUMMARY_OPTIONS = {"temperature": 0.25, "num_predict": 480, "num_ctx": 4096}
 
 
