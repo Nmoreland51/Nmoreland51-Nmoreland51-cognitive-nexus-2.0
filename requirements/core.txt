@@ -3,3 +3,5 @@ requests>=2.31.0
 pillow>=10.0.0
 # Cross-process locks for the saved-data files (modules/file_lock.py).
 filelock>=3.12
+# Encrypted backups (modules/backup.py).
+cryptography>=43

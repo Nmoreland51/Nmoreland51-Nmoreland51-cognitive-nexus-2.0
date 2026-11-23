@@ -53,3 +53,7 @@ dist/
 *.jsonl.lock
 data/*.backup.json
 data/*.damaged-*
+# Local snapshots and backup files hold copies of private data
+data/_snapshots/
+*.cnbackup
+cognitive_nexus_export_*.zip

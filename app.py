@@ -21,6 +21,7 @@ from modules.chat_profile import (
 from modules.context_manager import load_user_profile_summary
 from modules.answer_meta import answer_meta, describe_answer
 from modules.core_health import run_core_health_check
+from modules.data_stores import DATA_ROOT, SEED_KNOWLEDGE_DIR
 from modules.event_log import event_counts, recent_events
 from modules.image_gen import (
     IMAGE_STYLE_OPTIONS,
@@ -62,6 +63,7 @@ from modules.nexus_core import NexusCore
 from modules.web_research import search_sources_status
 from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
+from ui.data_panel import render_data_panel, start_daily_snapshot
 from nexus_router import (
     RouterConfig,
     get_prompt_template_examples,
@@ -274,7 +276,7 @@ def get_cached_core_status(provider_order: tuple[str, ...]) -> dict[str, Any]:
 def get_adaptive_memory():
     if AdaptiveMemoryManager is None:
         return None
-    return AdaptiveMemoryManager(Path("data"))
+    return AdaptiveMemoryManager(DATA_ROOT, seed_knowledge_dir=SEED_KNOWLEDGE_DIR)
 
 
 @st.cache_resource
@@ -1811,6 +1813,7 @@ def render_memory_tab(settings: dict[str, Any]) -> None:
                 width="stretch",
                 hide_index=True,
             )
+    render_data_panel(demo_safe)
     if settings.get("advanced_mode") and demo_safe:
         st.info("Raw session chat, persona, and adaptive memory internals are hidden in Demo Safe Mode.")
     elif settings.get("advanced_mode"):
@@ -2371,7 +2374,16 @@ def render_overview_tab(status, inventory: dict[str, Any], image_status: dict[st
             st.dataframe(sanitize_demo_rows(provider_rows, enabled=demo_safe), width="stretch", hide_index=True)
 
 
+@st.cache_resource(show_spinner=False)
+def run_startup_tasks() -> bool:
+    """Housekeeping done once per app start, in the background."""
+
+    start_daily_snapshot()
+    return True
+
+
 def main() -> None:
+    run_startup_tasks()
     restore_persisted_chat()
     core = get_nexus_core()
     status = get_cached_ollama_status()
