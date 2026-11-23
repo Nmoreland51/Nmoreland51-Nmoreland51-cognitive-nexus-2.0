@@ -14,7 +14,9 @@ This page replaces the readiness claims in the older reports in this repository 
 |---|---|---|---|
 | Chat with a local Ollama model | Yes | Yes | 17-27 s per reply on CPU |
 | Web search in chat, with sources | Yes | Yes | 35-55 s on CPU. Needs a search source to answer; see below |
-| Remember / recall / forget commands | Yes | Yes | |
+| Remember / recall / forget commands | Yes | Yes | Facts record how they are known; a new value replaces the old one; "forget" reaches history and snapshots |
+| Export, encrypted backup, restore, wipe | Yes | Partly | The command-line tool was run through a full backup, wipe and restore. In the browser only the panel's display was checked |
+| Prompt sized to the model's window | Yes | Yes | A conversation that used to be cut to 1,026 tokens is read whole (1,690) |
 | Image generation with local Diffusers | Mocked | Yes | About 3 minutes per 512x512 image on CPU |
 | Reality-First Research and claim check | Yes | Partly | Claim check run on live search results without model synthesis. A full run with synthesis was not tested |
 | Web Research tab (full report) | Yes | Partly | Ran, but search was rate-limited each time, so a report with sources was not observed |
@@ -33,7 +35,9 @@ This page replaces the readiness claims in the older reports in this repository 
 - **Web search** scrapes free search pages by default, and they rate-limit often. Set `SEARXNG_URL` or `BRAVE_SEARCH_API_KEY` for a dependable source. Wikipedia is the last fallback and cannot answer "latest version" questions.
 - **Research verdicts** come from keyword-level passage matching. They quote the passages they relied on and never say more than "LIKELY". They are not calibrated probabilities.
 - **Answers from a small local model** can state outdated facts. Web answers flag version numbers and years that are not in their sources, but other errors can get through.
-- **Memory** is stored in JSON files. Saves are atomic, but two programs writing at once (desktop and phone backend) can still overwrite each other.
+- **Saved data** is in JSON files changed under a lock, so two programs writing at once no longer overwrite each other. The knowledge index is the exception: it is still written whole without a lock.
+- **Live data is not encrypted.** Backups can be; the files the app works on are plain files. Use full-disk encryption if the computer is shared or portable.
+- **History in chat prompts.** On the default settings many simple turns are answered without earlier messages, which keeps a CPU-only machine responsive but means the model does not always see the conversation.
 - **Knowledge search** uses hash-vector embeddings by default, which match shared words rather than meaning.
 - **URL fetching** refuses local and private addresses, but does not pin DNS between the check and the connection.
 - **Cloud providers** have never been run against the real services from this repository. Use "Send a test prompt" in Diagnostics after adding a key.
@@ -49,5 +53,5 @@ This page replaces the readiness claims in the older reports in this repository 
 
 These files describe the project as it was in mid-2026 and are kept for history. Where they disagree with this page, this page is current.
 
-- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has more than 350 tests, and the limits above still apply.
+- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has about 500 tests, and the limits above still apply.
 - `QUICK_START.md` describes a packaged `.exe` build. The scripts it names (`build_executable.bat`, `launch_cognitive_nexus.bat`) are not in this repository. Use the Install and Run sections of `README.md`.

@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 20 |
-| PARTIAL | 51 |
-| MISSING | 74 |
+| COMPLETE | 29 |
+| PARTIAL | 49 |
+| MISSING | 67 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -19,12 +19,12 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 1. Fix the foundations and release confusion (P0) | 3 | 6 | 1 | 0 |
 | 2. Make core AI chat genuinely reliable (P1) | 4 | 6 | 3 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 6 | 7 | 2 | 0 |
-| 4. Give memory and knowledge real durability and accuracy (P1) | 1 | 6 | 7 | 0 |
+| 4. Give memory and knowledge real durability and accuracy (P1) | 9 | 2 | 3 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 0 | 0 | 17 | 0 |
 | 6. Make external actions and automation useful (P1) | 0 | 0 | 11 | 0 |
-| 7. Make Android and desktop work together (P1) | 0 | 4 | 10 | 1 |
-| 8. Performance and local hardware (P1) | 0 | 5 | 6 | 0 |
-| 9. Security, privacy and data integrity (P0) | 2 | 6 | 5 | 0 |
+| 7. Make Android and desktop work together (P1) | 0 | 5 | 9 | 1 |
+| 8. Performance and local hardware (P1) | 1 | 5 | 5 | 0 |
+| 9. Security, privacy and data integrity (P0) | 2 | 7 | 4 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 4 | 6 | 6 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
 
@@ -60,6 +60,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 
 - 2026-11-23: ledger created from the code at commit `f5d234d`. Next: Phase 1 (dependency lock, lint and security scans in CI; cloud-failover privacy; memory locking and provenance; token-aware context; semantic retrieval; research prompt-injection defence).
 - 2026-11-23, after Phase 1a and 1b: CI now runs lint, type checks, the secret scan and a dependency audit against pinned versions (Phase 1a). Providers: cloud fallback is off unless chosen, the fallback notice is never treated as a model answer, providers are proven with a real test prompt, the Anthropic default model and request are current, failures are logged by kind, and every answer is labelled with who wrote it (Phase 1b, commits de2332c, 725edd5, 4963836). Next: Phase 1c (cross-process locking for the JSON stores; fact records with provenance, conflicts and schema migrations; a token-aware context budget; export, encrypted backup, restore and selective wipe), then 1d (semantic embeddings; PDF and DOCX ingestion), then 1e (prompt-injection defence for research and the research benchmarks).
+- 2026-11-23, after Phase 1c: saved data is changed under cross-process locks; one fact store with provenance, replacement, expiry, migrations and forget that reaches history and snapshots; every store is listed in modules/data_stores.py (docs/DATA_STORES.md is generated); export, encrypted backup, verified restore, snapshots, repair and wipe (modules/backup.py, tools/data_tool.py, ui/data_panel.py); the prompt is sized in tokens against the model's real window (modules/token_estimate.py, modules/context_budget.py) after measuring that long prompts were being cut by the model server. Tests run in a throwaway home (tests/conftest.py). Still open from this phase: the knowledge index has no lock, version or migration (do it with the index rewrite in 1d); live files are not encrypted (item 112, security phase); project memory (048). Next: Phase 1d (knowledge store in SQLite with semantic embeddings from Ollama, hybrid keyword search, PDF and DOCX ingestion, a measured retrieval benchmark), then 1e (research prompts fence page text; hostile-content and stance benchmarks).
 
 ## Items that need the owner
 
@@ -78,6 +79,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **093** (MISSING): ComfyUI or Automatic1111 running, plus a phone.
 - **094** (MISSING): Owner decision to merge or reject it.
 - **095** (MISSING): Depends on item 094.
+- **112** (PARTIAL): Encryption of the live files is planned for the security phase. Until then, full-disk encryption (BitLocker) protects them.
 - **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
@@ -154,7 +156,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Add a tested migration path from older memory, settings, and user data versions.
 
-- **Evidence:** load_user_facts reads both structured and legacy fact entries (tests/test_context_manager.py). There are no versioned schemas or migration steps for memory, settings or knowledge indexes.
+- **Evidence:** Saved facts have a schema version and a tested migration from the old unversioned file (plain strings, random or process-dependent ids); the file as it was is kept beside it as a backup, a profile written by a newer app version is refused and left untouched, and a damaged one is set aside instead of overwritten. Saved settings that name a retired model are corrected on load. The knowledge index and chat history have no version or migration yet.
+- **Tests:** tests/test_profile_store.py::test_a_version_1_profile_is_migrated_with_a_backup, test_migration_runs_once_and_never_overwrites_its_backup, test_a_profile_from_a_newer_app_is_left_untouched, test_a_damaged_profile_is_set_aside_not_overwritten; tests/test_provider_truth.py::test_a_saved_retired_model_id_is_replaced_when_config_loads.
+- **Commits:** 3bbc845, de2332c
 
 ### 010 · P0 · observed · PARTIAL
 
@@ -362,7 +366,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Treat prompt-injection checks as one defense layer, not proof that retrieved text is harmless.
 
-- **Evidence:** core/reality_grounding/prompt_firewall.py sandboxes retrieved content for chat context, with unit tests. Research summary prompts insert scraped text without that sandboxing.
+- **Evidence:** Untrusted content is fenced in marked blocks and scanned for injection patterns; the scan result changes how a block is presented, it is not treated as proof the text is safe. New: text that imitates the block markers is neutralized so content cannot appear to close its own block, a block that shows signs of injection keeps its full warning even after being shortened, and text is shortened before it is fenced so a closing marker is never cut off. Web pages placed in research prompts are still not fenced, and there is no hostile-content benchmark yet (items 026, 115).
+- **Tests:** tests/test_prompt_firewall.py; tests/test_context_budget.py::test_block_markers_inside_content_cannot_close_the_block, test_a_suspicious_block_keeps_its_warning_even_after_it_is_shortened, test_harmless_blocks_are_compact_and_the_rule_is_stated_once_in_the_prompt.
+- **Commits:** ba0708c
 
 ### 038 · P0 · observed · COMPLETE
 
@@ -375,11 +381,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 ## 4. Give memory and knowledge real durability and accuracy (P1)
 
-### 039 · P1 · observed · MISSING
+### 039 · P1 · observed · COMPLETE
 
 > Unify or clearly separate desktop chat history, Android SQLite sessions, user facts, long-term project memory and research knowledge.
 
-- **Evidence:** Desktop chat history (data/chat_history.json), user facts (data/user_profile.json), adaptive memory (cognitive_nexus/adaptation.py), knowledge chunks (ai_system/knowledge_bank) and Android SQLite sessions are separate stores with no document describing them or how they relate.
+- **Evidence:** modules/data_stores.py lists every kind of saved data once (chat history, saved facts, adaptive memory, persona, response tuning, knowledge index, notes, web research, research reports, search history and cache, images, snapshots, settings, logs) with what it holds, where it is and the one module that writes it; docs/DATA_STORES.md is generated from it and says how the Android SQLite sessions relate. Tests fail if the document drifts, if code saves to a path no store claims, or if a module spells out a data path itself. The two modules that both wrote the saved facts file now share one store (modules/profile_store.py). Project-specific memory does not exist yet; that is item 048.
+- **Tests:** tests/test_data_stores.py; tests/test_profile_store.py::test_adaptive_memory_no_longer_overwrites_facts_saved_by_the_chat_commands, test_adaptive_memory_and_chat_commands_share_ids_and_rules.
+- **Commits:** 1f8628f, 3bbc845
 
 ### 040 · P1 · observed · MISSING
 
@@ -401,39 +409,45 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** test_fact_ids_are_stable_content_hashes (asserts a fixed id).
 - **Commits:** 0de33c3
 
-### 043 · P1 · observed · PARTIAL
+### 043 · P1 · observed · COMPLETE
 
 > Make JSON memory and profile writes atomic and safe under concurrent desktop/mobile access.
 
-- **Evidence:** Memory, profile, settings and index saves are atomic (modules/file_utils.py). Two processes can still overwrite each other because there is no lock.
-- **Tests:** tests/test_file_utils.py.
-- **Commits:** 0de33c3, b50c373
+- **Evidence:** Every change to the saved facts, preferences, adaptive-memory candidates, persona, chat history, response tuning, settings and the append-only logs is one read-change-write under a lock that works across threads and across processes (modules/file_lock.py, filelock), on top of atomic writes. Measured with four separate Python processes adding 20 items each to one file: 22 of 80 survived without the lock, 80 of 80 with it. A damaged file raises instead of being read as empty and overwritten. The knowledge index is not yet covered; see item 084.
+- **Tests:** tests/test_file_lock.py (threads and separate interpreter processes); tests/test_profile_store.py::test_two_processes_remembering_at_once_lose_nothing.
+- **Commits:** 0de33c3, b50c373, 863df6e, 3bbc845, fd363a7
 
-### 044 · P1 · recommended · MISSING
+### 044 · P1 · recommended · PARTIAL
 
 > Add versioned schemas and migration tests for saved memories and knowledge indexes.
 
-- **Evidence:** Stored memory and knowledge files have no schema version and there are no migration tests.
+- **Evidence:** Saved facts and preferences carry schema_version 2 with a tested migration from version 1 (see item 009). The knowledge index (chunks, vectors, metadata) still has no version, so a change of embedding method cannot be detected or migrated.
+- **Tests:** tests/test_profile_store.py migration tests.
+- **Commits:** 3bbc845
 
-### 045 · P1 · recommended · PARTIAL
+### 045 · P1 · recommended · COMPLETE
 
 > Use provenance, creation time, last verification and confidence for each stored fact.
 
-- **Evidence:** Facts store source, kind and updated_at. Creation time, last verification and confidence are not recorded.
+- **Evidence:** Each saved fact records its source (user statement, inferred by the app, imported, legacy), kind, confidence (stated or inferred), when it was first said, when it was last confirmed (saying it again updates this, not the creation time) and an optional end date. Preferences keep the sentence they were derived from, and patterns are marked as inferred. The Memory tab and 'what do you remember' show this.
+- **Tests:** tests/test_profile_store.py::test_a_saved_fact_records_where_it_came_from, test_saying_it_again_confirms_it_instead_of_adding_a_copy, test_profile_summary_reports_provenance, test_recall_lists_facts_with_how_they_are_known, test_forgetting_reaches_preferences_and_candidates.
+- **Commits:** 3bbc845
 
-### 046 · P1 · recommended · PARTIAL
+### 046 · P1 · recommended · COMPLETE
 
 > Distinguish user instructions and preferences from unverified content and automatically inferred details.
 
-- **Evidence:** Explicit 'remember' facts are marked kind='explicit'; adaptive memory keeps inferred candidates separately. Retrieved or unverified content is not distinguished inside one store.
+- **Evidence:** A saved item is classified as an instruction to the assistant, a stated preference, a stated fact, or something the app inferred. The prompt labels each fact with how it is known ('instruction from the user', 'stated by the user', 'inferred, not confirmed by the user'), standing instructions are included on every turn while other facts are included when relevant, and an inferred item can never replace something the user stated. Retrieved pages and files are never stored as facts and stay fenced as untrusted content.
+- **Tests:** tests/test_profile_store.py::test_statements_are_classified, test_prompt_labels_how_each_fact_is_known_and_always_includes_instructions, test_an_inferred_fact_never_replaces_what_the_user_stated.
+- **Commits:** 3bbc845
 
-### 047 · P1 · recommended · PARTIAL
+### 047 · P1 · recommended · COMPLETE
 
 > Implement memory corrections, deduplication, conflict detection, expiry and deletion propagation.
 
-- **Evidence:** Facts are de-duplicated by normalised text and 'forget' removes whole-word matches safely. There is no correction, conflict detection or expiry.
-- **Tests:** test_forget_needs_a_distinctive_whole_word.
-- **Commits:** 0de33c3
+- **Evidence:** Correction: a new value for something a person has one of (name, employer, favourite X, a pet's name) replaces the old one, which is kept as history and reported in the reply; 'remember also:' keeps both; statements that can both be true are not treated as conflicts. Deduplication: the same statement in any casing or punctuation is one record. Expiry: 'remember for 3 days that ...' and 'remember until DATE ...'; expired facts stop being used and are removed 30 days later. Deletion: 'forget ...' needs a distinctive whole word (vague requests delete nothing) and removes the fact, the values it replaced, matching preferences and patterns, adaptive-memory candidates and the copies inside local snapshots, keeping only ids so a stale copy cannot bring it back. Chat history and exported backups are not changed; the reply says so.
+- **Tests:** tests/test_profile_store.py (replacement, remember also, expiry, forgetting, vague requests, adaptive memory); tests/test_backup.py::test_forgetting_a_fact_removes_it_from_snapshots_too.
+- **Commits:** 0de33c3, 3bbc845, e70c99c
 
 ### 048 · P1 · recommended · MISSING
 
@@ -441,17 +455,21 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** No project-specific memory (repository state, objectives, bugs, decisions) exists.
 
-### 049 · P1 · observed · PARTIAL
+### 049 · P1 · observed · COMPLETE
 
 > Improve long-conversation summarization; the current simple clipping can discard crucial context.
 
-- **Evidence:** Context packing keeps recent turns and clips older ones (modules/context_manager.py); there is no real summarisation of long conversations.
+- **Evidence:** The summary of older turns now considers the whole conversation (it covered only the 18 messages before the recent ones; anything earlier was dropped), ranks messages by who said them and whether they state a decision, constraint, number, file or code, keeps the sentence that carries the decision from a long message, skips small talk and keeps the original order. It is extractive: no model writes it. A constraint stated 60 messages earlier is kept. Note: on the default settings the planner sends no history at all for many simple turns; that is a routing choice tracked under item 021, not a summary limit.
+- **Tests:** tests/test_context_budget.py::test_summary_keeps_a_constraint_stated_long_ago, test_summary_keeps_order_and_prefers_decisions_numbers_and_files, test_summary_of_a_long_message_keeps_the_sentence_with_the_decision.
+- **Commits:** ba0708c
 
-### 050 · P1 · observed · MISSING
+### 050 · P1 · observed · COMPLETE
 
 > Re-evaluate context budgeting; default maximum context is 12,000 characters, not a model-aware token budget.
 
-- **Evidence:** Context is budgeted as 12,000 characters (max_context_chars) regardless of the model's token window, while chat requests use a 2,048-token context.
+- **Evidence:** The prompt is now packed to a token allowance taken from the model's window. Measured first: a 9,883-character chat prompt was 2,147 tokens and, sent with the 2,048-token window the app used, Ollama kept only 1,026 of them, silently dropping the instructions at the start. Tokens are estimated by a function fitted to real counts from the model for 18 kinds of text (worst under-count 4%, where characters/4 was off by -71% to +51%). The packer trims in a fixed order (knowledge, memory, summary, oldest recent messages; never the request) and reports what it left out. Run live afterwards: the same conversation was read whole (1,690 tokens, nothing dropped), and a prompt planned at 974 tokens was read as 972.
+- **Tests:** tests/test_context_budget.py (estimates against tests/fixtures/token_counts.json, budget plan, packer order, chat path fits its window).
+- **Commits:** ba0708c
 
 ### 051 · P1 · observed · MISSING
 
@@ -459,11 +477,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** Knowledge ingestion handles text, markdown, JSON and CSV only; no PDF, DOCX or code-aware extraction.
 
-### 052 · P1 · recommended · MISSING
+### 052 · P1 · recommended · COMPLETE
 
 > Provide export, encrypted backup, restore and selective wipe of every stored memory family.
 
-- **Evidence:** No export, backup, restore or selective wipe exists for any memory store.
+- **Evidence:** Every store in modules/data_stores.py can be exported to a zip with a checksummed manifest, backed up encrypted with a passphrase (AES-256-GCM, scrypt key, chunked so truncation, reordering or any changed byte is detected), restored after full verification (only paths that belong to a listed store are written; the replaced data is snapshotted and put back if the restore fails part-way), and wiped selectively after typing DELETE, including companion files and copies inside local snapshots. Available in the Memory tab ('Your data') and as tools/data_tool.py. Run for real with the command-line tool on 2026-11-23: remember, encrypted backup, wrong passphrase refused, wipe, restore, facts back. In the browser only the panel's display was checked; export and restore through the panel were exercised by tests, not by hand.
+- **Tests:** tests/test_backup.py (28 tests on real files); tests/test_data_panel.py (panel, including a wipe driven through the UI test harness).
+- **Commits:** 3701bfb, 1f8628f
 
 
 ## 5. Build the autonomous software engineer you actually want (P1)
@@ -661,11 +681,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). backend/engine.py StrictRouter.stream collects all chunks with list(...) before returning, and the API is job-based, so the phone never sees tokens as they are produced.
 
-### 084 · P1 · observed · MISSING
+### 084 · P1 · observed · PARTIAL
 
 > Fix desktop/mobile shared JSON writes with a single transactional store or cross-process locking.
 
-- **Evidence:** Desktop and the Android backend both write the same JSON files through the engine; saves are atomic now but nothing locks across processes.
+- **Evidence:** All shared JSON and log files except the knowledge index are now changed under a cross-process lock (see item 043), and the two in-process writers of the saved facts file were merged into one store. The knowledge index, the largest file the desktop and phone backends share, is still three JSON files written whole without a lock. Whether the Android backend calls these engine modules for every write has not been checked against its source.
+- **Tests:** tests/test_file_lock.py; tests/test_profile_store.py::test_two_processes_remembering_at_once_lose_nothing.
+- **Commits:** 863df6e, 3bbc845, fd363a7
 
 ### 085 · P1 · observed · PARTIAL
 
@@ -748,7 +770,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Measure first-token latency, total latency, tokens/sec, RAM, VRAM, CPU and GPU across target models.
 
-- **Evidence:** Measured by hand on 2026-11-23 with dolphin3:8b on CPU: about 30 tokens/s reading a prompt, 3 tokens/s writing, 6-15 s model load. Nothing is recorded in the repository and RAM was not measured.
+- **Evidence:** Measured on this machine with dolphin3:8b (CPU): the model reads a prompt at about 32 tokens a second and writes at 3 to 4.6; loading takes about 6.5 s; a cached prompt prefix is re-read in under a second; tokens per character were measured for 18 kinds of text. The router records these per request and plans with them. RAM, CPU load, GPU and VRAM are not recorded, and only one model has been measured.
+- **Tests:** tests/fixtures/token_counts.json; tests/test_context_budget.py::test_router_learns_reading_speed_from_the_slowest_request_and_plans_with_it.
+- **Commits:** ba0708c
 
 ### 097 · P1 · recommended · MISSING
 
@@ -762,11 +786,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** Image generation loads Stable Diffusion without unloading the chat model first.
 
-### 099 · P1 · recommended · MISSING
+### 099 · P1 · recommended · COMPLETE
 
 > Apply adaptive context sizes based on the model’s actual token window.
 
-- **Evidence:** Context size is fixed per request type (2,048 for chat) and not derived from the model's window (same gap as item 050).
+- **Evidence:** The router asks Ollama for the model's own context window once per model and sizes each request's window in steps (2,048 to 32,768) to hold the prompt and the reply, never above the model's window or what the machine's memory allows (setting ollama_max_num_ctx, else by installed RAM), and never smaller than the window the model is already loaded with, because a change reloads the model. A model too small for the requested reply gets a shorter reply rather than a cut prompt, and a prompt that cannot fit at all is reported as a degraded-mode event. Run live: the model reports 131,072 tokens and the machine limit was 16,384.
+- **Tests:** tests/test_context_budget.py::test_budget_never_asks_for_more_than_the_model_or_the_machine_allows, test_the_window_never_shrinks_while_the_model_is_loaded, test_router_raises_the_window_for_a_prompt_that_would_not_fit, test_router_respects_a_small_model_and_reports_a_prompt_it_cannot_fit, test_default_window_limit_follows_installed_memory.
+- **Commits:** ba0708c
 
 ### 100 · P1 · recommended · PARTIAL
 
@@ -848,19 +874,22 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** The Android backend requires a bearer token of at least 32 characters compared in constant time (backend/server.py). There is no rotation, rate limiting, revocation or per-device access.
 
-### 112 · P0 · recommended · MISSING
+### 112 · P0 · recommended · PARTIAL
 
 > Encrypt or otherwise appropriately protect sensitive memory and stored chats, including backups.
 
-- **Evidence:** Memory files and chat history are stored as plain JSON; nothing is encrypted.
+- **Evidence:** Backups can be encrypted with a passphrase (item 052), and all saved data can be kept outside the project folder with COGNITIVE_NEXUS_HOME. The live files (chat history, saved facts, research) and the local snapshots are still plain files readable by anyone with access to the user account or disk.
+- **Tests:** tests/test_backup.py::test_encrypted_backup_hides_the_data_and_needs_the_passphrase, test_any_change_to_an_encrypted_backup_is_detected.
+- **Commits:** 3701bfb, 1f8628f
+- **Needs:** Encryption of the live files is planned for the security phase. Until then, full-disk encryption (BitLocker) protects them.
 
 ### 113 · P0 · observed · PARTIAL
 
 > Avoid accidental public upload of data through GitHub Pages live-bank, Git commits, logs or demo modes.
 
-- **Evidence:** CI now fails if any new private runtime file (chat history, profiles, feedback, research output, logs, .env) is committed. Sixteen such files committed earlier are still tracked and public: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl, data/memory_candidates.json and six generated images with prompts.
-- **Tests:** tests/test_repo_hygiene.py::test_private_runtime_data_is_rejected_unless_grandfathered.
-- **Commits:** 351c51d, ce2c584
+- **Evidence:** CI fails if a new private runtime file is committed, now including snapshots, backup and export files, pre-migration backups and set-aside damaged files. COGNITIVE_NEXUS_HOME keeps all saved data outside the Git checkout. Sixteen private files committed earlier are still tracked and public: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl, data/memory_candidates.json and six generated images with prompts.
+- **Tests:** tests/test_repo_hygiene.py; tests/test_data_stores.py::test_home_variable_moves_everything_and_single_folders_can_be_overridden.
+- **Commits:** 351c51d, ce2c584, 1f8628f, 3701bfb
 - **Needs:** Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 
 ### 114 · P0 · observed · MISSING
@@ -879,9 +908,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Use atomic writes, migrations, checksums, snapshots and tested restoration for research/memory databases.
 
-- **Evidence:** Saves are atomic. There are no migrations, checksums, snapshots or tested restoration.
-- **Tests:** tests/test_file_utils.py.
-- **Commits:** 0de33c3
+- **Evidence:** Saved data has atomic writes, cross-process locks, checksummed archives, daily and pre-restore snapshots, a start-up check that finds unreadable files and repairs one from a snapshot while keeping the damaged copy, and restore that is verified first and rolled back on failure, all tested on real files. Migrations exist for the saved facts only; the knowledge index and research files have no version.
+- **Tests:** tests/test_backup.py; tests/test_file_utils.py; tests/test_profile_store.py.
+- **Commits:** 0de33c3, 863df6e, 3701bfb
 
 ### 117 · P0 · recommended · PARTIAL
 
@@ -1006,8 +1035,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Set up backups, crash recovery, graceful startup/shutdown and recovery from failed updates.
 
-- **Evidence:** Atomic saves protect files from a crash mid-write. There are no backups, no graceful shutdown handling and no update recovery.
-- **Commits:** 0de33c3
+- **Evidence:** Backups, daily snapshots and repair of damaged files are in place (item 116), a failed restore puts the previous data back, and a schema migration keeps the old file. The app has no shutdown handling (background work is not stopped or flushed), no updater, and no recovery path for a failed app update beyond those data safeguards.
+- **Tests:** tests/test_backup.py::test_a_failed_restore_puts_the_previous_data_back, test_daily_snapshot_is_taken_once_and_only_when_there_is_data, test_a_damaged_file_is_found_and_repaired_from_a_snapshot.
+- **Commits:** 0de33c3, 3701bfb
 
 ### 134 · P0 · recommended · MISSING
 
