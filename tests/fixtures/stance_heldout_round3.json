@@ -1,0 +1,38 @@
+{
+  "about": "Held-out pairs for the claim check, round 3. Written after round 2 had been scored, and after the decision (taken on round 2's result) to ask the model for a second reading only of passages the rules count as supporting a claim. Neither the rules nor that decision has been adjusted to these items, so this file gives the honest estimate for the claim check as the app runs it. A third of the items are passages that look like support and are not (a condition, a plan, a denial, an attempt, a former state), because that is where a second reading matters. Do not tune to these items: if anything changes because of them, write a new round.",
+  "items": [
+    {"type": "plain_support", "claim": "The Danube flows through Vienna", "passage": "The Danube flows through Vienna on its way to the Black Sea.", "label": "supports"},
+    {"type": "number_match", "claim": "The library was built in 1904", "passage": "The library was built in 1904 with a grant from a local merchant.", "label": "supports"},
+    {"type": "plain_support", "claim": "Honeybees communicate by dancing", "passage": "Honeybees communicate by dancing, a behaviour first decoded in the 1940s.", "label": "supports"},
+    {"type": "number_match", "claim": "The ferry runs every 30 minutes", "passage": "The ferry runs every 30 minutes from six in the morning.", "label": "supports"},
+    {"type": "plain_support", "claim": "The court ruled against the airline", "passage": "The court ruled against the airline and ordered it to pay damages.", "label": "supports"},
+    {"type": "plain_support", "claim": "Iron rusts when exposed to moisture", "passage": "Iron rusts when it is exposed to moisture and oxygen.", "label": "supports"},
+    {"type": "plain_support", "claim": "The festival is held every August", "passage": "The festival is held every August in the old town.", "label": "supports"},
+    {"type": "reordered", "claim": "The telescope was launched in 2021", "passage": "NASA launched the telescope in December 2021.", "label": "supports"},
+    {"type": "negative_claim", "claim": "The café does not serve alcohol", "passage": "The café does not serve alcohol, but customers may bring their own wine.", "label": "supports"},
+    {"type": "reworded", "claim": "The mountain is 4,808 metres high", "passage": "At 4,808 metres, the mountain is the highest in the range.", "label": "supports"},
+
+    {"type": "conditional", "claim": "The factory will close", "passage": "The factory will close unless a buyer is found by June.", "label": "mentions"},
+    {"type": "not_yet", "claim": "The city built a new stadium", "passage": "The city plans to build a new stadium by 2030.", "label": "mentions"},
+    {"type": "reported_denial", "claim": "The senator accepted donations from the firm", "passage": "The senator denied accepting donations from the firm.", "label": "mentions"},
+    {"type": "attempt", "claim": "The climbers reached the summit", "passage": "The climbers attempted to reach the summit but turned back.", "label": "contradicts"},
+    {"type": "former_state", "claim": "The building is a hospital", "passage": "The building was a hospital until 1998 and is now a hotel.", "label": "contradicts"},
+    {"type": "almost", "claim": "The company went bankrupt", "passage": "The company almost went bankrupt in 2009.", "label": "contradicts"},
+    {"type": "scope", "claim": "The drug is approved for children", "passage": "The drug is approved for adults, not for children.", "label": "contradicts"},
+    {"type": "quantifier", "claim": "Every school in the district has a library", "passage": "Some schools in the district have a library.", "label": "mentions"},
+    {"type": "attribution", "claim": "The singer is retiring", "passage": "Rumours that the singer is retiring are circulating online.", "label": "mentions"},
+    {"type": "question_then_answer", "claim": "The bridge is safe", "passage": "Is the bridge safe? Inspectors say it is not.", "label": "contradicts"},
+
+    {"type": "number_mismatch", "claim": "The tunnel is 12 kilometres long", "passage": "The tunnel is 9 kilometres long.", "label": "contradicts"},
+    {"type": "antonym", "claim": "The museum is closed on Mondays", "passage": "The museum is open on Mondays.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "The treaty was signed in 1919", "passage": "The treaty was signed in 1921.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "Bats are birds", "passage": "Bats are not birds; they are mammals.", "label": "contradicts"},
+    {"type": "antonym", "claim": "The vaccine is unsafe", "passage": "The vaccine is safe, large trials found.", "label": "contradicts"},
+    {"type": "antonym", "claim": "Crime increased in the city last year", "passage": "Crime decreased in the city last year.", "label": "contradicts"},
+
+    {"type": "question", "claim": "The prince will abdicate", "passage": "Will the prince abdicate?", "label": "mentions"},
+    {"type": "attribution", "claim": "The herb cures insomnia", "passage": "Sellers claim the herb cures insomnia.", "label": "mentions"},
+    {"type": "timeframe", "claim": "The team won the title in 2026", "passage": "The team won the title in 2014.", "label": "mentions"},
+    {"type": "hedged", "claim": "The lake is frozen", "passage": "The lake may be frozen by late December.", "label": "mentions"}
+  ]
+}

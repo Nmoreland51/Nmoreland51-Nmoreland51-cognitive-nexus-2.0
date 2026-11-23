@@ -1,0 +1,282 @@
+{
+  "measured_at": "2026-11-23",
+  "ranking": {
+    "cases": 9,
+    "answering_page_first": 7,
+    "answering_page_in_first_two": 9,
+    "mean_reciprocal_rank": 0.889,
+    "as_returned_first": 1,
+    "as_returned_in_first_two": 7,
+    "rows": [
+      {
+        "id": "tidewater_version",
+        "rank": 1,
+        "rank_as_returned": 2
+      },
+      {
+        "id": "harbor_battery",
+        "rank": 2,
+        "rank_as_returned": 2
+      },
+      {
+        "id": "larkspur_bridge",
+        "rank": 1,
+        "rank_as_returned": 3
+      },
+      {
+        "id": "osterhaven_mayor",
+        "rank": 1,
+        "rank_as_returned": 2
+      },
+      {
+        "id": "rye_loaf",
+        "rank": 1,
+        "rank_as_returned": 1
+      },
+      {
+        "id": "aster_hall",
+        "rank": 1,
+        "rank_as_returned": 2
+      },
+      {
+        "id": "brightline_recall",
+        "rank": 2,
+        "rank_as_returned": 2
+      },
+      {
+        "id": "quillfeather_port",
+        "rank": 1,
+        "rank_as_returned": 3
+      },
+      {
+        "id": "pinewood_linux",
+        "rank": 1,
+        "rank_as_returned": 2
+      }
+    ]
+  },
+  "passages": {
+    "pages": 9,
+    "answer_in_excerpt": 9,
+    "rows": [
+      {
+        "id": "tidewater_version",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 156
+      },
+      {
+        "id": "harbor_battery",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 148
+      },
+      {
+        "id": "larkspur_bridge",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 204
+      },
+      {
+        "id": "osterhaven_mayor",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 157
+      },
+      {
+        "id": "rye_loaf",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 186
+      },
+      {
+        "id": "aster_hall",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 165
+      },
+      {
+        "id": "brightline_recall",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 235
+      },
+      {
+        "id": "quillfeather_port",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 196
+      },
+      {
+        "id": "pinewood_linux",
+        "answer_in_excerpt": true,
+        "excerpt_chars": 160
+      }
+    ]
+  },
+  "model": "dolphin3:8b",
+  "chat_answers": {
+    "answerable": 9,
+    "correct": 9,
+    "unanswerable": 3,
+    "said_so": 1,
+    "answers_with_something_outside_their_sources": 0,
+    "of_those_the_app_warned_about": 0,
+    "mean_seconds": 18.7,
+    "rows": [
+      {
+        "id": "tidewater_version",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 27.8,
+        "prompt": "928d1b18f2feb7b4",
+        "answer": "The latest stable release of Tidewater is version 4.2, published on 3 March 2026. The previous release, version 4.1, came out in October 2025 and remains supported until 2027.\n\nNote: none of the pages state when they were published, so this may not be the current situation."
+      },
+      {
+        "id": "harbor_battery",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 18.5,
+        "prompt": "85939dc937630829",
+        "answer": "The Harbor H2 wireless headphones have a battery life of 31 hours on one charge with noise cancelling on. The ear cups are deep and stay comfortable through a long flight."
+      },
+      {
+        "id": "larkspur_bridge",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 14.6,
+        "prompt": "72befb3a7765d101",
+        "answer": "The Larkspur bridge opened to traffic in 1962 after four years of construction."
+      },
+      {
+        "id": "osterhaven_mayor",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 23.2,
+        "prompt": "775d709a76fb23cc",
+        "answer": "The web results do not say who the current mayor of Osterhaven is. However, from 2010 to 2018, Tomas Reik served as the mayor, and as of January 2025, Ilse Brandt took office after winning the November 2024 election."
+      },
+      {
+        "id": "rye_loaf",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 18.4,
+        "prompt": "c511a678a54a17b0",
+        "answer": "The Hollin rye loaf should be baked at 220 degrees Celsius for 15 minutes, then the oven should be lowered to 190 degrees Celsius for another 35 minutes."
+      },
+      {
+        "id": "aster_hall",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 16.0,
+        "prompt": "576cbf59307ba64f",
+        "answer": "The Aster concert hall has 1,840 seats across three levels in its main auditorium. The building was designed around an adjustable acoustic canopy above the stage."
+      },
+      {
+        "id": "brightline_recall",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 19.8,
+        "prompt": "035c242e1354708d",
+        "answer": "Brightline is recalling the BH-200 and BH-300 heaters made between January and June 2025 because the thermostat can stick. Owners should stop using the heater and contact Brightline for a free replacement. No other models are affected."
+      },
+      {
+        "id": "quillfeather_port",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 20.5,
+        "prompt": "c0b214ccc4d8c93e",
+        "answer": "The Quillfeather sync server listens on port 8472 by default. This information is mentioned in the Quillfeather docs. The web results do not say which version of Quillfeather this applies to."
+      },
+      {
+        "id": "pinewood_linux",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 18.1,
+        "prompt": "dae37caf3b0618bd",
+        "answer": "The Pinewood P3 supports Linux starting with firmware 2.1, which allows it to work with CUPS without extra drivers. The web results do not say when firmware 2.1 was released."
+      },
+      {
+        "id": "kestrel_price",
+        "unanswerable": true,
+        "outside_sources": [],
+        "app_warned": false,
+        "said_so": false,
+        "seconds": 18.9,
+        "prompt": "12571c9062ab557a",
+        "answer": "The Kestrel K9 weighs 249 grams with its battery. The Kestrel K9 flew for 34 minutes in calm air in our test. The Kestrel K9 weighs 249 grams with its battery."
+      },
+      {
+        "id": "vellmar_founder",
+        "unanswerable": true,
+        "outside_sources": [],
+        "app_warned": false,
+        "said_so": false,
+        "seconds": 17.8,
+        "prompt": "9d4cbfddcee59886",
+        "answer": "Vellmar Shipping was founded in 1887 in Osterhaven. It began with two coastal steamers and moved into container traffic in the 1970s. The company now runs eleven vessels."
+      },
+      {
+        "id": "saltmarsh_population",
+        "unanswerable": true,
+        "outside_sources": [],
+        "app_warned": false,
+        "said_so": true,
+        "seconds": 11.0,
+        "prompt": "750c1fc71463b020",
+        "answer": "The web results do not say the population of Saltmarsh."
+      }
+    ]
+  },
+  "full_answers": {
+    "answerable": 3,
+    "correct": 3,
+    "unanswerable": 0,
+    "said_so": 0,
+    "answers_with_something_outside_their_sources": 0,
+    "of_those_the_app_warned_about": 0,
+    "mean_seconds": 74.4,
+    "rows": [
+      {
+        "id": "tidewater_version",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 72.6,
+        "prompt": "530a2995f302239a",
+        "answer": "Direct answer: The latest version of the Tidewater database is 4.2, released on 3 March 2026.\n\nKey findings: \n- Tidewater 4.2 is the latest stable release, adding online index rebuilds and a faster write-ahead log.\n- The previous release, 4.1, came out in October 2025 and remains supported until 2027.\n- Most of the advice for tuning Tidewater 3.8 also applies to later releases.\n\nSource list:\n1. Tidewater release notes - https://tidewater.example/releases\n2. Tuning Tidewater for write-heavy loads - https://dbnotes.example/tidewater-tuning\n\nUncertainty or limitations: None.\n\nSuggested next steps: \n- If you are currently using Tidewater 3.6, you may want to consider upgrading to the latest version, 4.2, for the new features and performance improvements.\n- Before upgrading, ensure that you have a maintenance window available for the upgrade process, as your database is 200 GB.\n- Consult the Tidewater release notes and tuning guide for more information on the upgrade process and any necessary configuration changes.\n\nNote: none of the pages state when they were published, so this may not be the current situation."
+      },
+      {
+        "id": "harbor_battery",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 66.3,
+        "prompt": "e14a5698afc07d36",
+        "answer": "Direct answer: The Harbor H2 wireless headphones' battery lasts approximately 31 hours on a single charge with noise cancelling on.\n\nKey findings: \n- The Harbor H2 headphones ran for 31 hours on one charge with noise cancelling on in a test.\n- Charging from empty takes about two hours over USB-C.\n- The ear cups are deep and stay comfortable through a long flight.\n\nSource list:\n1. Harbor H2 review: quiet, comfortable, long-lived - https://audiobench.example/reviews/harbor-h2\n2. Harbor H1 long-term review - https://audiobench.example/reviews/harbor-h1\n\nUncertainty or limitations: \n- There is no information about the battery life when noise cancelling is turned off.\n- The Harbor H1's battery life is mentioned for context, but it is not the focus of the answer.\n\nSuggested next steps: \n- If you want to know the battery life with noise cancelling turned off, you may need to contact the manufacturer or look for a review that tests this scenario.\n- For more information about the Harbor H2 headphones, you can visit the Soundshelf store page or read more reviews on the audiobench.example website."
+      },
+      {
+        "id": "larkspur_bridge",
+        "unanswerable": false,
+        "outside_sources": [],
+        "app_warned": false,
+        "correct": true,
+        "seconds": 84.3,
+        "prompt": "9a8157543fabbe98",
+        "answer": "Direct answer: The Larkspur bridge opened to traffic in 1962.\n\nKey findings:\n- The Larkspur bridge was approved for repainting, with work expected to take five months and close one lane at a time.\n- Cyclists will be diverted to the upstream footbridge during the repainting.\n- A ferry service began at the Larkspur crossing in 1931, carrying up to forty cars an hour at its peak.\n- The ferry house still stands on the east bank and is now a cafe.\n- The Larkspur bridge carries four lanes and a footpath on each side.\n- More than six hundred runners finished this year's Larkspur bridge run.\n\nSource list:\n1. Larkspur bridge repainting to begin in spring - https://larkspurnews.example/bridge-repainting\n2. The ferry at the Larkspur crossing - https://riverhistory.example/larkspur-ferry\n3. Larkspur bridge - history - https://riverhistory.example/larkspur-bridge\n4. Larkspur bridge run: 10K results - https://runclub.example/larkspur-10k\n\nUncertainty or limitations: There is no information about when the repainting of the Larkspur bridge will begin or when it is expected to be completed.\n\nSuggested next steps: If you need more information about the repainting of the Larkspur bridge, you may want to contact the local council or check for updates on the Larkspur news website."
+      }
+    ]
+  }
+}

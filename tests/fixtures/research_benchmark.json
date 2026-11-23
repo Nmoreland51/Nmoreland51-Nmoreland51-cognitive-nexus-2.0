@@ -1,0 +1,244 @@
+{
+  "about": "Frozen research cases: a question, the search results as a search engine might return them (in that order), each page's text, and which results actually answer the question. The names are invented so that a model cannot answer from memory. 'must_contain' is the fact a correct answer states; the three 'unanswerable' cases have pages on the topic that do not contain the answer, where the right answer is to say so. Used by tools/research_benchmark.py to measure result ranking, passage selection, answer correctness and whether answers stay within their sources.",
+  "cases": [
+    {
+      "id": "tidewater_version",
+      "question": "What is the latest version of the Tidewater database?",
+      "must_contain": ["4.2"],
+      "must_not_contain": ["4.3", "5.0"],
+      "results": [
+        {"title": "Tuning Tidewater for write-heavy loads", "url": "https://dbnotes.example/tidewater-tuning", "relevant": false,
+         "snippet": "This guide was written for Tidewater 3.8. Increase the checkpoint interval and move the log to a separate disk.",
+         "text": "This guide was written for Tidewater 3.8. Increase the checkpoint interval and move the log to a separate disk. Most of the advice also applies to later releases. Measure before and after each change, because the defaults suit small machines."},
+        {"title": "Tidewater release notes", "url": "https://tidewater.example/releases", "relevant": true,
+         "snippet": "Tidewater 4.2 is the latest stable release, published on 3 March 2026.",
+         "text": "Tidewater 4.2 is the latest stable release, published on 3 March 2026. It adds online index rebuilds and a faster write-ahead log. The previous release, 4.1, came out in October 2025 and remains supported until 2027."},
+        {"title": "Upgrade path question - Tidewater forum", "url": "https://forum.example/t/upgrade-path", "relevant": false,
+         "snippet": "I am still on Tidewater 3.6 and wondering whether I can upgrade directly.",
+         "text": "I am still on Tidewater 3.6 and wondering whether I can upgrade directly. Has anyone done this without a dump and restore? Our database is about 200 GB and the maintenance window is short."},
+        {"title": "Tidewater music festival announces line-up", "url": "https://events.example/tidewater-festival", "relevant": false,
+         "snippet": "The Tidewater music festival returns in July with three stages on the waterfront.",
+         "text": "The Tidewater music festival returns in July with three stages on the waterfront. Tickets go on sale next month. Camping is available for the first time."}
+      ]
+    },
+    {
+      "id": "harbor_battery",
+      "question": "How long does the Harbor H2 headphone battery last?",
+      "must_contain": ["31"],
+      "must_not_contain": [],
+      "results": [
+        {"title": "Harbor H2 wireless headphones - Soundshelf store", "url": "https://soundshelf.example/harbor-h2", "relevant": false,
+         "snippet": "Harbor H2 wireless headphones. Active noise cancelling, multipoint Bluetooth and a folding design.",
+         "text": "Harbor H2 wireless headphones. Active noise cancelling, multipoint Bluetooth and a folding design. Available in black and sand. Free returns within thirty days."},
+        {"title": "Harbor H2 review: quiet, comfortable, long-lived", "url": "https://audiobench.example/reviews/harbor-h2", "relevant": true,
+         "snippet": "In our test the Harbor H2 ran for 31 hours on one charge with noise cancelling on.",
+         "text": "In our test the Harbor H2 ran for 31 hours on one charge with noise cancelling on. Charging from empty takes about two hours over USB-C. The ear cups are deep and stay comfortable through a long flight."},
+        {"title": "Harbor H1 long-term review", "url": "https://audiobench.example/reviews/harbor-h1", "relevant": false,
+         "snippet": "The original Harbor H1 lasted 22 hours in our 2023 test and has since been discontinued.",
+         "text": "The original Harbor H1 lasted 22 hours in our 2023 test and has since been discontinued. Its hinge was a weak point, and spare parts are now hard to find."},
+        {"title": "How to replace Harbor H2 ear pads", "url": "https://fixit.example/harbor-h2-ear-pads", "relevant": false,
+         "snippet": "The Harbor H2 ear pads twist off anticlockwise. New pads click into four tabs.",
+         "text": "The Harbor H2 ear pads twist off anticlockwise. New pads click into four tabs. The whole job takes about five minutes and needs no tools."}
+      ]
+    },
+    {
+      "id": "larkspur_bridge",
+      "question": "When did the Larkspur bridge open?",
+      "must_contain": ["1962"],
+      "must_not_contain": [],
+      "results": [
+        {"title": "Larkspur bridge repainting to begin in spring", "url": "https://larkspurnews.example/bridge-repainting", "relevant": false,
+         "snippet": "The council has approved a repainting of the Larkspur bridge. Work is expected to take five months.",
+         "text": "The council has approved a repainting of the Larkspur bridge. Work is expected to take five months and will close one lane at a time. Cyclists will be diverted to the upstream footbridge."},
+        {"title": "The ferry at the Larkspur crossing", "url": "https://riverhistory.example/larkspur-ferry", "relevant": false,
+         "snippet": "A ferry service began at the Larkspur crossing in 1931 and carried up to forty cars an hour at its peak.",
+         "text": "A ferry service began at the Larkspur crossing in 1931 and carried up to forty cars an hour at its peak. The ferry house still stands on the east bank and is now a cafe."},
+        {"title": "Larkspur bridge - history", "url": "https://riverhistory.example/larkspur-bridge", "relevant": true,
+         "snippet": "The Larkspur bridge opened to traffic in 1962 after four years of construction.",
+         "text": "The Larkspur bridge opened to traffic in 1962 after four years of construction. It replaced a ferry that had crossed the river for three decades. The bridge carries four lanes and a footpath on each side."},
+        {"title": "Larkspur bridge run: 10K results", "url": "https://runclub.example/larkspur-10k", "relevant": false,
+         "snippet": "More than six hundred runners finished this year's Larkspur bridge run.",
+         "text": "More than six hundred runners finished this year's Larkspur bridge run. The course crosses the bridge twice and finishes in the park."}
+      ]
+    },
+    {
+      "id": "osterhaven_mayor",
+      "question": "Who is the mayor of Osterhaven?",
+      "must_contain": ["Brandt"],
+      "must_not_contain": [],
+      "results": [
+        {"title": "Tomas Reik - Osterhaven archive", "url": "https://archive.example/osterhaven/reik", "relevant": false,
+         "snippet": "Tomas Reik served as mayor of Osterhaven from 2010 to 2018 and oversaw the rebuilding of the harbour.",
+         "text": "Tomas Reik served as mayor of Osterhaven from 2010 to 2018 and oversaw the rebuilding of the harbour. He did not stand for a third term."},
+        {"title": "Office of the mayor - City of Osterhaven", "url": "https://osterhaven.example/mayor", "relevant": true,
+         "snippet": "Mayor Ilse Brandt took office in January 2025 after winning the November 2024 election.",
+         "text": "Mayor Ilse Brandt took office in January 2025 after winning the November 2024 election. Her term runs until 2029. The mayor holds open office hours on the first Tuesday of each month."},
+        {"title": "Council meeting minutes, 12 May", "url": "https://osterhaven.example/council/minutes-0512", "relevant": false,
+         "snippet": "The council met on 12 May to discuss the budget for road repairs and the new library hours.",
+         "text": "The council met on 12 May to discuss the budget for road repairs and the new library hours. Both items were carried without amendment."},
+        {"title": "Visit Osterhaven: what to see", "url": "https://visit.example/osterhaven", "relevant": false,
+         "snippet": "Osterhaven's old harbour, fish market and lighthouse are all within walking distance of the station.",
+         "text": "Osterhaven's old harbour, fish market and lighthouse are all within walking distance of the station. Boat trips leave from the north quay in summer."}
+      ]
+    },
+    {
+      "id": "rye_loaf",
+      "question": "What temperature should the Hollin rye loaf be baked at?",
+      "must_contain": ["220"],
+      "must_not_contain": [],
+      "results": [
+        {"title": "Hollin rye loaf recipe", "url": "https://hollinbakes.example/rye-loaf", "relevant": true,
+         "snippet": "Bake the Hollin rye loaf at 220 degrees Celsius for 15 minutes, then lower the oven.",
+         "text": "Bake the Hollin rye loaf at 220 degrees Celsius for 15 minutes, then lower the oven to 190 for another 35 minutes. Leave it to cool completely before slicing, or the crumb will be gummy."},
+        {"title": "A buyer's guide to rye flour", "url": "https://grainguide.example/rye-flour", "relevant": false,
+         "snippet": "Dark rye flour keeps more of the bran and gives a denser loaf than light rye.",
+         "text": "Dark rye flour keeps more of the bran and gives a denser loaf than light rye. Store it in a cool place and use it within three months."},
+        {"title": "Why is my sourdough starter not rising?", "url": "https://grainguide.example/starter-troubleshooting", "relevant": false,
+         "snippet": "A sluggish starter is usually too cold or has been fed too little.",
+         "text": "A sluggish starter is usually too cold or has been fed too little. Move it somewhere warmer and feed it twice a day for a week."},
+        {"title": "Hollin bakery - opening hours", "url": "https://hollinbakes.example/hours", "relevant": false,
+         "snippet": "The Hollin bakery is open from seven until two, Tuesday to Saturday.",
+         "text": "The Hollin bakery is open from seven until two, Tuesday to Saturday. The rye loaf usually sells out before noon."}
+      ]
+    },
+    {
+      "id": "aster_hall",
+      "question": "How many seats does the Aster concert hall have?",
+      "must_contain": ["1,840", "1840"],
+      "must_contain_any": true,
+      "must_not_contain": [],
+      "results": [
+        {"title": "Aster concert hall - autumn programme", "url": "https://asterhall.example/programme", "relevant": false,
+         "snippet": "The autumn season at the Aster concert hall opens with the city orchestra.",
+         "text": "The autumn season at the Aster concert hall opens with the city orchestra. Chamber concerts are held in the recital room on Sunday mornings."},
+        {"title": "About the Aster concert hall", "url": "https://asterhall.example/about", "relevant": true,
+         "snippet": "The main auditorium of the Aster concert hall seats 1,840 people across three levels.",
+         "text": "The main auditorium of the Aster concert hall seats 1,840 people across three levels. The building was designed around an adjustable acoustic canopy above the stage."},
+        {"title": "Parking near the Aster concert hall", "url": "https://cityparking.example/aster", "relevant": false,
+         "snippet": "The nearest car park to the Aster concert hall is under the market square.",
+         "text": "The nearest car park to the Aster concert hall is under the market square. It closes at midnight, so check the running time of late concerts."},
+        {"title": "Aster concert hall wins regional design award", "url": "https://designweek.example/aster-award", "relevant": false,
+         "snippet": "Judges praised the timber interior of the Aster concert hall.",
+         "text": "Judges praised the timber interior of the Aster concert hall. The award is given every two years for a public building."}
+      ]
+    },
+    {
+      "id": "brightline_recall",
+      "question": "Which Brightline heaters are being recalled?",
+      "must_contain": ["BH-200", "BH-300"],
+      "must_not_contain": ["BH-100 is being recalled", "BH-100 and"],
+      "results": [
+        {"title": "Brightline BH-100 review", "url": "https://homewarmth.example/reviews/bh-100", "relevant": false,
+         "snippet": "The Brightline BH-100 is a small fan heater for a desk or a caravan.",
+         "text": "The Brightline BH-100 is a small fan heater for a desk or a caravan. It is noisy on the high setting but heats a small room quickly."},
+        {"title": "Safety notice: Brightline heater recall", "url": "https://brightline.example/safety/recall", "relevant": true,
+         "snippet": "Brightline is recalling the BH-200 and BH-300 heaters made between January and June 2025.",
+         "text": "Brightline is recalling the BH-200 and BH-300 heaters made between January and June 2025 because the thermostat can stick. Owners should stop using the heater and contact Brightline for a free replacement. No other models are affected."},
+        {"title": "Brightline heater manuals", "url": "https://brightline.example/manuals", "relevant": false,
+         "snippet": "Download the manual for your Brightline heater.",
+         "text": "Download the manual for your Brightline heater. Manuals are available for every model sold since 2018."},
+        {"title": "Brightline heaters - Hearthside store", "url": "https://hearthside.example/brightline", "relevant": false,
+         "snippet": "Shop Brightline heaters with free delivery.",
+         "text": "Shop Brightline heaters with free delivery. Oil-filled radiators and fan heaters in stock."}
+      ]
+    },
+    {
+      "id": "quillfeather_port",
+      "question": "Which port does the Quillfeather sync server listen on by default?",
+      "must_contain": ["8472"],
+      "must_not_contain": [],
+      "results": [
+        {"title": "Quillfeather sync cannot connect - troubleshooting", "url": "https://quillfeather.example/help/cannot-connect", "relevant": false,
+         "snippet": "If Quillfeather sync cannot connect, check that the server is running and that its port is open in the firewall.",
+         "text": "If Quillfeather sync cannot connect, check that the server is running and that its port is open in the firewall. Restart the client after changing any setting."},
+        {"title": "Quillfeather changelog", "url": "https://quillfeather.example/changelog", "relevant": false,
+         "snippet": "Quillfeather 7.3.1 fixes a crash when two devices rename the same note.",
+         "text": "Quillfeather 7.3.1 fixes a crash when two devices rename the same note. Version 7.3 added end-to-end encrypted sync."},
+        {"title": "Sync server configuration - Quillfeather docs", "url": "https://quillfeather.example/docs/sync-server", "relevant": true,
+         "snippet": "By default the Quillfeather sync server listens on port 8472.",
+         "text": "By default the Quillfeather sync server listens on port 8472. Change it with the listen_port setting in server.toml and restart the service. The server needs no database; it stores notes as files."},
+        {"title": "Self-hosting Quillfeather on a small box", "url": "https://tinkerlog.example/quillfeather-self-host", "relevant": false,
+         "snippet": "I moved my Quillfeather notes to a small home server over a weekend.",
+         "text": "I moved my Quillfeather notes to a small home server over a weekend. The hardest part was the reverse proxy and its certificates."}
+      ]
+    },
+    {
+      "id": "pinewood_linux",
+      "question": "Does the Pinewood P3 printer work with Linux?",
+      "must_contain": ["2.1", "cups"],
+      "must_contain_any": true,
+      "must_not_contain": ["does not work with linux", "not compatible with linux", "no linux support"],
+      "results": [
+        {"title": "Pinewood P3 - product page", "url": "https://pinewood.example/p3", "relevant": false,
+         "snippet": "The Pinewood P3 is a compact laser printer for home offices.",
+         "text": "The Pinewood P3 is a compact laser printer for home offices. It prints 28 pages a minute and connects over USB or wireless."},
+        {"title": "Pinewood P3 firmware history", "url": "https://pinewood.example/p3/firmware", "relevant": true,
+         "snippet": "Linux support arrived with firmware 2.1: the Pinewood P3 now works with CUPS without extra drivers.",
+         "text": "Linux support arrived with firmware 2.1: the Pinewood P3 now works with CUPS without extra drivers. Firmware 2.0 added duplex scheduling. Update from the printer's own menu or with the desktop tool."},
+        {"title": "Pinewood P3 toner replacement", "url": "https://pinewood.example/p3/toner", "relevant": false,
+         "snippet": "The Pinewood P3 takes the PT-30 toner cartridge.",
+         "text": "The Pinewood P3 takes the PT-30 toner cartridge. A standard cartridge lasts for about 1,500 pages."},
+        {"title": "Best budget laser printers", "url": "https://deskgear.example/budget-laser-printers", "relevant": false,
+         "snippet": "We tested seven budget laser printers for speed and running cost.",
+         "text": "We tested seven budget laser printers for speed and running cost. The Pinewood P3 was the quietest of the group."}
+      ]
+    },
+    {
+      "id": "kestrel_price",
+      "question": "How much does the Kestrel K9 drone cost?",
+      "unanswerable": true,
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_not_match": "[$€£]\\s?\\d|\\b\\d[\\d,.]*\\s?(?:dollars|euros|pounds|usd|eur|gbp)\\b",
+      "results": [
+        {"title": "Kestrel K9 review", "url": "https://skytests.example/kestrel-k9", "relevant": false,
+         "snippet": "The Kestrel K9 flew for 34 minutes in calm air in our test.",
+         "text": "The Kestrel K9 flew for 34 minutes in calm air in our test. The camera is sharp in daylight and noisy after sunset. The controller is small and has no screen."},
+        {"title": "Kestrel K9 specifications", "url": "https://kestrel.example/k9/specs", "relevant": false,
+         "snippet": "The Kestrel K9 weighs 249 grams with its battery.",
+         "text": "The Kestrel K9 weighs 249 grams with its battery. It folds to the size of a paperback and has obstacle sensors facing forward and down."},
+        {"title": "K9 firmware update thread", "url": "https://forum.example/t/k9-firmware", "relevant": false,
+         "snippet": "The latest Kestrel K9 firmware fixed the drifting horizon for me.",
+         "text": "The latest Kestrel K9 firmware fixed the drifting horizon for me. Update the controller first, then the drone."}
+      ]
+    },
+    {
+      "id": "vellmar_founder",
+      "question": "Who founded the Vellmar Shipping Company?",
+      "unanswerable": true,
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_not_match": "founded by (?:a |the )?[A-Z][a-z]+",
+      "results": [
+        {"title": "Vellmar Shipping - company history", "url": "https://vellmar.example/history", "relevant": false,
+         "snippet": "Vellmar Shipping was founded in 1887 in Osterhaven and began with two coastal steamers.",
+         "text": "Vellmar Shipping was founded in 1887 in Osterhaven and began with two coastal steamers. It moved into container traffic in the 1970s and now runs eleven vessels."},
+        {"title": "Vellmar orders two new feeder ships", "url": "https://portnews.example/vellmar-order", "relevant": false,
+         "snippet": "Vellmar Shipping has ordered two feeder ships for delivery in 2027.",
+         "text": "Vellmar Shipping has ordered two feeder ships for delivery in 2027. Both will be able to run on methanol."},
+        {"title": "Osterhaven harbour through the years", "url": "https://archive.example/osterhaven/harbour", "relevant": false,
+         "snippet": "Shipping companies have been based on Osterhaven's north quay since the nineteenth century.",
+         "text": "Shipping companies have been based on Osterhaven's north quay since the nineteenth century. The oldest surviving warehouse dates from 1862."}
+      ]
+    },
+    {
+      "id": "saltmarsh_population",
+      "question": "What is the population of Saltmarsh?",
+      "unanswerable": true,
+      "must_contain": [],
+      "must_not_contain": [],
+      "must_not_match": "\\b\\d[\\d,.]*\\s*(?:thousand\\s+)?(?:people|residents|inhabitants)\\b|population (?:of|is|was)[^.]{0,40}\\d",
+      "results": [
+        {"title": "Saltmarsh - village guide", "url": "https://coastguide.example/saltmarsh", "relevant": false,
+         "snippet": "Saltmarsh is a village on the estuary, known for its lighthouse and its Thursday market.",
+         "text": "Saltmarsh is a village on the estuary, known for its lighthouse and its Thursday market. The parish covers about 14 square kilometres of grazing marsh."},
+        {"title": "Saltmarsh lighthouse", "url": "https://lights.example/saltmarsh", "relevant": false,
+         "snippet": "The Saltmarsh lighthouse was built in 1854 and is open to visitors in summer.",
+         "text": "The Saltmarsh lighthouse was built in 1854 and is open to visitors in summer. The lamp room is reached by 96 steps."},
+        {"title": "Walks around Saltmarsh", "url": "https://coastguide.example/saltmarsh-walks", "relevant": false,
+         "snippet": "Three circular walks start from the green in Saltmarsh.",
+         "text": "Three circular walks start from the green in Saltmarsh. The longest follows the sea wall and takes about three hours."}
+      ]
+    }
+  ]
+}

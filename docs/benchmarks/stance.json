@@ -1,0 +1,748 @@
+{
+  "measured_at": "2026-11-23",
+  "rules": {
+    "development": {
+      "items": 68,
+      "correct": 68,
+      "accuracy": 1.0,
+      "false_supports": 0,
+      "false_contradicts": 0,
+      "by_type": {
+        "plain_support": "8/8",
+        "plain_negation": "7/7",
+        "refutation_cue": "6/6",
+        "negative_claim": "6/6",
+        "attribution": "6/6",
+        "question": "3/3",
+        "number_mismatch": "7/7",
+        "number_match": "5/5",
+        "antonym": "7/7",
+        "timeframe": "4/4",
+        "hedged": "4/4",
+        "other_relation": "5/5"
+      },
+      "wrong": []
+    },
+    "held_out_round_1": {
+      "items": 40,
+      "correct": 40,
+      "accuracy": 1.0,
+      "false_supports": 0,
+      "false_contradicts": 0,
+      "by_type": {
+        "plain_support": "7/7",
+        "number_match": "1/1",
+        "negative_claim": "1/1",
+        "negated_opposite": "1/1",
+        "contrast_inside": "1/1",
+        "plain_negation": "3/3",
+        "refutation_cue": "1/1",
+        "number_mismatch": "6/6",
+        "antonym": "6/6",
+        "word_number": "1/1",
+        "question": "1/1",
+        "attribution": "2/2",
+        "hedged": "3/3",
+        "timeframe": "2/2",
+        "other_relation": "2/2",
+        "open_question": "2/2"
+      },
+      "wrong": []
+    },
+    "held_out": {
+      "items": 47,
+      "correct": 38,
+      "accuracy": 0.809,
+      "false_supports": 5,
+      "false_contradicts": 0,
+      "by_type": {
+        "plain_support": "6/6",
+        "number_match": "1/1",
+        "reordered": "2/2",
+        "reworded": "0/3",
+        "word_number": "2/2",
+        "negated_opposite": "1/1",
+        "contrast_inside": "1/1",
+        "negative_claim": "1/1",
+        "number_mismatch": "5/5",
+        "antonym": "5/5",
+        "plain_negation": "1/1",
+        "refutation_cue": "2/2",
+        "preposition": "0/1",
+        "scope": "0/1",
+        "quantifier": "0/1",
+        "question": "2/2",
+        "attribution": "2/2",
+        "hedged": "2/2",
+        "timeframe": "1/1",
+        "other_relation": "2/2",
+        "open_question": "1/1",
+        "unrelated": "1/1",
+        "conditional": "0/1",
+        "not_yet": "0/1",
+        "reported_denial": "0/1"
+      },
+      "wrong": [
+        {
+          "type": "reworded",
+          "expected": "supports",
+          "got": "mentions",
+          "claim": "The company laid off 200 workers",
+          "passage": "The firm cut 200 jobs last month."
+        },
+        {
+          "type": "reworded",
+          "expected": "supports",
+          "got": "mentions",
+          "claim": "The river is 6,650 kilometres long",
+          "passage": "At about 6,650 km, the river is among the longest in the world."
+        },
+        {
+          "type": "reworded",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The Atlantic is the largest ocean",
+          "passage": "The Atlantic is the second-largest ocean, after the Pacific."
+        },
+        {
+          "type": "preposition",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The senator voted for the bill",
+          "passage": "The senator voted against the bill."
+        },
+        {
+          "type": "scope",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The lake is the deepest in the world",
+          "passage": "The lake is the deepest in Europe, but not in the world."
+        },
+        {
+          "type": "quantifier",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "All swans are white",
+          "passage": "Most swans are white, but black swans live in Australia."
+        },
+        {
+          "type": "conditional",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The river will flood the town",
+          "passage": "The river will flood the town if the levee fails."
+        },
+        {
+          "type": "not_yet",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The airline cancelled the route",
+          "passage": "The airline is considering cancelling the route."
+        },
+        {
+          "type": "reported_denial",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The company dumped waste in the river",
+          "passage": "The company denied dumping waste in the river."
+        }
+      ]
+    },
+    "held_out_round_3": {
+      "items": 30,
+      "correct": 23,
+      "accuracy": 0.767,
+      "false_supports": 5,
+      "false_contradicts": 0,
+      "by_type": {
+        "plain_support": "5/5",
+        "number_match": "2/2",
+        "reordered": "1/1",
+        "negative_claim": "1/1",
+        "reworded": "0/1",
+        "conditional": "0/1",
+        "not_yet": "1/1",
+        "reported_denial": "0/1",
+        "attempt": "0/1",
+        "former_state": "0/1",
+        "almost": "0/1",
+        "scope": "1/1",
+        "quantifier": "1/1",
+        "attribution": "2/2",
+        "question_then_answer": "0/1",
+        "number_mismatch": "2/2",
+        "antonym": "3/3",
+        "plain_negation": "1/1",
+        "question": "1/1",
+        "timeframe": "1/1",
+        "hedged": "1/1"
+      },
+      "wrong": [
+        {
+          "type": "reworded",
+          "expected": "supports",
+          "got": "mentions",
+          "claim": "The mountain is 4,808 metres high",
+          "passage": "At 4,808 metres, the mountain is the highest in the range."
+        },
+        {
+          "type": "conditional",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The factory will close",
+          "passage": "The factory will close unless a buyer is found by June."
+        },
+        {
+          "type": "reported_denial",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The senator accepted donations from the firm",
+          "passage": "The senator denied accepting donations from the firm."
+        },
+        {
+          "type": "attempt",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The climbers reached the summit",
+          "passage": "The climbers attempted to reach the summit but turned back."
+        },
+        {
+          "type": "former_state",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The building is a hospital",
+          "passage": "The building was a hospital until 1998 and is now a hotel."
+        },
+        {
+          "type": "almost",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The company went bankrupt",
+          "passage": "The company almost went bankrupt in 2009."
+        },
+        {
+          "type": "question_then_answer",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The bridge is safe",
+          "passage": "Is the bridge safe? Inspectors say it is not."
+        }
+      ]
+    }
+  },
+  "model": {
+    "name": "dolphin3:8b",
+    "held_out": {
+      "items": 47,
+      "correct": 36,
+      "accuracy": 0.766,
+      "false_supports": 5,
+      "false_contradicts": 1,
+      "by_type": {
+        "plain_support": "6/6",
+        "number_match": "1/1",
+        "reordered": "2/2",
+        "reworded": "2/3",
+        "word_number": "1/2",
+        "negated_opposite": "1/1",
+        "contrast_inside": "1/1",
+        "negative_claim": "1/1",
+        "number_mismatch": "5/5",
+        "antonym": "4/5",
+        "plain_negation": "0/1",
+        "refutation_cue": "1/2",
+        "preposition": "1/1",
+        "scope": "0/1",
+        "quantifier": "0/1",
+        "question": "1/2",
+        "attribution": "2/2",
+        "hedged": "2/2",
+        "timeframe": "0/1",
+        "other_relation": "2/2",
+        "open_question": "1/1",
+        "unrelated": "1/1",
+        "conditional": "0/1",
+        "not_yet": "1/1",
+        "reported_denial": "0/1"
+      },
+      "wrong": [
+        {
+          "type": "reworded",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The Atlantic is the largest ocean",
+          "passage": "The Atlantic is the second-largest ocean, after the Pacific."
+        },
+        {
+          "type": "antonym",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The team lost the semi-final",
+          "passage": "The team won the semi-final 3-1."
+        },
+        {
+          "type": "plain_negation",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "Ostriches can fly",
+          "passage": "Ostriches cannot fly, but they can run at 70 km per hour."
+        },
+        {
+          "type": "word_number",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The author wrote twelve novels",
+          "passage": "The author wrote seven novels and two plays."
+        },
+        {
+          "type": "refutation_cue",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "Glass is a slow-moving liquid",
+          "passage": "The idea that glass is a slow-moving liquid has been debunked."
+        },
+        {
+          "type": "scope",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The lake is the deepest in the world",
+          "passage": "The lake is the deepest in Europe, but not in the world."
+        },
+        {
+          "type": "quantifier",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "All swans are white",
+          "passage": "Most swans are white, but black swans live in Australia."
+        },
+        {
+          "type": "question",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The prime minister resigned",
+          "passage": "Has the prime minister resigned?"
+        },
+        {
+          "type": "timeframe",
+          "expected": "mentions",
+          "got": "contradicts",
+          "claim": "The city hosted the games in 2028",
+          "passage": "The city hosted the games in 1984."
+        },
+        {
+          "type": "conditional",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The river will flood the town",
+          "passage": "The river will flood the town if the levee fails."
+        },
+        {
+          "type": "reported_denial",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The company dumped waste in the river",
+          "passage": "The company denied dumping waste in the river."
+        }
+      ],
+      "seconds_per_item": 3.5
+    },
+    "held_out_round_3": {
+      "items": 30,
+      "correct": 20,
+      "accuracy": 0.667,
+      "false_supports": 8,
+      "false_contradicts": 1,
+      "by_type": {
+        "plain_support": "5/5",
+        "number_match": "2/2",
+        "reordered": "1/1",
+        "negative_claim": "1/1",
+        "reworded": "1/1",
+        "conditional": "0/1",
+        "not_yet": "0/1",
+        "reported_denial": "0/1",
+        "attempt": "0/1",
+        "former_state": "0/1",
+        "almost": "0/1",
+        "scope": "1/1",
+        "quantifier": "1/1",
+        "attribution": "2/2",
+        "question_then_answer": "0/1",
+        "number_mismatch": "2/2",
+        "antonym": "1/3",
+        "plain_negation": "1/1",
+        "question": "0/1",
+        "timeframe": "1/1",
+        "hedged": "1/1"
+      },
+      "wrong": [
+        {
+          "type": "conditional",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The factory will close",
+          "passage": "The factory will close unless a buyer is found by June."
+        },
+        {
+          "type": "not_yet",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The city built a new stadium",
+          "passage": "The city plans to build a new stadium by 2030."
+        },
+        {
+          "type": "reported_denial",
+          "expected": "mentions",
+          "got": "contradicts",
+          "claim": "The senator accepted donations from the firm",
+          "passage": "The senator denied accepting donations from the firm."
+        },
+        {
+          "type": "attempt",
+          "expected": "contradicts",
+          "got": "mentions",
+          "claim": "The climbers reached the summit",
+          "passage": "The climbers attempted to reach the summit but turned back."
+        },
+        {
+          "type": "former_state",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The building is a hospital",
+          "passage": "The building was a hospital until 1998 and is now a hotel."
+        },
+        {
+          "type": "almost",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The company went bankrupt",
+          "passage": "The company almost went bankrupt in 2009."
+        },
+        {
+          "type": "question_then_answer",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The bridge is safe",
+          "passage": "Is the bridge safe? Inspectors say it is not."
+        },
+        {
+          "type": "antonym",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The museum is closed on Mondays",
+          "passage": "The museum is open on Mondays."
+        },
+        {
+          "type": "antonym",
+          "expected": "contradicts",
+          "got": "supports",
+          "claim": "The vaccine is unsafe",
+          "passage": "The vaccine is safe, large trials found."
+        },
+        {
+          "type": "question",
+          "expected": "mentions",
+          "got": "supports",
+          "claim": "The prince will abdicate",
+          "passage": "Will the prince abdicate?"
+        }
+      ],
+      "seconds_per_item": 5.2
+    },
+    "second_reading_prompt": "5a23c8f68621bd8b"
+  },
+  "rules_and_model": {
+    "held_out": {
+      "supporting_passages_only": {
+        "items": 47,
+        "correct": 39,
+        "accuracy": 0.83,
+        "false_supports": 2,
+        "false_contradicts": 0,
+        "by_type": {
+          "plain_support": "6/6",
+          "number_match": "1/1",
+          "reordered": "2/2",
+          "reworded": "0/3",
+          "word_number": "2/2",
+          "negated_opposite": "1/1",
+          "contrast_inside": "1/1",
+          "negative_claim": "1/1",
+          "number_mismatch": "5/5",
+          "antonym": "5/5",
+          "plain_negation": "1/1",
+          "refutation_cue": "2/2",
+          "preposition": "0/1",
+          "scope": "0/1",
+          "quantifier": "0/1",
+          "question": "2/2",
+          "attribution": "2/2",
+          "hedged": "2/2",
+          "timeframe": "1/1",
+          "other_relation": "2/2",
+          "open_question": "1/1",
+          "unrelated": "1/1",
+          "conditional": "0/1",
+          "not_yet": "1/1",
+          "reported_denial": "0/1"
+        },
+        "wrong": [
+          {
+            "type": "reworded",
+            "expected": "supports",
+            "got": "mentions",
+            "claim": "The company laid off 200 workers",
+            "passage": "The firm cut 200 jobs last month."
+          },
+          {
+            "type": "reworded",
+            "expected": "supports",
+            "got": "mentions",
+            "claim": "The river is 6,650 kilometres long",
+            "passage": "At about 6,650 km, the river is among the longest in the world."
+          },
+          {
+            "type": "reworded",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The Atlantic is the largest ocean",
+            "passage": "The Atlantic is the second-largest ocean, after the Pacific."
+          },
+          {
+            "type": "preposition",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The senator voted for the bill",
+            "passage": "The senator voted against the bill."
+          },
+          {
+            "type": "scope",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The lake is the deepest in the world",
+            "passage": "The lake is the deepest in Europe, but not in the world."
+          },
+          {
+            "type": "quantifier",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "All swans are white",
+            "passage": "Most swans are white, but black swans live in Australia."
+          },
+          {
+            "type": "conditional",
+            "expected": "mentions",
+            "got": "supports",
+            "claim": "The river will flood the town",
+            "passage": "The river will flood the town if the levee fails."
+          },
+          {
+            "type": "reported_denial",
+            "expected": "mentions",
+            "got": "supports",
+            "claim": "The company dumped waste in the river",
+            "passage": "The company denied dumping waste in the river."
+          }
+        ],
+        "passages_the_model_was_asked_about": 18
+      },
+      "every_counted_passage": {
+        "items": 47,
+        "correct": 35,
+        "accuracy": 0.745,
+        "false_supports": 2,
+        "false_contradicts": 0,
+        "by_type": {
+          "plain_support": "6/6",
+          "number_match": "1/1",
+          "reordered": "2/2",
+          "reworded": "0/3",
+          "word_number": "1/2",
+          "negated_opposite": "1/1",
+          "contrast_inside": "1/1",
+          "negative_claim": "1/1",
+          "number_mismatch": "5/5",
+          "antonym": "4/5",
+          "plain_negation": "0/1",
+          "refutation_cue": "1/2",
+          "preposition": "0/1",
+          "scope": "0/1",
+          "quantifier": "0/1",
+          "question": "2/2",
+          "attribution": "2/2",
+          "hedged": "2/2",
+          "timeframe": "1/1",
+          "other_relation": "2/2",
+          "open_question": "1/1",
+          "unrelated": "1/1",
+          "conditional": "0/1",
+          "not_yet": "1/1",
+          "reported_denial": "0/1"
+        },
+        "wrong": [
+          {
+            "type": "reworded",
+            "expected": "supports",
+            "got": "mentions",
+            "claim": "The company laid off 200 workers",
+            "passage": "The firm cut 200 jobs last month."
+          },
+          {
+            "type": "reworded",
+            "expected": "supports",
+            "got": "mentions",
+            "claim": "The river is 6,650 kilometres long",
+            "passage": "At about 6,650 km, the river is among the longest in the world."
+          },
+          {
+            "type": "reworded",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The Atlantic is the largest ocean",
+            "passage": "The Atlantic is the second-largest ocean, after the Pacific."
+          },
+          {
+            "type": "antonym",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The team lost the semi-final",
+            "passage": "The team won the semi-final 3-1."
+          },
+          {
+            "type": "plain_negation",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "Ostriches can fly",
+            "passage": "Ostriches cannot fly, but they can run at 70 km per hour."
+          },
+          {
+            "type": "word_number",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The author wrote twelve novels",
+            "passage": "The author wrote seven novels and two plays."
+          },
+          {
+            "type": "refutation_cue",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "Glass is a slow-moving liquid",
+            "passage": "The idea that glass is a slow-moving liquid has been debunked."
+          },
+          {
+            "type": "preposition",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The senator voted for the bill",
+            "passage": "The senator voted against the bill."
+          },
+          {
+            "type": "scope",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The lake is the deepest in the world",
+            "passage": "The lake is the deepest in Europe, but not in the world."
+          },
+          {
+            "type": "quantifier",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "All swans are white",
+            "passage": "Most swans are white, but black swans live in Australia."
+          },
+          {
+            "type": "conditional",
+            "expected": "mentions",
+            "got": "supports",
+            "claim": "The river will flood the town",
+            "passage": "The river will flood the town if the levee fails."
+          },
+          {
+            "type": "reported_denial",
+            "expected": "mentions",
+            "got": "supports",
+            "claim": "The company dumped waste in the river",
+            "passage": "The company denied dumping waste in the river."
+          }
+        ]
+      }
+    },
+    "held_out_round_3": {
+      "supporting_passages_only": {
+        "items": 30,
+        "correct": 24,
+        "accuracy": 0.8,
+        "false_supports": 3,
+        "false_contradicts": 0,
+        "by_type": {
+          "plain_support": "5/5",
+          "number_match": "2/2",
+          "reordered": "1/1",
+          "negative_claim": "1/1",
+          "reworded": "0/1",
+          "conditional": "0/1",
+          "not_yet": "1/1",
+          "reported_denial": "1/1",
+          "attempt": "0/1",
+          "former_state": "0/1",
+          "almost": "0/1",
+          "scope": "1/1",
+          "quantifier": "1/1",
+          "attribution": "2/2",
+          "question_then_answer": "0/1",
+          "number_mismatch": "2/2",
+          "antonym": "3/3",
+          "plain_negation": "1/1",
+          "question": "1/1",
+          "timeframe": "1/1",
+          "hedged": "1/1"
+        },
+        "wrong": [
+          {
+            "type": "reworded",
+            "expected": "supports",
+            "got": "mentions",
+            "claim": "The mountain is 4,808 metres high",
+            "passage": "At 4,808 metres, the mountain is the highest in the range."
+          },
+          {
+            "type": "conditional",
+            "expected": "mentions",
+            "got": "supports",
+            "claim": "The factory will close",
+            "passage": "The factory will close unless a buyer is found by June."
+          },
+          {
+            "type": "attempt",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The climbers reached the summit",
+            "passage": "The climbers attempted to reach the summit but turned back."
+          },
+          {
+            "type": "former_state",
+            "expected": "contradicts",
+            "got": "supports",
+            "claim": "The building is a hospital",
+            "passage": "The building was a hospital until 1998 and is now a hotel."
+          },
+          {
+            "type": "almost",
+            "expected": "contradicts",
+            "got": "supports",
+            "claim": "The company went bankrupt",
+            "passage": "The company almost went bankrupt in 2009."
+          },
+          {
+            "type": "question_then_answer",
+            "expected": "contradicts",
+            "got": "mentions",
+            "claim": "The bridge is safe",
+            "passage": "Is the bridge safe? Inspectors say it is not."
+          }
+        ],
+        "passages_the_model_was_asked_about": 14
+      }
+    }
+  }
+}

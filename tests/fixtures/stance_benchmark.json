@@ -1,0 +1,84 @@
+{
+  "about": "Labelled pairs of a claim and one passage. 'supports': the passage states the claim. 'contradicts': it states something incompatible with it. 'mentions': it talks about the same things without settling the claim (reports what others say, asks, hedges, concerns another time or another relation).",
+  "items": [
+    {"type": "plain_support", "claim": "The Eiffel Tower is in Paris", "passage": "The Eiffel Tower stands on the Champ de Mars in Paris.", "label": "supports"},
+    {"type": "plain_support", "claim": "Water boils at 100 degrees Celsius at sea level", "passage": "At sea level, water boils at 100 degrees Celsius.", "label": "supports"},
+    {"type": "plain_support", "claim": "Marie Curie won two Nobel Prizes", "passage": "Marie Curie won two Nobel Prizes, one in physics and one in chemistry.", "label": "supports"},
+    {"type": "plain_support", "claim": "Honey does not spoil", "passage": "Sealed honey does not spoil and remains edible for decades.", "label": "supports"},
+    {"type": "plain_support", "claim": "The Great Barrier Reef is off the coast of Australia", "passage": "The Great Barrier Reef lies off the coast of Queensland, Australia.", "label": "supports"},
+    {"type": "plain_support", "claim": "Octopuses have three hearts", "passage": "Octopuses have three hearts and blue blood.", "label": "supports"},
+    {"type": "plain_support", "claim": "The company moved its headquarters to Austin", "passage": "In 2021 the company moved its headquarters to Austin, Texas.", "label": "supports"},
+    {"type": "plain_support", "claim": "Bananas contain potassium", "passage": "Bananas contain potassium, vitamin B6 and fibre.", "label": "supports"},
+
+    {"type": "plain_negation", "claim": "The Great Wall of China is visible from space with the naked eye", "passage": "The Great Wall of China is not visible from space with the naked eye.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "Goldfish have a three-second memory", "passage": "Goldfish do not have a three-second memory; they can remember things for months.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "Humans use only ten percent of their brains", "passage": "Humans never use only ten percent of their brains; imaging shows activity throughout.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "Lightning never strikes the same place twice", "passage": "Lightning often strikes the same place twice, and tall towers are hit many times a year.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "The mayor attended the opening ceremony", "passage": "The mayor did not attend the opening ceremony.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "Vitamin C cures the common cold", "passage": "There is no evidence that vitamin C cures the common cold.", "label": "contradicts"},
+    {"type": "plain_negation", "claim": "Bats are blind", "passage": "Bats are not blind; most species see well.", "label": "contradicts"},
+
+    {"type": "refutation_cue", "claim": "The moon landing was staged", "passage": "The claim that the moon landing was staged has been debunked many times.", "label": "contradicts"},
+    {"type": "refutation_cue", "claim": "Sugar makes children hyperactive", "passage": "That sugar makes children hyperactive is a myth.", "label": "contradicts"},
+    {"type": "refutation_cue", "claim": "Vaccines cause autism", "passage": "The assertion that vaccines cause autism is false.", "label": "contradicts"},
+    {"type": "refutation_cue", "claim": "Cracking your knuckles causes arthritis", "passage": "The idea that cracking your knuckles causes arthritis is a common misconception that studies have disproved.", "label": "contradicts"},
+    {"type": "refutation_cue", "claim": "The photograph shows a real sea monster", "passage": "The photograph said to show a real sea monster was a hoax.", "label": "contradicts"},
+    {"type": "refutation_cue", "claim": "Shaving makes hair grow back thicker", "passage": "It is untrue that shaving makes hair grow back thicker.", "label": "contradicts"},
+
+    {"type": "negative_claim", "claim": "Vaccines do not cause autism", "passage": "Large studies show that vaccines do not cause autism.", "label": "supports"},
+    {"type": "negative_claim", "claim": "Vaccines do not cause autism", "passage": "Vaccines cause autism in a large share of children.", "label": "contradicts"},
+    {"type": "negative_claim", "claim": "The moon landing was not a hoax", "passage": "The moon landing was not a hoax; hundreds of kilograms of lunar rock were brought back.", "label": "supports"},
+    {"type": "negative_claim", "claim": "The moon landing was a hoax", "passage": "The moon landing was a hoax filmed in a studio.", "label": "supports"},
+    {"type": "negative_claim", "claim": "Bulls are not angered by the colour red", "passage": "Bulls are not angered by the colour red; they react to the movement of the cape.", "label": "supports"},
+    {"type": "negative_claim", "claim": "The bridge was never closed", "passage": "The bridge was closed for three weeks in 2020.", "label": "contradicts"},
+
+    {"type": "attribution", "claim": "The pyramids were built by aliens", "passage": "Some people believe the pyramids were built by aliens.", "label": "mentions"},
+    {"type": "attribution", "claim": "The new policy reduced crime", "passage": "Supporters claim the new policy reduced crime.", "label": "mentions"},
+    {"type": "attribution", "claim": "The supplement improves memory", "passage": "The manufacturer alleges that the supplement improves memory.", "label": "mentions"},
+    {"type": "attribution", "claim": "The lake is home to a monster", "passage": "According to a rumour, the lake is home to a monster.", "label": "mentions"},
+    {"type": "attribution", "claim": "The minister accepted bribes", "passage": "Opponents have claimed that the minister accepted bribes.", "label": "mentions"},
+    {"type": "attribution", "claim": "The diet cures diabetes", "passage": "Proponents of the diet say it cures diabetes.", "label": "mentions"},
+
+    {"type": "question", "claim": "Coffee stunts growth", "passage": "Does coffee stunt growth?", "label": "mentions"},
+    {"type": "question", "claim": "The Great Wall is visible from space", "passage": "Is the Great Wall visible from space?", "label": "mentions"},
+    {"type": "question", "claim": "Dogs can see colour", "passage": "Can dogs see colour, or only shades of grey?", "label": "mentions"},
+
+    {"type": "number_mismatch", "claim": "Mount Everest is 9,500 metres tall", "passage": "Mount Everest is 8,849 metres tall.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "The stadium holds 80,000 spectators", "passage": "The stadium holds 54,000 spectators.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "The company employs 12,000 people", "passage": "The company employs 3,400 people across four sites.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "A marathon is 50 kilometres long", "passage": "A marathon is 42.195 kilometres long.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "The drug reduced symptoms in 90 percent of patients", "passage": "The drug reduced symptoms in 35 percent of patients.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "The bridge opened in 1975", "passage": "The bridge opened in 1962.", "label": "contradicts"},
+    {"type": "number_mismatch", "claim": "The author was born in 1820", "passage": "The author was born in 1798 in a small coastal town.", "label": "contradicts"},
+
+    {"type": "number_match", "claim": "Mount Everest is 8,849 metres tall", "passage": "Mount Everest is 8,849 metres tall.", "label": "supports"},
+    {"type": "number_match", "claim": "The stadium holds 54,000 spectators", "passage": "The stadium holds 54,000 spectators and opened in 2003.", "label": "supports"},
+    {"type": "number_match", "claim": "A marathon is 42.195 kilometres long", "passage": "A marathon is 42.195 kilometres long.", "label": "supports"},
+    {"type": "number_match", "claim": "The bridge opened in 1962", "passage": "The bridge opened in 1962 after four years of construction.", "label": "supports"},
+    {"type": "number_match", "claim": "The battery lasts 31 hours", "passage": "In testing the battery lasts 31 hours on a single charge.", "label": "supports"},
+
+    {"type": "antonym", "claim": "Unemployment rose last year", "passage": "Unemployment fell last year.", "label": "contradicts"},
+    {"type": "antonym", "claim": "House prices increased in the city", "passage": "House prices decreased in the city.", "label": "contradicts"},
+    {"type": "antonym", "claim": "The team won the final", "passage": "The team lost the final.", "label": "contradicts"},
+    {"type": "antonym", "claim": "The court upheld the ruling", "passage": "The court overturned the ruling.", "label": "contradicts"},
+    {"type": "antonym", "claim": "The treatment is safe for children", "passage": "The treatment is unsafe for children.", "label": "contradicts"},
+    {"type": "antonym", "claim": "The council approved the plan", "passage": "The council rejected the plan.", "label": "contradicts"},
+    {"type": "antonym", "claim": "Sales grew in the third quarter", "passage": "Sales shrank in the third quarter.", "label": "contradicts"},
+
+    {"type": "timeframe", "claim": "The Tigers won the cup in 2024", "passage": "The Tigers won the cup in 2019.", "label": "mentions"},
+    {"type": "timeframe", "claim": "The festival was held in June 2025", "passage": "The festival was held in June 2022.", "label": "mentions"},
+    {"type": "timeframe", "claim": "Inflation exceeded five percent in 2023", "passage": "Inflation exceeded five percent in 1991.", "label": "mentions"},
+    {"type": "timeframe", "claim": "The senator voted against the bill in 2026", "passage": "The senator voted against the bill in 2018.", "label": "mentions"},
+
+    {"type": "hedged", "claim": "Coffee reduces the risk of liver disease", "passage": "Coffee may reduce the risk of liver disease, but the evidence is limited.", "label": "mentions"},
+    {"type": "hedged", "claim": "The ruins are the lost city", "passage": "The ruins could possibly be the lost city.", "label": "mentions"},
+    {"type": "hedged", "claim": "The new drug slows the disease", "passage": "Early results suggest the new drug might slow the disease.", "label": "mentions"},
+    {"type": "hedged", "claim": "The fire was caused by faulty wiring", "passage": "The fire is thought to have been caused by faulty wiring.", "label": "mentions"},
+
+    {"type": "other_relation", "claim": "Paris is the capital of Germany", "passage": "Berlin is the capital of Germany, while Paris is the capital of France.", "label": "mentions"},
+    {"type": "other_relation", "claim": "Edison invented the telephone", "passage": "Bell invented the telephone, and Edison invented the phonograph.", "label": "mentions"},
+    {"type": "other_relation", "claim": "The Nile flows through Brazil", "passage": "The Amazon flows through Brazil, whereas the Nile flows through Egypt.", "label": "mentions"},
+    {"type": "other_relation", "claim": "Mercury is the largest planet", "passage": "Jupiter is the largest planet, but Mercury is the smallest.", "label": "mentions"},
+    {"type": "other_relation", "claim": "The film was directed by Okoro and released in March", "passage": "The film was directed by Okoro and released in March.", "label": "supports"}
+  ]
+}
