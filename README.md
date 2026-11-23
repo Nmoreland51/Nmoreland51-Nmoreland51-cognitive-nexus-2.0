@@ -12,6 +12,8 @@ The main entry point is:
 app.py
 ```
 
+Current status, with what is tested and what has only been written: [docs/STATUS.md](docs/STATUS.md).
+
 ## Features Exposed in the Browser
 
 - Centralized server-side backend in `modules/nexus_core.py`.
@@ -106,13 +108,16 @@ Run the import smoke test:
 python smoke_test.py
 ```
 
-Run the full unittest suite:
+Run the full test suite (the same command CI runs on every push):
 
 ```powershell
-python -m unittest discover -s tests -p "test_*.py"
+pip install -r requirements/dev.txt
+python -m pytest
 ```
 
-The root-level `python -m unittest discover` command does not discover the full suite in this repo; use the command above.
+Use pytest rather than `python -m unittest discover`: unittest silently skips the plain test functions in `tests/test_image_generation_profiles.py`. The tests need no Ollama, image backend or API keys.
+
+What has been verified, and how, is tracked in [docs/STATUS.md](docs/STATUS.md).
 
 ## Ollama
 

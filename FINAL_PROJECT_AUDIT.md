@@ -1,5 +1,7 @@
 # Cognitive Nexus - Final Project Audit
 
+> **Historical document (mid-2026).** Its release-readiness claims and test counts are out of date. For what works today and how it was verified, see [docs/STATUS.md](docs/STATUS.md).
+
 ## Executive Summary
 Cognitive Nexus has been successfully upgraded from advanced prototype to sellable beta through systematic implementation of 7 upgrade phases. The project now features a clean, professional interface, robust reality-first research capabilities, and comprehensive documentation suitable for commercial deployment.
 

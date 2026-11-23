@@ -1,5 +1,7 @@
 # 🚀 Cognitive Nexus AI - Quick Start Guide
 
+> **Out of date.** This guide describes a packaged `.exe` build, and the scripts it names (`build_executable.bat`, `launch_cognitive_nexus.bat`) are not in this repository. To run the app, follow the Install and Run sections of [README.md](README.md).
+
 ## For End Users
 
 ### 📦 Using the Executable
