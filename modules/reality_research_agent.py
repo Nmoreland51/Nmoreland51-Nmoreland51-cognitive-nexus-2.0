@@ -17,6 +17,7 @@ from typing import Any, Callable
 from core.reality_grounding.claim_validator import extract_claims
 from modules.data_stores import DATA_ROOT
 from modules.file_lock import append_line
+from modules.file_utils import atomic_write_text
 from modules.web_research import clean_text, get_domain, slugify_query
 from search.bloodhound_search import (
     default_bloodhound_config,
@@ -868,8 +869,8 @@ def save_report(report: ResearchReport) -> dict[str, str]:
     md_path = base.with_suffix(".md")
     serializable = report.to_dict()
     serializable["saved_paths"] = {}
-    json_path.write_text(json.dumps(serializable, indent=2, ensure_ascii=False), encoding="utf-8")
-    md_path.write_text(report.to_markdown(), encoding="utf-8")
+    atomic_write_text(json_path, json.dumps(serializable, indent=2, ensure_ascii=False))
+    atomic_write_text(md_path, report.to_markdown())
     return {"json": str(json_path), "markdown": str(md_path)}
 
 

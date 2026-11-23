@@ -37,6 +37,7 @@ except Exception:
 
 from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
+from modules.file_utils import atomic_write_text
 from modules.url_safety import safe_get
 
 try:
@@ -681,7 +682,7 @@ def save_research_session(
 
     json_path = base.with_suffix(".json")
     md_path = base.with_suffix(".md")
-    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(json_path, json.dumps(payload, indent=2, ensure_ascii=False))
 
     md = [
         f"# Web Research: {query}",
@@ -718,7 +719,7 @@ def save_research_session(
         md.extend(f"- {error}" for error in errors)
         md.append("")
 
-    md_path.write_text("\n".join(md), encoding="utf-8")
+    atomic_write_text(md_path, "\n".join(md))
     logger.info("Saved research session json=%s markdown=%s", json_path, md_path)
 
     return {"json": str(json_path), "markdown": str(md_path)}

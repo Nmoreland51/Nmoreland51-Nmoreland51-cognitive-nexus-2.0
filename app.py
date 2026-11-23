@@ -2436,6 +2436,20 @@ def run_startup_tasks() -> bool:
     """Housekeeping done once per app start, in the background."""
 
     start_daily_snapshot()
+
+    def prepare_knowledge() -> None:
+        # After the embedding model changed, or documents were saved while it was not running,
+        # some passages have no vector yet. They are found by keyword until this finishes.
+        try:
+            module = get_research_module()
+            if module.store.embedder.semantic and module.store.waiting_for_vectors():
+                module.reembed()
+        except Exception as exc:
+            from modules.event_log import record_event
+
+            record_event("error", "Preparing knowledge passages for search by meaning failed", error=str(exc))
+
+    threading.Thread(target=prepare_knowledge, daemon=True).start()
     return True
 
 

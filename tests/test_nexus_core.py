@@ -100,7 +100,7 @@ class NexusCoreTests(unittest.TestCase):
         core = NexusCore()
 
         class FakeResearchModule:
-            def semantic_search(self, query, top_k=3):
+            def semantic_search(self, query, top_k=3, **_filters):
                 return [
                     {
                         "title": "Cognitive Nexus notes",

@@ -11,6 +11,7 @@ from urllib.parse import quote
 import requests
 
 from modules.data_stores import DATA_ROOT
+from modules.file_utils import atomic_write_text
 from modules.ingest import IngestError, extract_file
 from modules.providers import FALLBACK_RESPONSE, generate_with_ollama
 from web_research_module import WebResearchModule
@@ -141,7 +142,7 @@ def save_knowledge_note(
         "Source: manual_knowledge_note\n\n"
         f"{cleaned_text}\n"
     )
-    path.write_text(markdown, encoding="utf-8")
+    atomic_write_text(path, markdown)
 
     result: Dict[str, Any] = {
         "status": "success",

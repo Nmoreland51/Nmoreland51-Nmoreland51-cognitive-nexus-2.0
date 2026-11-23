@@ -1,0 +1,223 @@
+{
+  "measured_at": "2026-11-23",
+  "runs": [
+    {
+      "backend": "hash-384",
+      "semantic": false,
+      "min_confidence": "low",
+      "documents": 36,
+      "index_seconds": 0.02,
+      "modes": {
+        "keyword": {
+          "paraphrase": {
+            "count": 22,
+            "hit@1": 0.182,
+            "hit@3": 0.227,
+            "mrr": 0.197
+          },
+          "exact": {
+            "count": 12,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "identifier": {
+            "count": 10,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "unanswerable": {
+            "count": 10,
+            "returned_nothing": 0.7
+          },
+          "all_answerable": {
+            "count": 44,
+            "hit@1": 0.591,
+            "hit@3": 0.614,
+            "mrr": 0.598
+          },
+          "search_ms_per_query": 0.4
+        },
+        "vector": {
+          "paraphrase": {
+            "count": 22,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "exact": {
+            "count": 12,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "identifier": {
+            "count": 10,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "unanswerable": {
+            "count": 10,
+            "returned_nothing": 1.0
+          },
+          "all_answerable": {
+            "count": 44,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "search_ms_per_query": 0.1
+        },
+        "hybrid": {
+          "paraphrase": {
+            "count": 22,
+            "hit@1": 0.182,
+            "hit@3": 0.227,
+            "mrr": 0.197
+          },
+          "exact": {
+            "count": 12,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "identifier": {
+            "count": 10,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "unanswerable": {
+            "count": 10,
+            "returned_nothing": 0.7
+          },
+          "all_answerable": {
+            "count": 44,
+            "hit@1": 0.591,
+            "hit@3": 0.614,
+            "mrr": 0.598
+          },
+          "search_ms_per_query": 0.5
+        }
+      },
+      "vector_scores": {
+        "right_min": null,
+        "right_median": null,
+        "wrong_max": null,
+        "wrong_median": null,
+        "floor_in_use": null
+      }
+    },
+    {
+      "backend": "hash-384",
+      "semantic": false,
+      "min_confidence": "medium",
+      "documents": 36,
+      "index_seconds": 0.02,
+      "modes": {
+        "keyword": {
+          "paraphrase": {
+            "count": 22,
+            "hit@1": 0.091,
+            "hit@3": 0.091,
+            "mrr": 0.091
+          },
+          "exact": {
+            "count": 12,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "identifier": {
+            "count": 10,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "unanswerable": {
+            "count": 10,
+            "returned_nothing": 1.0
+          },
+          "all_answerable": {
+            "count": 44,
+            "hit@1": 0.545,
+            "hit@3": 0.545,
+            "mrr": 0.545
+          },
+          "search_ms_per_query": 0.4
+        },
+        "vector": {
+          "paraphrase": {
+            "count": 22,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "exact": {
+            "count": 12,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "identifier": {
+            "count": 10,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "unanswerable": {
+            "count": 10,
+            "returned_nothing": 1.0
+          },
+          "all_answerable": {
+            "count": 44,
+            "hit@1": 0.0,
+            "hit@3": 0.0,
+            "mrr": 0.0
+          },
+          "search_ms_per_query": 0.1
+        },
+        "hybrid": {
+          "paraphrase": {
+            "count": 22,
+            "hit@1": 0.091,
+            "hit@3": 0.091,
+            "mrr": 0.091
+          },
+          "exact": {
+            "count": 12,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "identifier": {
+            "count": 10,
+            "hit@1": 1.0,
+            "hit@3": 1.0,
+            "mrr": 1.0
+          },
+          "unanswerable": {
+            "count": 10,
+            "returned_nothing": 1.0
+          },
+          "all_answerable": {
+            "count": 44,
+            "hit@1": 0.545,
+            "hit@3": 0.545,
+            "mrr": 0.545
+          },
+          "search_ms_per_query": 0.5
+        }
+      },
+      "vector_scores": {
+        "right_min": null,
+        "right_median": null,
+        "wrong_max": null,
+        "wrong_median": null,
+        "floor_in_use": null
+      }
+    }
+  ]
+}

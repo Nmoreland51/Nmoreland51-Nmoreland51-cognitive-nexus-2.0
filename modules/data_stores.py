@@ -130,10 +130,10 @@ STORES: tuple[Store, ...] = (
     Store(
         key="knowledge_index",
         title="Knowledge index",
-        holds="Text chunks and search vectors from the pages and files you added, and from saved research.",
+        holds="The pages, files and saved research you added, split into passages, with a keyword index and search vectors, in one SQLite database.",
         locations=(("knowledge", "web_research/"),),
         sensitivity="private",
-        written_by="web_research_module.py",
+        written_by="modules/knowledge_store.py only",
     ),
     Store(
         key="knowledge_notes",
@@ -293,7 +293,7 @@ def render_markdown() -> str:
         "",
         "Files that more than one program or tab can change are changed as one read-change-write under a lock file",
         "(`<name>.lock` next to the data file), so the desktop app and the phone backend do not overwrite each other.",
-        "The knowledge index is the exception: it is not yet protected this way.",
+        "The knowledge index is a SQLite database, which gives the same protection through its own transactions.",
         "",
     ]
     return "\n".join(lines)

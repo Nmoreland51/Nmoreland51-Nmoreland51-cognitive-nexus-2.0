@@ -163,6 +163,7 @@ def load_runtime_config(path: Path = DEFAULT_CONFIG_FILE) -> dict[str, Any]:
     ]
     config["anthropic_effort"] = os.environ.get("ANTHROPIC_EFFORT", str(config.get("anthropic_effort") or "low"))
     config["allow_cloud_fallback"] = _env_bool("ALLOW_CLOUD_FALLBACK", bool(config.get("allow_cloud_fallback", False)))
+    config["ollama_max_num_ctx"] = _env_int("OLLAMA_MAX_NUM_CTX", int(config.get("ollama_max_num_ctx") or 0))
     config["hf_local_model"] = os.environ.get("HF_LOCAL_MODEL", str(config["hf_local_model"]))
     config["comfyui_url"] = os.environ.get("COMFYUI_URL", str(config["comfyui_url"])).rstrip("/")
     config["enable_bloodhound_search"] = _env_bool("ENABLE_BLOODHOUND_SEARCH", bool(config["enable_bloodhound_search"]))

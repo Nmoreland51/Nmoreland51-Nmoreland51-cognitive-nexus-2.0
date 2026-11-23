@@ -13,7 +13,7 @@ Set `COGNITIVE_NEXUS_HOME` to keep all four somewhere else, for example outside 
 | **Adaptive memory working files** (`adaptive_memory`) | Habits seen fewer than three times (not yet treated as a pattern) and the thumbs-up/down feedback log. | `<data>/memory_candidates.json`<br>`<data>/feedback_log.jsonl` | private | yes | cognitive_nexus/adaptation.py |
 | **Chat persona** (`chat_persona`) | The assistant name, your name and the tone settings chosen in the sidebar. | `<data>/chat_profile.json` | private | yes | modules/chat_profile.py |
 | **Response tuning** (`response_learning`) | Scores and counts the app keeps about its own answers. No message text. | `<data>/response_preferences.json`<br>`<data>/reality_grounding_patterns.json` | learned | yes | modules/response_planner.py, modules/response_self_critic.py, core/reality_grounding/answer_auditor.py |
-| **Knowledge index** (`knowledge_index`) | Text chunks and search vectors from the pages and files you added, and from saved research. | `<knowledge>/web_research/` | private | yes | web_research_module.py |
+| **Knowledge index** (`knowledge_index`) | The pages, files and saved research you added, split into passages, with a keyword index and search vectors, in one SQLite database. | `<knowledge>/web_research/` | private | yes | modules/knowledge_store.py only |
 | **Knowledge notes** (`knowledge_notes`) | Notes saved from the Files / Knowledge tab, as Markdown files. | `<data>/knowledge_notes/` | private | yes | modules/research.py |
 | **Web research sessions** (`web_research`) | One JSON and one Markdown file per web research run: the query, sources, page text and summary. | `<data>/web_research/` | private | yes | modules/web_research.py |
 | **Reality-First research reports** (`research_reports`) | Saved reports and the index of their summaries. | `<data>/research_reports/` | private | yes | modules/reality_research_agent.py |
@@ -45,4 +45,4 @@ Set `COGNITIVE_NEXUS_HOME` to keep all four somewhere else, for example outside 
 
 Files that more than one program or tab can change are changed as one read-change-write under a lock file
 (`<name>.lock` next to the data file), so the desktop app and the phone backend do not overwrite each other.
-The knowledge index is the exception: it is not yet protected this way.
+The knowledge index is a SQLite database, which gives the same protection through its own transactions.

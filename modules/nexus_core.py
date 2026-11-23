@@ -352,7 +352,10 @@ class NexusCore:
         started = time.perf_counter()
         try:
             module = self.get_research_module()
-            results = module.semantic_search(user_message, top_k=top_k)
+            # Only matches that are confident enough go into a chat prompt unasked: an unrelated
+            # passage costs prompt space and misleads a small model. (An explicit knowledge
+            # query shows weaker matches too, marked as such.)
+            results = module.semantic_search(user_message, top_k=top_k, min_confidence="medium")
             chunks: list[str] = []
             sources: list[dict[str, Any]] = []
             for index, item in enumerate(results, start=1):
@@ -369,6 +372,8 @@ class NexusCore:
                         "title": title,
                         "url": url,
                         "score": item.get("score", item.get("similarity", item.get("distance", ""))),
+                        "confidence": item.get("confidence", ""),
+                        "matched": item.get("matched", ""),
                         "excerpt": excerpt[:500],
                     }
                 )

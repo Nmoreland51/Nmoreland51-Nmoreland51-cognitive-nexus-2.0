@@ -7,9 +7,10 @@ fully saved or not at all.
 
 Search is hybrid. A keyword index (SQLite FTS5, BM25 ranking) finds passages that share words with
 the question; vectors from an embedding model find passages that mean the same in other words.
-The two rankings are merged (reciprocal rank fusion), so an exact term match and a paraphrase
-both surface. A passage is returned only if it matched a keyword or is close enough in meaning;
-"nearest" alone is not a reason, because something is always nearest.
+The two kinds of evidence are combined into one score, so an exact term match and a paraphrase
+both surface. A passage is returned only if it contains enough of the question's informative
+words or is close enough in meaning; sharing a common word, or merely being the nearest, is not
+a reason, because something is always nearest. Each result says how confident the match is.
 
 Vectors are tagged with the backend that made them. Changing the embedding model does not break
 search: passages without a vector from the current backend are still found by keyword, the
@@ -40,12 +41,27 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 1
 DB_NAME = "knowledge.sqlite3"
 LEGACY_FILES = ("chunks.json", "embeddings.json", "metadata.json")
-RRF_K = 60
 CANDIDATES = 60
 EMBEDDING_CACHE_ROWS = 50_000
-# Cosine similarity below which a passage found only by meaning is not returned. Chosen from the
-# retrieval benchmark (docs/benchmarks): unrelated passages score below it, paraphrases above.
-SEMANTIC_FLOOR = {"ollama:all-minilm": 0.30, "default": 0.35}
+# Similarity cut-offs per embedding backend: (low, medium, high, strong).
+#   low     a passage found only by meaning is returned at all (explicit searches)
+#   medium  it is trusted enough to be put into a chat prompt unasked
+#   high    it is a confident match on meaning alone
+#   strong  the similarity that counts as a full match when scoring
+# Measured for all-minilm on tools/retrieval_benchmark.py (2026-11-23): right answers to
+# paraphrased questions scored 0.21 to 0.80 (18 of 22 at 0.34 or more); the best match for a
+# question with no answer scored 0.08 to 0.32. So 0.34 lets in none of the unanswerable ones and
+# 0.30 lets in two of ten while keeping 20 of 22 right answers.
+SEMANTIC_CUTS = {"ollama:all-minilm": (0.30, 0.34, 0.45, 0.65)}
+# For a model that has not been measured, cut-offs are set per question from how far a passage
+# stands out from the rest of the collection (in standard deviations above the mean).
+UNMEASURED_CUTS_SD = (2.5, 3.0, 4.0, 5.0)
+UNMEASURED_CUTS_FIXED = (0.35, 0.45, 0.55, 0.75)  # when the collection is too small to judge
+# Share of the question's informative words (weighted by rarity) a passage must contain to be
+# returned on keyword evidence alone: confidently, or at all.
+KEYWORD_HIGH = 0.5
+KEYWORD_LOW = 0.25
+CONFIDENCE_ORDER = {"low": 0, "medium": 1, "high": 2}
 # How much a kind of source counts. Your own files and notes outrank a saved web page.
 KIND_WEIGHT = {
     "file": 1.0,
@@ -480,9 +496,55 @@ class KnowledgeStore:
                 self._matrix = (key, np.asarray(ids, dtype=np.int64), matrix)
             return self._matrix[1], self._matrix[2]
 
-    def semantic_floor(self) -> float:
+    def _cuts(self, scores: np.ndarray | None = None) -> tuple[float, float, float, float]:
+        """(low, medium, high, strong) similarity cut-offs for the backend in use."""
+
         name = self.embedder.name
-        return next((floor for prefix, floor in SEMANTIC_FLOOR.items() if name.startswith(prefix)), SEMANTIC_FLOOR["default"])
+        for prefix, cuts in SEMANTIC_CUTS.items():
+            if name.startswith(prefix):
+                return cuts
+        if scores is not None and len(scores) >= 20:
+            mean, spread = float(scores.mean()), float(scores.std()) or 1e-6
+            low, medium, high, strong = (mean + factor * spread for factor in UNMEASURED_CUTS_SD)
+            return low, medium, high, strong
+        return UNMEASURED_CUTS_FIXED
+
+    def semantic_floor(self) -> float:
+        return self._cuts()[0]
+
+    def _keyword_evidence(self, query: str, candidates: set[int]) -> dict[int, float]:
+        """For each candidate passage, the share of the question's informative words it contains.
+
+        Words are weighted by how rare they are in the collection, so matching "error 3154"
+        on "3154" counts for much more than matching it on "error".
+        """
+
+        connection = self._connect()
+        words = [word.strip('"') for word in _fts_query(query).split(" OR ") if word]
+        if not words or not candidates:
+            return {}
+        total = int(connection.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]) or 1
+        marks = ",".join("?" for _ in candidates)
+        weights: dict[str, float] = {}
+        holders: dict[str, set[int]] = {}
+        for word in words:
+            try:
+                frequency = int(connection.execute("SELECT COUNT(*) FROM chunks_fts WHERE chunks_fts MATCH ?", (f'"{word}"',)).fetchone()[0])
+                holders[word] = {
+                    int(row[0])
+                    for row in connection.execute(
+                        f"SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ? AND rowid IN ({marks})", [f'"{word}"', *candidates]
+                    )
+                }
+            except sqlite3.OperationalError:
+                frequency, holders[word] = 0, set()
+            weights[word] = float(np.log(1.0 + (total - frequency + 0.5) / (frequency + 0.5)))
+        weight_sum = sum(weights.values()) or 1.0
+        evidence: dict[int, float] = {}
+        for word, chunk_ids in holders.items():
+            for chunk_id in chunk_ids:
+                evidence[chunk_id] = evidence.get(chunk_id, 0.0) + weights[word] / weight_sum
+        return evidence
 
     def search(
         self,
@@ -494,11 +556,14 @@ class KnowledgeStore:
         since: str | None = None,
         per_document: int = 2,
         mode: str = "hybrid",
+        min_confidence: str = "low",
     ) -> list[dict[str, Any]]:
         """Passages that answer `query`, best first.
 
         Filters: `kinds` (for example ["file", "knowledge_note"]), `source_contains` (part of a
         file name or address), `since` (ISO date; only documents updated on or after it).
+        `min_confidence`: "low" returns everything with some evidence (an explicit search);
+        "medium" only what is safe to put into a chat prompt unasked; "high" only clear matches.
         `mode` is "hybrid" (default), "keyword" or "vector"; the last two exist for measurement.
         """
 
@@ -506,7 +571,7 @@ class KnowledgeStore:
         if not query or top_k <= 0:
             return []
         connection = self._connect()
-        keyword: dict[int, int] = {}
+        keyword_rank: dict[int, int] = {}
         if mode in {"hybrid", "keyword"}:
             match = _fts_query(query)
             if match:
@@ -518,32 +583,25 @@ class KnowledgeStore:
                 except sqlite3.OperationalError as exc:
                     logger.warning("Keyword search failed for %r: %s", query, exc)
                     rows = []
-                keyword = {int(row[0]): rank for rank, row in enumerate(rows, 1)}
+                keyword_rank = {int(row[0]): rank for rank, row in enumerate(rows, 1)}
 
         similarity: dict[int, float] = {}
-        vector_rank: dict[int, int] = {}
+        cuts = self._cuts()
         if mode in {"hybrid", "vector"}:
             ids, matrix = self._vector_matrix()
             query_vector = self.embed_query(query) if len(ids) else None
             if query_vector is not None and matrix.shape[1] == query_vector.shape[0]:
                 scores = matrix @ query_vector
-                order = np.argsort(-scores)[:CANDIDATES]
-                floor = self.semantic_floor()
-                for rank, index in enumerate(order, 1):
-                    chunk_id, score = int(ids[index]), float(scores[index])
-                    similarity[chunk_id] = score
-                    if self.embedder.semantic:
-                        qualifies = score >= floor
-                    else:
-                        # Word-hash vectors only measure shared words, so they may strengthen a
-                        # keyword match but never bring in a passage on their own.
-                        qualifies = chunk_id in keyword and score > 0
-                    if qualifies:
-                        vector_rank[chunk_id] = rank
+                cuts = self._cuts(scores)
+                for index in np.argsort(-scores)[:CANDIDATES]:
+                    similarity[int(ids[index])] = float(scores[index])
+        low, medium, high, strong = cuts
+        semantic = self.embedder.semantic
 
-        candidates = set(keyword) | set(vector_rank)
+        candidates = set(keyword_rank) | ({chunk_id for chunk_id, score in similarity.items() if score >= low - 0.05} if semantic else set())
         if not candidates:
             return []
+        evidence = self._keyword_evidence(query, candidates) if keyword_rank else {}
         marks = ",".join("?" for _ in candidates)
         sql = (
             "SELECT c.id, c.document_id, c.position, c.heading, c.text, c.start_line, d.source, d.title, d.kind, d.added_at, d.updated_at "
@@ -560,18 +618,30 @@ class KnowledgeStore:
             sql += " AND d.updated_at >= ?"
             arguments.append(since)
         phrase = " ".join(terms(query))
+        wanted = CONFIDENCE_ORDER.get(min_confidence, 0)
         results = []
         for row in connection.execute(sql, arguments):
             chunk_id = int(row["id"])
-            score = 0.0
-            if chunk_id in keyword:
-                score += 1.0 / (RRF_K + keyword[chunk_id])
-            if chunk_id in vector_rank:
-                score += 1.0 / (RRF_K + vector_rank[chunk_id])
+            words = evidence.get(chunk_id, 0.0) if chunk_id in keyword_rank else 0.0
+            cosine = similarity.get(chunk_id, 0.0) if semantic else 0.0
+            if words >= KEYWORD_HIGH or cosine >= high:
+                confidence = "high"
+            elif cosine >= medium or (cosine >= low - 0.05 and words >= 0.15):
+                confidence = "medium"  # close in meaning, or some evidence of both kinds
+            elif cosine >= low or words >= KEYWORD_LOW:
+                confidence = "low"
+            else:
+                continue  # sharing a common word, or being merely the nearest, is not a reason
+            if CONFIDENCE_ORDER[confidence] < wanted:
+                continue
+            meaning = min(1.0, max(0.0, (cosine - low) / (strong - low))) if semantic else 0.0
+            score = (0.6 * meaning + 0.4 * words) if semantic else words
+            if chunk_id in keyword_rank:
+                score += 0.02 / keyword_rank[chunk_id]  # BM25 order breaks ties
             score *= KIND_WEIGHT.get(row["kind"], 0.9)
             if len(phrase.split()) >= 2 and phrase in " ".join(terms(row["text"])):
-                score *= 1.15  # the question's words appear together, in order
-            matched = "both" if chunk_id in keyword and chunk_id in vector_rank else ("keyword" if chunk_id in keyword else "meaning")
+                score *= 1.1  # the question's words appear together, in order
+            by_words, by_meaning = words >= 0.15, cosine >= low
             results.append(
                 {
                     "chunk_id": chunk_id,
@@ -586,10 +656,11 @@ class KnowledgeStore:
                     "added_at": row["added_at"],
                     "updated_at": row["updated_at"],
                     "score": score,
-                    "similarity": round(score * (RRF_K + 1) / 2.0, 4),
-                    "lexical_score": round(1.0 / keyword[chunk_id], 4) if chunk_id in keyword else 0.0,
+                    "similarity": round(min(score, 1.0), 4),
+                    "lexical_score": round(words, 4),
                     "vector_score": round(similarity.get(chunk_id, 0.0), 4),
-                    "matched": matched,
+                    "confidence": confidence,
+                    "matched": "both" if by_words and by_meaning else ("keyword" if by_words or not by_meaning else "meaning"),
                 }
             )
         results.sort(key=lambda item: item["score"], reverse=True)
