@@ -108,6 +108,8 @@ class ProviderRouterTests(unittest.TestCase):
         text = "".join(router.stream(ProviderRequest(prompt="hello", provider_order=["ollama", "fallback"])))
 
         self.assertIn("Fallback:", text)
+        # The reply itself names the provider that failed and why.
+        self.assertIn("What failed: ollama: boom from ollama", text)
         self.assertEqual(router.last_stream_metadata["provider"], "fallback")
         self.assertEqual(router.last_stream_metadata["fallback_reason"], "ollama: boom from ollama")
         self.assertEqual(router.last_stream_metadata["attempts"][0]["provider"], "ollama")
@@ -139,9 +141,25 @@ class ProviderRouterTests(unittest.TestCase):
         text = "".join(router.stream(ProviderRequest(prompt="hello", provider_order=["ollama", "fallback"])))
 
         self.assertIn("Fallback:", text)
+        self.assertIn("What failed: ollama: empty response", text)
         self.assertEqual(router.last_stream_metadata["provider"], "fallback")
         self.assertIn("empty response", router.last_stream_metadata["fallback_reason"])
         self.assertFalse(router.last_stream_metadata["attempts"][0]["success"])
+
+    def test_fallback_reply_does_not_blame_providers_that_were_never_set_up(self):
+        router = ProviderRouter({"provider_order": ["openai", "fallback"]})
+
+        def fake_detect(provider):
+            if provider == "openai":
+                return ProviderInfo(name="openai", available=False, message="OPENAI_API_KEY is not set.")
+            return ProviderInfo(name="fallback", available=True, message="fallback")
+
+        router.detect_provider = fake_detect  # type: ignore[method-assign]
+
+        text = "".join(router.stream(ProviderRequest(prompt="hello", provider_order=["openai", "fallback"])))
+
+        self.assertIn("Fallback:", text)
+        self.assertNotIn("What failed", text)
 
     def test_huggingface_local_is_safe_when_unconfigured(self):
         router = ProviderRouter({"provider_order": ["huggingface_local", "fallback"], "hf_local_model": ""})

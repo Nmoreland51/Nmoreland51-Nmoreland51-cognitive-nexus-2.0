@@ -88,6 +88,15 @@ OLLAMA_MIN_NUM_CTX = 2048
 OLLAMA_DEFAULT_KEEP_ALIVE = "24h"
 
 
+def _fallback_text(failures: list[str]) -> str:
+    """The fallback reply, naming the providers that were tried and why each failed."""
+
+    if not failures:
+        return FALLBACK_RESPONSE
+    shown = "; ".join(failure if len(failure) <= 200 else failure[:199] + "…" for failure in failures[:3])
+    return f"{FALLBACK_RESPONSE}\n\nWhat failed: {shown}"
+
+
 class ProviderRouter:
     """Detect and call configured providers with graceful fallback."""
 
@@ -285,6 +294,7 @@ class ProviderRouter:
             order = self.provider_order(request)
 
         last_error = ""
+        tried_failures: list[str] = []  # providers that were set up but failed, with the reason
         attempts: list[dict[str, Any]] = []
         self.last_stream_metadata = {
             "provider": "",
@@ -310,6 +320,7 @@ class ProviderRouter:
                         yield chunk
                     if not yielded_any:
                         last_error = model_note or f"{provider}: empty response from model '{model or request.model or 'unknown'}'."
+                        tried_failures.append(last_error)
                         attempts.append({"provider": provider, "success": False, "error": last_error})
                         continue
                     attempt = {"provider": provider, "success": True}
@@ -363,7 +374,9 @@ class ProviderRouter:
                     }
                     return
                 if provider == "fallback":
-                    yield FALLBACK_RESPONSE
+                    # Say which provider was tried and why it failed, instead of sending the
+                    # reader to the Diagnostics tab to find out.
+                    yield _fallback_text(tried_failures)
                     attempts.append({"provider": provider, "success": True})
                     self.last_stream_metadata = {
                         "provider": provider,
@@ -376,6 +389,7 @@ class ProviderRouter:
                     return
             except Exception as exc:
                 last_error = f"{provider}: {exc}"
+                tried_failures.append(last_error)
                 attempts.append({"provider": provider, "success": False, "error": str(exc)})
                 continue
         self.last_stream_metadata = {

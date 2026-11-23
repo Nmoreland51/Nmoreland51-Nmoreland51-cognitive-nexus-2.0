@@ -46,5 +46,5 @@ This page replaces the readiness claims in the older reports in this repository 
 
 These files describe the project as it was in mid-2026 and are kept for history. Where they disagree with this page, this page is current.
 
-- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has 275 tests, and the limits above still apply.
+- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has more than 270 tests, and the limits above still apply.
 - `QUICK_START.md` describes a packaged `.exe` build. The scripts it names (`build_executable.bat`, `launch_cognitive_nexus.bat`) are not in this repository. Use the Install and Run sections of `README.md`.
