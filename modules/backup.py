@@ -82,13 +82,45 @@ def _archive_name(path: Path) -> str | None:
     return best[1] if best else None
 
 
+_SQLITE_SIDE_FILES = ("-wal", "-shm", "-journal")
+
+
 def _store_files(store: Store) -> list[tuple[Path, str]]:
     pairs = []
     for path in store.files():
+        # The write-ahead files of a SQLite database are not copied: a consistent copy of the
+        # database itself is taken instead (see _add_to_archive).
+        if path.name.endswith(_SQLITE_SIDE_FILES):
+            continue
         name = _archive_name(path)
         if name:
             pairs.append((path, name))
     return pairs
+
+
+def _consistent_bytes(path: Path) -> bytes | None:
+    """For a SQLite database: its content as one consistent file, even while it is in use.
+
+    Copying the file alone can miss changes that are still in the write-ahead log.
+    Returns None for any other file.
+    """
+
+    if path.suffix not in {".sqlite3", ".sqlite", ".db"}:
+        return None
+    import sqlite3
+
+    with tempfile.TemporaryDirectory() as folder:
+        copy = Path(folder) / path.name
+        source = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, timeout=30.0)
+        try:
+            target = sqlite3.connect(str(copy))
+            try:
+                source.backup(target)
+            finally:
+                target.close()
+        finally:
+            source.close()
+        return copy.read_bytes()
 
 
 def _selected(store_keys: Iterable[str] | None, *, for_backup: bool) -> list[Store]:
@@ -242,8 +274,13 @@ def _write_zip(target: IO[bytes], stores: list[Store], note: str) -> dict[str, A
         for store in stores:
             entries = []
             for path, name in _store_files(store):
-                archive.write(path, name)
-                entries.append({"path": name, "bytes": path.stat().st_size, "sha256": _sha256(path)})
+                content = _consistent_bytes(path)
+                if content is None:
+                    archive.write(path, name)
+                    entries.append({"path": name, "bytes": path.stat().st_size, "sha256": _sha256(path)})
+                else:
+                    archive.writestr(name, content)
+                    entries.append({"path": name, "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()})
             manifest["stores"][store.key] = {"title": store.title, "files": entries}
         archive.writestr(MANIFEST_NAME, json.dumps(manifest, indent=2))
     return manifest
@@ -495,6 +532,8 @@ def _delete_store_files(store: Store) -> int:
         with locked(path, timeout=5.0):
             path.unlink(missing_ok=True)
         path.with_name(path.name + ".lock").unlink(missing_ok=True)
+        for side in _SQLITE_SIDE_FILES:  # leftovers would be applied to a restored database
+            path.with_name(path.name + side).unlink(missing_ok=True)
         removed += 1
     # Remove folders the store owns once they are empty; keep the roots themselves.
     for location in store.paths():

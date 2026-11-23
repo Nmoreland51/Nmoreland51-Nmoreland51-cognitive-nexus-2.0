@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +11,7 @@ from urllib.parse import quote
 import requests
 
 from modules.data_stores import DATA_ROOT
+from modules.ingest import IngestError, extract_file
 from modules.providers import FALLBACK_RESPONSE, generate_with_ollama
 from web_research_module import WebResearchModule
 
@@ -35,56 +35,73 @@ def validate_url(url: str) -> str:
 
 
 def process_url(module: WebResearchModule, url: str) -> Dict[str, Any]:
-    """Extract a URL, chunk it, store embeddings, and save metadata."""
+    """Fetch a page and add it to the knowledge store."""
 
     normalized_url = validate_url(url)
     extracted = module.extract_content_from_url(normalized_url)
     if extracted.get("status") != "success":
         return extracted
 
-    chunks = module.chunk_text(extracted.get("content", ""))
-    stored = module.store_chunks_and_embeddings(normalized_url, chunks)
-    url_hash = hashlib.md5(normalized_url.encode("utf-8")).hexdigest()[:12]
-    module.metadata[url_hash] = {
-        "url": normalized_url,
-        "title": extracted.get("title", "Untitled"),
-        "timestamp": extracted.get("timestamp", datetime.now().isoformat()),
-        "word_count": extracted.get("word_count", 0),
-        "chunks_count": len(chunks),
-        "source_type": "url",
-    }
-    module._save_json_file(module.metadata_file, module.metadata)
-    extracted["chunks_count"] = len(chunks)
-    extracted["stored"] = stored
+    stored = module.add_document(
+        normalized_url,
+        extracted.get("title", "Untitled"),
+        extracted.get("content", ""),
+        kind="url",
+        meta={"fetched_at": extracted.get("timestamp", datetime.now().isoformat())},
+    )
+    if stored.get("status") != "success":
+        return {**extracted, "status": "error", "error": stored.get("error", "The page had no readable text.")}
+    extracted["chunks_count"] = stored.get("chunks_count", 0)
+    extracted["stored"] = True
+    if stored.get("warning"):
+        extracted["warning"] = stored["warning"]
     return extracted
 
 
 def ingest_text(module: WebResearchModule, *, name: str, text: str, source_type: str = "file") -> Dict[str, Any]:
-    """Ingest uploaded text into the existing web research knowledge store."""
+    """Add text to the knowledge store. The text is kept as it is: symbols, code and line breaks."""
 
-    cleaned_text = module._clean_text(text)
-    if not cleaned_text:
+    content = (text or "").replace("\r\n", "\n").strip()
+    if not content:
         return {"status": "error", "error": "No text content found.", "title": name}
-
-    source_id = f"{source_type}:{name}"
-    chunks = module.chunk_text(cleaned_text)
-    stored = module.store_chunks_and_embeddings(source_id, chunks)
-    source_hash = hashlib.md5(source_id.encode("utf-8")).hexdigest()[:12]
-    module.metadata[source_hash] = {
-        "url": source_id,
+    stored = module.add_document(f"{source_type}:{name}", name, content, kind=source_type)
+    if stored.get("status") != "success":
+        return {"status": "error", "error": stored.get("error", "Nothing could be stored."), "title": name}
+    result = {
+        "status": "success",
         "title": name,
-        "timestamp": datetime.now().isoformat(),
-        "word_count": len(cleaned_text.split()),
-        "chunks_count": len(chunks),
-        "source_type": source_type,
+        "word_count": len(content.split()),
+        "chunks_count": stored.get("chunks_count", 0),
+        "stored": True,
     }
-    module._save_json_file(module.metadata_file, module.metadata)
+    if stored.get("warning"):
+        result["warning"] = stored["warning"]
+    return result
+
+
+def ingest_file(module: WebResearchModule, *, name: str, data: bytes) -> Dict[str, Any]:
+    """Read an uploaded file (text, PDF, Word, HTML, notebook or source code) and add it."""
+
+    try:
+        extracted = extract_file(name, data)
+    except IngestError as exc:
+        return {"status": "error", "error": str(exc), "title": name}
+    stored = module.add_document(f"upload:{name}", name, extracted.text, kind=extracted.kind, meta=extracted.meta)
+    if stored.get("status") != "success":
+        return {"status": "error", "error": stored.get("error", "Nothing could be stored."), "title": name}
+    warnings = list(extracted.warnings)
+    if stored.get("warning"):
+        warnings.append(stored["warning"])
     return {
         "status": "success",
         "title": name,
-        "word_count": len(cleaned_text.split()),
-        "chunks_count": len(chunks),
-        "stored": stored,
+        "kind": extracted.kind,
+        "language": extracted.language,
+        "word_count": len(extracted.text.split()),
+        "chunks_count": stored.get("chunks_count", 0),
+        "unchanged": bool(stored.get("unchanged")),
+        "warnings": warnings,
+        "stored": True,
     }
 
 

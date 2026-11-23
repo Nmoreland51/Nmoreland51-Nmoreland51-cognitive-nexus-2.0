@@ -14,6 +14,11 @@ os.environ["COGNITIVE_NEXUS_HOME"] = _TEST_HOME
 for _name in ("COGNITIVE_NEXUS_DATA_DIR", "COGNITIVE_NEXUS_KNOWLEDGE_DIR", "COGNITIVE_NEXUS_LOG_DIR", "COGNITIVE_NEXUS_CONFIG_DIR"):
     os.environ.pop(_name, None)
 atexit.register(shutil.rmtree, _TEST_HOME, ignore_errors=True)
+# Nothing in the suite may depend on a model server that happens to run on the developer's
+# machine. Tests that need Ollama for real read CN_LIVE_OLLAMA_URL and are skipped without it.
+os.environ["OLLAMA_URL"] = "http://127.0.0.1:9"
+os.environ["KNOWLEDGE_EMBEDDING_BACKEND"] = "hash"
+os.environ.pop("KNOWLEDGE_EMBEDDING_MODEL", None)
 
 import pytest  # noqa: E402
 

@@ -34,6 +34,8 @@ class ResearchNotesTests(unittest.TestCase):
             self.assertIn("Tags: memory, rag", note_text)
             matches = module.semantic_search("Markdown notes retrieval", top_k=3)
             self.assertTrue(matches)
+            self.assertEqual(matches[0]["kind"], "knowledge_note")
+            module.close()  # Windows cannot delete the folder while the database is open
 
     def test_list_knowledge_notes_returns_recent_note_rows(self):
         with tempfile.TemporaryDirectory() as tmp:

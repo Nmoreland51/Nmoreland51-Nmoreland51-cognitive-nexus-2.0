@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import hashlib
 import math
 import re
 from dataclasses import asdict, dataclass, field
@@ -892,20 +891,14 @@ def add_report_to_memory(report: ResearchReport, research_module: Any | None = N
             ),
         )
         if research_module is not None:
-            source_id = f"reality_research:{report.query}:{report.timestamp}"
-            chunks = research_module.chunk_text(report.to_markdown(), target_size=650, overlap=80)
-            stored = research_module.store_chunks_and_embeddings(source_id, chunks)
-            source_hash = hashlib.md5(source_id.encode("utf-8")).hexdigest()[:12]
-            research_module.metadata[source_hash] = {
-                "url": source_id,
-                "title": f"Reality-First Research: {report.query}",
-                "timestamp": report.timestamp,
-                "word_count": len(report.to_markdown().split()),
-                "chunks_count": len(chunks),
-                "source_type": "reality_research_report",
-            }
-            research_module._save_json_file(research_module.metadata_file, research_module.metadata)
-            return bool(stored)
+            stored = research_module.add_document(
+                f"reality_research:{report.query}:{report.timestamp}",
+                f"Reality-First Research: {report.query}",
+                report.to_markdown(),
+                kind="research_report",
+                meta={"query": report.query, "researched_at": report.timestamp},
+            )
+            return stored.get("status") == "success"
         return True
     except Exception as exc:
         logger.info("Could not add research report to memory: %s", exc)

@@ -70,9 +70,9 @@ def get_project_inventory() -> Dict[str, Any]:
     image_count += len(list((PROJECT_ROOT / "generated_images").glob("*.png")))
     image_count += len(list((DATA_ROOT / "images" / "generated").glob("*.png")))
 
-    research_dir = KNOWLEDGE_ROOT / "web_research"
-    chunks = read_json(research_dir / "chunks.json", {})
-    metadata = read_json(research_dir / "metadata.json", {})
+    from modules.knowledge_store import quick_stats
+
+    knowledge = quick_stats(KNOWLEDGE_ROOT / "web_research")
     report_dir = DATA_ROOT / "research_reports"
     web_research_dir = DATA_ROOT / "web_research"
     search_history_dir = DATA_ROOT / "search_history"
@@ -93,8 +93,8 @@ def get_project_inventory() -> Dict[str, Any]:
             "fullstack_local_backend_app.py",
         ],
         "generated_images": image_count,
-        "research_sources": len(metadata),
-        "research_chunks": sum(len(value) for value in chunks.values() if isinstance(value, dict)),
+        "research_sources": knowledge["documents"],
+        "research_chunks": knowledge["chunks"],
         "research_reports": count_matching_files(report_dir, ("*.json", "*.md")),
         "web_research_sessions": count_matching_files(web_research_dir, ("*.json", "*.md")),
         "search_history_sessions": count_matching_files(search_history_dir, ("*.json", "*.md")),
