@@ -11,11 +11,12 @@ from urllib.parse import quote
 
 import requests
 
+from modules.data_stores import DATA_ROOT
 from modules.providers import FALLBACK_RESPONSE, generate_with_ollama
 from web_research_module import WebResearchModule
 
 
-KNOWLEDGE_NOTES_DIR = Path("data/knowledge_notes")
+KNOWLEDGE_NOTES_DIR = DATA_ROOT / "knowledge_notes"
 
 
 def get_research_module() -> WebResearchModule:

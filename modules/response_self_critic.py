@@ -9,11 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from modules.data_stores import DATA_ROOT
 from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
-PREFERENCES_FILE = Path("data/response_preferences.json")
+PREFERENCES_FILE = DATA_ROOT / "response_preferences.json"
 CRITIC_SCHEMA_VERSION = 1
 
 CUSTOMER_SUPPORT_PHRASES = (

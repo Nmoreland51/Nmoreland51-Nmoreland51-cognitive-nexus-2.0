@@ -9,13 +9,14 @@ from typing import Dict, List
 
 import streamlit as st
 
+from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
 from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
 Message = Dict[str, str]
-SESSION_HISTORY_FILE = Path("data/chat_history.json")
-LEGACY_HISTORY_FILE = Path("ai_system/knowledge_bank/chat_history.json")
+SESSION_HISTORY_FILE = DATA_ROOT / "chat_history.json"
+LEGACY_HISTORY_FILE = KNOWLEDGE_ROOT / "chat_history.json"
 
 
 def initialize_chat_state() -> None:

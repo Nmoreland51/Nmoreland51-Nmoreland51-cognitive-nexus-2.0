@@ -11,7 +11,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from functools import lru_cache
-from pathlib import Path
 from threading import local
 from typing import Any, Callable
 from urllib.parse import quote, urlparse
@@ -36,6 +35,7 @@ try:
 except Exception:
     trafilatura = None
 
+from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
 from modules.url_safety import safe_get
 
@@ -46,7 +46,7 @@ except Exception:
     ingest_text = None
 
 
-DATA_DIR = Path("data/web_research")
+DATA_DIR = DATA_ROOT / "web_research"
 logger = logging.getLogger(__name__)
 _THREAD_LOCAL = local()
 HTTP_HEADERS = {

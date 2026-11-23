@@ -4,7 +4,7 @@ how older files are migrated, and that two writers do not lose each other's fact
 from __future__ import annotations
 
 import json
-import multiprocessing
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -34,15 +34,16 @@ def profile(tmp_path) -> Path:
     return tmp_path / "user_profile.json"
 
 
-def _remember_many(path: str, worker: int, count: int, repo_root: str) -> None:
-    """Runs in a separate process."""
-
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-    from modules.profile_store import remember
-
-    for index in range(count):
-        remember(f"Worker {worker} note number {index} about item {worker * 100 + index}", path=Path(path))
+# Run in separate Python interpreters, like the desktop app and the phone backend.
+REMEMBER_MANY = """
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from modules.profile_store import remember
+path, worker, count = Path(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+for index in range(count):
+    remember(f"Worker {worker} note number {index} about item {worker * 100 + index}", path=path)
+"""
 
 
 # --- what kind of statement is it ------------------------------------------------------------------
@@ -314,13 +315,13 @@ def test_adaptive_memory_and_chat_commands_share_ids_and_rules(tmp_path):
 
 def test_two_processes_remembering_at_once_lose_nothing(profile):
     workers, per_worker = 3, 12
-    context = multiprocessing.get_context("spawn")
-    processes = [context.Process(target=_remember_many, args=(str(profile), worker, per_worker, REPO_ROOT)) for worker in range(workers)]
+    processes = [
+        subprocess.Popen([sys.executable, "-c", REMEMBER_MANY, REPO_ROOT, str(profile), str(worker), str(per_worker)], stderr=subprocess.PIPE)
+        for worker in range(workers)
+    ]
     for process in processes:
-        process.start()
-    for process in processes:
-        process.join(timeout=180)
-        assert process.exitcode == 0
+        _out, error = process.communicate(timeout=180)
+        assert process.returncode == 0, error.decode(errors="replace")
 
     assert len(load_user_facts(profile)) == workers * per_worker
 

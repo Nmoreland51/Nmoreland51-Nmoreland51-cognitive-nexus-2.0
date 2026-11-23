@@ -251,13 +251,14 @@ class AdaptiveMemoryManager:
     modules/profile_store.py.
     """
 
-    def __init__(self, data_dir: Path):
+    def __init__(self, data_dir: Path, seed_knowledge_dir: Optional[Path] = None):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.profile_file = self.data_dir / "user_profile.json"
         self.feedback_log_file = self.data_dir / "feedback_log.jsonl"
         self.memory_candidates_file = self.data_dir / "memory_candidates.json"
-        self.seed_knowledge_dir = self.data_dir / "seed_knowledge"
+        # The example conversations ship with the app; they are not part of the saved data.
+        self.seed_knowledge_dir = Path(seed_knowledge_dir) if seed_knowledge_dir else self.data_dir / "seed_knowledge"
         self.seed_knowledge_dir.mkdir(parents=True, exist_ok=True)
         self.profile = self._load_profile()
         self.memory_candidates = self._load_candidates()

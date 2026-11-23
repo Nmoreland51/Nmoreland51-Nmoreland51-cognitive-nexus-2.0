@@ -15,13 +15,14 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from modules.web_research import clean_text, get_domain, scrape_url, search_web, slugify_query
 from search.onion_search import run_onion_search
+from modules.data_stores import DATA_ROOT
 from modules.file_utils import atomic_write_text
 
 
 logger = logging.getLogger(__name__)
 
-SEARCH_HISTORY_DIR = Path("data/search_history")
-CACHE_DIR = Path("data/search_cache")
+SEARCH_HISTORY_DIR = DATA_ROOT / "search_history"
+CACHE_DIR = DATA_ROOT / "search_cache"
 SUSPICIOUS_EXTENSIONS = {
     ".exe",
     ".dll",

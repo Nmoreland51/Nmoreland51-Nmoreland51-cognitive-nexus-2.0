@@ -8,13 +8,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from modules.data_stores import CONFIG_ROOT, LOG_ROOT
 from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CONFIG_DIR = PROJECT_ROOT / "config"
-LOG_DIR = PROJECT_ROOT / "logs"
+CONFIG_DIR = CONFIG_ROOT
+LOG_DIR = LOG_ROOT
 INTERNAL_DIR = PROJECT_ROOT / "internal"
 DEFAULT_CONFIG_FILE = CONFIG_DIR / "nexus_config.json"
 ENV_FILE = PROJECT_ROOT / ".env"

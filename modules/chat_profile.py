@@ -5,10 +5,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict
 
+from modules.data_stores import DATA_ROOT
 from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
-CHAT_PROFILE_FILE = Path("data/chat_profile.json")
+CHAT_PROFILE_FILE = DATA_ROOT / "chat_profile.json"
 MAX_TEXT_LENGTH = 4000
 HUMOR_LEVEL_OPTIONS = ("off", "light", "balanced", "bold")
 HUMOR_STYLE_OPTIONS = {

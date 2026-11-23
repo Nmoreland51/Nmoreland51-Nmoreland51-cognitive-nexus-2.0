@@ -31,6 +31,7 @@ from modules.reality_research_agent import (
     run_reality_research,
 )
 from modules.answer_meta import answer_meta
+from modules.data_stores import DATA_ROOT, SEED_KNOWLEDGE_DIR
 from modules.research import get_research_module, query_knowledge
 from modules.response_planner import (
     ResponsePlan,
@@ -202,7 +203,7 @@ class NexusCore:
         try:
             from cognitive_nexus.adaptation import AdaptiveMemoryManager
 
-            self._adaptive_memory = AdaptiveMemoryManager(Path("data"))
+            self._adaptive_memory = AdaptiveMemoryManager(DATA_ROOT, seed_knowledge_dir=SEED_KNOWLEDGE_DIR)
         except Exception as exc:
             logger.info("Adaptive memory unavailable: %s", exc)
             self._adaptive_memory = None

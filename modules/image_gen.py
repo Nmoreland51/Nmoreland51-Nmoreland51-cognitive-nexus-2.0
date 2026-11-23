@@ -17,13 +17,15 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
+
 logger = logging.getLogger(__name__)
 
-BASE_IMAGE_DIR = Path("data/images")
+BASE_IMAGE_DIR = DATA_ROOT / "images"
 GENERATED_DIR = BASE_IMAGE_DIR / "generated"
 METADATA_DIR = BASE_IMAGE_DIR / "metadata"
 LEGACY_IMAGE_DIRS = [
-    Path("ai_system/knowledge_bank/images"),
+    KNOWLEDGE_ROOT / "images",
     Path("generated_images"),
 ]
 IMAGE_DIRS = [GENERATED_DIR, *LEGACY_IMAGE_DIRS]

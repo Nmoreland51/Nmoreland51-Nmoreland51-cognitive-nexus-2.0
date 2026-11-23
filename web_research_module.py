@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Any
 import logging
 
+from modules.data_stores import KNOWLEDGE_ROOT
 from modules.file_utils import atomic_write_json
 from modules.url_safety import safe_get
 
@@ -44,7 +45,7 @@ class WebResearchModule:
     
     def __init__(
         self,
-        knowledge_base_path: str = "ai_system/knowledge_bank/web_research",
+        knowledge_base_path: Optional[str] = None,
         embedding_backend: Optional[str] = None,
         embedding_model_name: Optional[str] = None,
     ):
@@ -54,7 +55,7 @@ class WebResearchModule:
         Args:
             knowledge_base_path: Path to store the knowledge base
         """
-        self.knowledge_base_path = Path(knowledge_base_path)
+        self.knowledge_base_path = Path(knowledge_base_path) if knowledge_base_path else KNOWLEDGE_ROOT / "web_research"
         self.knowledge_base_path.mkdir(parents=True, exist_ok=True)
         
         # Initialize storage files

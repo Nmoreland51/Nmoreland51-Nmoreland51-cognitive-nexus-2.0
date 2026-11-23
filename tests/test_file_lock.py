@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import multiprocessing
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -15,24 +15,37 @@ from modules.file_lock import StoreLockTimeout, append_line, lock_file_for, lock
 REPO_ROOT = str(Path(__file__).resolve().parents[1])
 
 
-def _add_items(path: str, worker: int, count: int, repo_root: str) -> None:
-    """Runs in a separate process: add `count` items to the shared file, one update each."""
+# Each worker is a separate Python interpreter, started the way another program would be
+# (not a forked or spawned copy of the test process).
+ADD_ITEMS = """
+import sys
+sys.path.insert(0, sys.argv[1])
+from modules.file_lock import update_json
+path, worker, count = sys.argv[2], sys.argv[3], int(sys.argv[4])
+for index in range(count):
+    update_json(path, lambda data: data.setdefault("items", []).append(f"{worker}-{index}"))
+"""
 
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-    from modules.file_lock import update_json as update
+APPEND_LINES = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from modules.file_lock import append_line
+path, worker, count = sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+for index in range(count):
+    append_line(path, json.dumps({"worker": worker, "index": index, "padding": "x" * 400}))
+"""
 
-    for index in range(count):
-        update(path, lambda data: data.setdefault("items", []).append(f"{worker}-{index}"))
 
+def run_workers(code: str, path, workers: int, count: int) -> None:
+    """Start `workers` interpreters at once and wait for all of them."""
 
-def _append_lines(path: str, worker: int, count: int, repo_root: str) -> None:
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-    from modules.file_lock import append_line as append
-
-    for index in range(count):
-        append(path, json.dumps({"worker": worker, "index": index, "padding": "x" * 400}))
+    processes = [
+        subprocess.Popen([sys.executable, "-c", code, REPO_ROOT, str(path), str(worker), str(count)], stderr=subprocess.PIPE)
+        for worker in range(workers)
+    ]
+    for process in processes:
+        _out, error = process.communicate(timeout=180)
+        assert process.returncode == 0, error.decode(errors="replace")
 
 
 def test_update_json_creates_and_changes_a_file(tmp_path):
@@ -95,13 +108,7 @@ def test_separate_processes_do_not_lose_updates(tmp_path):
 
     target = tmp_path / "store.json"
     workers, per_worker = 4, 20
-    context = multiprocessing.get_context("spawn")
-    processes = [context.Process(target=_add_items, args=(str(target), worker, per_worker, REPO_ROOT)) for worker in range(workers)]
-    for process in processes:
-        process.start()
-    for process in processes:
-        process.join(timeout=120)
-        assert process.exitcode == 0
+    run_workers(ADD_ITEMS, target, workers, per_worker)
 
     items = read_json(target)["items"]
     assert len(items) == workers * per_worker, "an update from one process was overwritten by another"
@@ -111,13 +118,7 @@ def test_separate_processes_do_not_lose_updates(tmp_path):
 def test_separate_processes_do_not_interleave_appended_lines(tmp_path):
     target = tmp_path / "log.jsonl"
     workers, per_worker = 4, 30
-    context = multiprocessing.get_context("spawn")
-    processes = [context.Process(target=_append_lines, args=(str(target), worker, per_worker, REPO_ROOT)) for worker in range(workers)]
-    for process in processes:
-        process.start()
-    for process in processes:
-        process.join(timeout=120)
-        assert process.exitcode == 0
+    run_workers(APPEND_LINES, target, workers, per_worker)
 
     lines = target.read_text(encoding="utf-8").splitlines()
     assert len(lines) == workers * per_worker

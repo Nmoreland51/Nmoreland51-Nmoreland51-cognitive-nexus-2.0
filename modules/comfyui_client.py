@@ -13,10 +13,11 @@ from typing import Any
 
 import requests
 
+from modules.data_stores import DATA_ROOT
 from modules.nexus_config import load_runtime_config
 
 
-BASE_DIR = Path("data/comfyui")
+BASE_DIR = DATA_ROOT / "comfyui"
 WORKFLOW_DIR = BASE_DIR / "workflows"
 OUTPUT_DIR = BASE_DIR / "outputs"
 METADATA_DIR = BASE_DIR / "metadata"

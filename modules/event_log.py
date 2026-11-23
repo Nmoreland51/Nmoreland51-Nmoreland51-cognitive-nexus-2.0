@@ -16,8 +16,9 @@ import logging
 import threading
 from collections import Counter, deque
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
+
+from modules.data_stores import LOG_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ EVENT_KINDS = (
     "degraded_mode",  # a feature ran with reduced quality (for example hash embeddings)
     "error",  # anything else unexpected
 )
-EVENT_LOG_FILE = Path("logs/events.jsonl")
+EVENT_LOG_FILE = LOG_ROOT / "events.jsonl"
 _MAX_RECENT = 300
 
 _lock = threading.Lock()

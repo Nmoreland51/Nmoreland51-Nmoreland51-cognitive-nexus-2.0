@@ -10,11 +10,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from modules.data_stores import DATA_ROOT
 from modules.file_lock import locked, read_json
 from modules.file_utils import atomic_write_text
 
 
-PREFERENCES_FILE = Path("data/response_preferences.json")
+PREFERENCES_FILE = DATA_ROOT / "response_preferences.json"
 
 RESPONSE_MODES = ["auto", "short", "standard", "deep", "surgeon", "research"]
 REQUEST_TYPES = [

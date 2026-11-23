@@ -13,10 +13,10 @@ import math
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Callable
 
 from core.reality_grounding.claim_validator import extract_claims
+from modules.data_stores import DATA_ROOT
 from modules.file_lock import append_line
 from modules.web_research import clean_text, get_domain, slugify_query
 from search.bloodhound_search import (
@@ -28,7 +28,7 @@ from search.bloodhound_search import (
 
 logger = logging.getLogger(__name__)
 
-REPORT_DIR = Path("data/research_reports")
+REPORT_DIR = DATA_ROOT / "research_reports"
 MEMORY_INDEX_FILE = REPORT_DIR / "memory_index.jsonl"
 
 RESEARCH_COMMAND_PATTERNS = [

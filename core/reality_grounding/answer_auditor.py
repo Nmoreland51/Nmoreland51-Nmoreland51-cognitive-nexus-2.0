@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from core.reality_grounding.claim_validator import Claim, extract_claims
@@ -15,11 +14,12 @@ from core.reality_grounding.hallucination_detector import HallucinationReport, d
 from core.reality_grounding.source_grounder import SourceGroundingReport, assess_source_grounding
 from core.reality_grounding.speculation_classifier import SpeculationReport, classify_speculation
 from core.reality_grounding.uncertainty_handler import apply_grounding_note
+from modules.data_stores import DATA_ROOT
 from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
-PATTERN_MEMORY_FILE = Path("data/reality_grounding_patterns.json")
+PATTERN_MEMORY_FILE = DATA_ROOT / "reality_grounding_patterns.json"
 
 
 @dataclass

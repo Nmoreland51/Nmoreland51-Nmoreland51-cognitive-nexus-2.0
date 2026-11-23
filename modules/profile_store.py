@@ -32,13 +32,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
 from modules.file_lock import locked, read_json, update_json
 from modules.file_utils import atomic_write_json
 
 logger = logging.getLogger(__name__)
 
-PROFILE_FILE = Path("data/user_profile.json")
+PROFILE_FILE = DATA_ROOT / "user_profile.json"
 SCHEMA_VERSION = 2
 MAX_ACTIVE_FACTS = 500
 SUPERSEDED_RETENTION_DAYS = 90

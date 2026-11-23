@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 
+from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -64,19 +66,21 @@ def recent_files(directory: Path, patterns: Iterable[str], limit: int = 8) -> Li
 def get_project_inventory() -> Dict[str, Any]:
     """Summarize detected project systems without importing risky modules."""
 
-    image_count = len(list((PROJECT_ROOT / "ai_system/knowledge_bank/images").glob("*.png")))
+    image_count = len(list((KNOWLEDGE_ROOT / "images").glob("*.png")))
     image_count += len(list((PROJECT_ROOT / "generated_images").glob("*.png")))
-    image_count += len(list((PROJECT_ROOT / "data/images/generated").glob("*.png")))
+    image_count += len(list((DATA_ROOT / "images" / "generated").glob("*.png")))
 
-    research_dir = PROJECT_ROOT / "ai_system/knowledge_bank/web_research"
+    research_dir = KNOWLEDGE_ROOT / "web_research"
     chunks = read_json(research_dir / "chunks.json", {})
     metadata = read_json(research_dir / "metadata.json", {})
-    report_dir = PROJECT_ROOT / "data" / "research_reports"
-    web_research_dir = PROJECT_ROOT / "data" / "web_research"
-    search_history_dir = PROJECT_ROOT / "data" / "search_history"
-    knowledge_notes_dir = PROJECT_ROOT / "data" / "knowledge_notes"
-    user_profile = read_json(PROJECT_ROOT / "data" / "user_profile.json", {})
-    profile_facts = user_profile.get("facts", []) if isinstance(user_profile, dict) else []
+    report_dir = DATA_ROOT / "research_reports"
+    web_research_dir = DATA_ROOT / "web_research"
+    search_history_dir = DATA_ROOT / "search_history"
+    knowledge_notes_dir = DATA_ROOT / "knowledge_notes"
+    user_profile = read_json(DATA_ROOT / "user_profile.json", {})
+    all_facts = user_profile.get("facts", []) if isinstance(user_profile, dict) else []
+    # Count what is in use, not values that were replaced by a newer statement.
+    profile_facts = [fact for fact in all_facts if not isinstance(fact, dict) or fact.get("status", "active") == "active"]
 
     return {
         "streamlit_entrypoints": sorted(path.name for path in PROJECT_ROOT.glob("*streamlit*.py")) + ["app.py"],
