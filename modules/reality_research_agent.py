@@ -12,9 +12,11 @@ import math
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, Callable
 
 from core.reality_grounding.claim_validator import extract_claims
+from core.reality_grounding.prompt_firewall import UNTRUSTED_RULE, defuse_untrusted_text, fence_untrusted, removed_note
 from modules.data_stores import DATA_ROOT
 from modules.file_lock import append_line
 from modules.file_utils import atomic_write_text
@@ -122,8 +124,9 @@ _INFLECTIONS = frozenset({"", "s", "es", "e", "ed", "d", "ing", "ies", "y", "n",
 _PHYSICS_DEFYING_TOPICS = ("time machine", "perpetual motion", "telepathy", "faster than light")
 MAX_PASSAGE_CHARS = 320
 CLAIM_CHECK_CAVEAT = (
-    "Passages are matched to the claim by keywords, not by understanding them. "
-    "Read the quoted passages before relying on this."
+    "Passages are matched to the claim by rules about wording (key terms, negation, opposite words, differing "
+    "numbers and years, hedging, open questions), not by understanding them. A passage that says the same thing "
+    "in other words is missed. Read the quoted passages before relying on this."
 )
 
 
@@ -148,7 +151,8 @@ def extract_claim_text(query: str) -> str:
 
 
 def _words(text: str) -> list[str]:
-    return re.findall(r"[a-z0-9]+(?:[.'-][a-z0-9]+)*", (text or "").lower().replace("’", "'"))
+    # "54,000" is one word, not "54" and "000".
+    return re.findall(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|[a-z0-9]+(?:[.'-][a-z0-9]+)*", (text or "").lower().replace("’", "'"))
 
 
 def _same_word(first: str, second: str) -> bool:
@@ -197,39 +201,457 @@ class ClaimEvidence:
     source: str
     trust_label: str = "Low"
     coverage: float = 0.0
+    reason: str = ""  # why the passage was classed this way, in plain words
+    retrieved_at: str = ""  # when the page was fetched
+    published: str = ""  # the date the page gives for itself, when it gives one
+    # What a model said when asked to read the passage too: "agrees", "disagrees", "unavailable",
+    # "not asked" (over the limit), or "" when no model was asked.
+    second_opinion: str = ""
+    rule_stance: str = ""  # what the wording rules said, where the second reading overruled them
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def _passage_stance(sentence: str, claim_cues: set[str], claim_words: set[str]) -> str:
-    if sentence.rstrip().endswith("?"):
-        return "mentions"
-    sentence_cues = _polarity_cues(sentence)
-    # Signals the claim and the passage share cancel out: for the claim "the landing was a hoax",
-    # "hoax" in a passage is the claim's own wording, while an extra "debunked" refutes it.
-    claim_side = bool(claim_cues - sentence_cues)
-    passage_side = bool(sentence_cues - claim_cues)
-    if claim_side != passage_side:
-        return "contradicts"
-    attributions = {word.lower() for word in _ATTRIBUTION_RE.findall(sentence)}
-    if any(not any(_same_word(word, claim_word) for claim_word in claim_words) for word in attributions):
-        return "mentions"
-    return "supports"
+# A passage that hedges does not state the claim; it only raises it.
+_HEDGE_RE = re.compile(
+    r"\b(?:may|might|could|possibly|perhaps|maybe|suggests?|suggested|thought to|appears? to|seems? to|"
+    r"likely|unlikely|probably|potentially|reportedly|allegedly|unconfirmed|preliminary|is said to|are said to)\b",
+    re.IGNORECASE,
+)
+# Nor does one that says the matter is open ("it is unclear whether ...", "... has long been debated").
+_UNSETTLED_RE = re.compile(
+    r"\bwhether\b|\bopen question\b|\bremains to be seen\b|\bno consensus\b|\bjury is still out\b"
+    r"|\bnot (?:yet )?(?:known|clear|certain|settled|established)\b"
+    r"|\b(?:is|are|was|were|remains?|remained|still|been|long)\s+(?:(?:hotly|widely|much|still|long|largely)\s+)?"
+    r"(?:unclear|uncertain|unknown|unresolved|unproven|unverified|inconclusive|disputed|debated|contested)\b",
+    re.IGNORECASE,
+)
+# Words that say the opposite of each other, as families of forms: regular endings are matched by
+# _same_word, irregular ones ("rose", "fell") have to be listed. A passage using the opposite word
+# about the same things contradicts the claim even though nothing in it is negated. Words with
+# several everyday meanings ("first"/"last", "up"/"down", "more"/"less") are left out on purpose.
+_OPPOSITES = [
+    ("rise rose risen rising", "fall fell fallen falling"),
+    ("increase increasing", "decrease decreasing"),
+    ("grow grew grown growing growth expand expanded", "shrink shrank shrunk shrinking decline declining contract contracted"),
+    ("win won winning victory", "lose lost losing defeat"),
+    ("upheld uphold", "overturned overturn"),
+    ("approved accepted", "rejected"),
+    ("allowed permitted legal", "banned prohibited forbidden illegal"),
+    ("safe", "unsafe dangerous"),
+    ("alive", "dead"),
+    ("open opened", "closed shut"),
+    ("higher highest", "lower lowest"),
+    ("gain gained profit", "loss"),
+    ("success succeeded passed", "failure failed"),
+    ("guilty convicted", "innocent acquitted"),
+    ("largest biggest", "smallest"),
+    ("best", "worst"),
+    ("oldest", "youngest newest"),
+    ("hot", "cold"),
+    ("present included", "absent excluded"),
+    ("improved strengthened", "worsened weakened"),
+    ("faster", "slower"),
+    ("longer", "shorter"),
+    ("north", "south"),
+    ("east", "west"),
+    ("majority", "minority"),
+    ("supported supports", "opposed opposes"),
+    ("confirmed", "denied"),
+]
+_OPPOSITE_OF: dict[str, set[str]] = {}
+for _first, _second in _OPPOSITES:
+    for _word in _first.split():
+        _OPPOSITE_OF.setdefault(_word, set()).update(_second.split())
+    for _word in _second.split():
+        _OPPOSITE_OF.setdefault(_word, set()).update(_first.split())
+_NEGATING_PREFIXES = ("un", "in", "im", "il", "ir", "dis", "non")
+# Things that happen once: a different year for one of these is a contradiction, while a
+# different year for something that recurs ("won the cup in 2019") is just another occasion.
+_ONE_TIME_EVENTS = re.compile(
+    r"\b(?:born|died|founded|established|opened|invented|discovered|launched|released|built|constructed|completed|"
+    r"published|signed|created|incorporated|inaugurated|introduced|assassinated|abolished|patented)\b",
+    re.IGNORECASE,
+)
+# Independent clauses. "Berlin is the capital of Germany, while Paris is the capital of France"
+# contains every word of "Paris is the capital of Germany" without saying it.
+_CLAUSE_SPLIT = re.compile(r";|,\s+(?:while|whereas|but|although|though|and|yet)\s+|\s+(?:whereas|while)\s+", re.IGNORECASE)
+# What a sentence sets aside as the wrong alternative: "Canberra, not Sydney, is the capital".
+_CONTRAST_RE = re.compile(
+    r",\s*(?:and\s+|but\s+)?not\s+(?P<aside>[^,;]+?)\s*(?:,|$)"
+    r"|\bnot\s+(?P<first>[^,;]+?),?\s+but\s+(?:rather\s+)?"
+    r"|,?\s*\b(?:rather than|instead of|as opposed to|unlike)\s+(?P<other>[^,;]+?)\s*(?:,|$)",
+    re.IGNORECASE,
+)
+# A later clause that refers back to the one before it: "..., but that has been debunked".
+_REFERS_BACK = re.compile(
+    r"\s*(?:this|that|it|which|these|those|such|both|the (?:claim|story|idea|rumou?r|theory|notion|report|assertion|myth))\b",
+    re.IGNORECASE,
+)
+_UNIT_WORDS = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+    "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+    "seventeen": 17, "eighteen": 18, "nineteen": 19,
+}  # fmt: skip
+_TENS_WORDS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+_MULTIPLIER_WORDS = {"hundred": 100, "thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000, "trillion": 1_000_000_000_000}
+# "one" is often not a count: "no one", "one of the", "the one that".
+_NOT_A_COUNT_BEFORE_ONE = frozenset("no any some every each which this that another the".split())
+_NOT_A_COUNT_AFTER_ONE = frozenset("of who that which another".split())
+# A four-digit number followed by one of these is an amount, not a year ("2000 metres").
+_MEASURE_WORDS = frozenset(
+    """metres meters metre meter km kilometres kilometers miles feet people employees workers staff spectators seats
+    students members residents inhabitants dollars euros pounds percent kg kilograms tonnes tons hours days weeks
+    months years copies votes words pages units items times species cases deaths homes houses vehicles cars""".split()
+)
+_QUANTITY_TOKEN = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?|[a-z]+(?:-[a-z]+)*")
+QUANTITY_TOLERANCE = 0.01  # figures within 1% of each other are the same figure, rounded differently
 
 
-def assess_claim_evidence(claim: str, sources: list[SourceRecord]) -> list[ClaimEvidence]:
-    """Find, per independent source, the passage that best addresses the claim.
+def _small_number(token: str) -> int | None:
+    """The value of "five", "twenty" or "twenty-five"."""
 
-    A passage addresses the claim when one sentence contains its key terms (all of them for claims
-    with up to three terms, 70% otherwise). Sources on the same domain count once, and the same
-    passage syndicated across sites counts once.
+    if token in _UNIT_WORDS:
+        return _UNIT_WORDS[token]
+    if token in _TENS_WORDS:
+        return _TENS_WORDS[token]
+    head, _, tail = token.partition("-")
+    if head in _TENS_WORDS and 0 < _UNIT_WORDS.get(tail, 0) < 10:
+        return _TENS_WORDS[head] + _UNIT_WORDS[tail]
+    return None
+
+
+def _is_number_term(term: str) -> bool:
+    return bool(re.fullmatch(r"[\d.,]+", term)) or term in _MULTIPLIER_WORDS or _small_number(term) is not None
+
+
+def _numbers(text: str) -> tuple[set[float], set[str]]:
+    """(amounts, years) stated in a text.
+
+    "five", "5" and "5.0" are the same amount, and so are "9.5 million" and "9,500,000". A
+    four-digit number from 1000 to 2199 without a thousands separator is a year, unless a unit
+    or "million" follows it.
+    """
+
+    amounts: set[float] = set()
+    years: set[str] = set()
+    tokens = [token.rstrip(",") for token in _QUANTITY_TOKEN.findall((text or "").lower())]
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        following = tokens[index + 1] if index + 1 < len(tokens) else ""
+        value: float | None = None
+        if token[:1].isdigit():
+            plain = token.replace(",", "")
+            if (
+                "," not in token
+                and re.fullmatch(r"(?:1[0-9]|20|21)\d{2}", plain)
+                and following not in _MULTIPLIER_WORDS
+                and following not in _MEASURE_WORDS
+            ):
+                years.add(plain)
+                index += 1
+                continue
+            value = float(plain)
+        elif (small := _small_number(token)) is not None:
+            previous = tokens[index - 1] if index else ""
+            if (
+                token == "one"
+                and following not in _MULTIPLIER_WORDS
+                and (previous in _NOT_A_COUNT_BEFORE_ONE or following in _NOT_A_COUNT_AFTER_ONE)
+            ):
+                index += 1
+                continue
+            value = float(small)
+            if token in _TENS_WORDS and 0 < _UNIT_WORDS.get(following, 0) < 10:  # "twenty five"
+                value += _UNIT_WORDS[following]
+                index += 1
+        elif token in {"a", "an"} and following in _MULTIPLIER_WORDS:
+            value = 1.0
+        if value is None:
+            index += 1
+            continue
+        index += 1
+        while index < len(tokens) and tokens[index] in _MULTIPLIER_WORDS:
+            value *= _MULTIPLIER_WORDS[tokens[index]]
+            index += 1
+        amounts.add(value)
+    return amounts, years
+
+
+def _same_amount(first: float, second: float) -> bool:
+    return abs(first - second) <= QUANTITY_TOLERANCE * max(abs(first), abs(second))
+
+
+def _share_an_amount(first: set[float], second: set[float]) -> bool:
+    return any(_same_amount(a, b) for a in first for b in second)
+
+
+@lru_cache(maxsize=4096)
+def _opposites_for(word: str) -> frozenset[str]:
+    found: set[str] = set()
+    for known, opposites in _OPPOSITE_OF.items():
+        if _same_word(word, known):
+            found |= opposites
+    return frozenset(found)
+
+
+def _is_opposite(claim_word: str, passage_word: str) -> bool:
+    if any(_same_word(passage_word, opposite) for opposite in _opposites_for(claim_word)):
+        return True
+    longer, shorter = (claim_word, passage_word) if len(claim_word) > len(passage_word) else (passage_word, claim_word)
+    return len(shorter) >= 4 and any(longer == prefix + shorter for prefix in _NEGATING_PREFIXES)
+
+
+def _align(terms: list[str] | tuple[str, ...], clause: str) -> tuple[set[str], tuple[str, str] | None]:
+    """The claim's key terms that a clause covers, and the first it covers by its opposite, as
+    (claim word, passage word).
+
+    A number in the claim is covered by any number in the clause, and a word by its opposite:
+    such a clause is about the same thing even when it says something different.
+    """
+
+    words = _words(clause)
+    amounts, years = _numbers(clause)
+    covered: set[str] = set()
+    opposite: tuple[str, str] | None = None
+    for term in terms:
+        if any(_same_word(term, word) for word in words):
+            covered.add(term)
+        elif _is_number_term(term) and (amounts or years):
+            covered.add(term)
+        else:
+            match = next((word for word in words if _is_opposite(term, word)), None)
+            if match is not None:
+                covered.add(term)
+                opposite = opposite or (term, match)
+    return covered, opposite
+
+
+@dataclass(frozen=True)
+class _ClaimProfile:
+    """What a passage has to cover to count as addressing a claim."""
+
+    terms: tuple[str, ...]
+    needed: int
+    required: frozenset[str]
+
+
+def _profile(claim: str) -> _ClaimProfile:
+    """Every key term for claims of up to five; four in five for longer ones, which leaves room
+    for one reworded modifier.
+
+    Whatever the length, the first and last key terms (usually what the claim is about and what
+    it says of it), names and numbers must be covered: a passage about someone or something else
+    shares most of the claim's words without being about the claim.
     """
 
     terms = _claim_terms(claim)
-    if len(terms) < 2:
-        return []
-    needed = len(terms) if len(terms) <= 3 else math.ceil(0.7 * len(terms))
+    needed = len(terms) if len(terms) <= 5 else math.ceil(0.8 * len(terms))
+    required = {terms[0], terms[-1]} if terms else set()
+    tokens = re.findall(r"[A-Za-z0-9]+(?:[.'-][A-Za-z0-9]+)*", (claim or "").replace("’", "'"))
+    for position, token in enumerate(tokens):
+        term = token.lower()
+        if term in terms and ((position > 0 and token[0].isupper()) or _is_number_term(term)):
+            required.add(term)
+    return _ClaimProfile(tuple(terms), needed, frozenset(required))
+
+
+def _set_aside(text: str, terms: list[str] | tuple[str, ...]) -> tuple[str, bool]:
+    """Remove what a sentence sets aside as the wrong alternative ("Canberra, not Sydney, is ...").
+
+    Returns the remaining text, and whether what was set aside is the claim's own version (then the
+    sentence rejects the claim); otherwise its "not" is about something else and says nothing
+    against the claim.
+    """
+
+    rejected = False
+    asides: list[str] = []
+
+    def drop(match: re.Match[str]) -> str:
+        asides.append(match.group("aside") or match.group("first") or match.group("other") or "")
+        return ", " if match.group("first") is None and match.group(0).rstrip().endswith(",") else " "
+
+    remaining = re.sub(r"\s+", " ", _CONTRAST_RE.sub(drop, text)).strip()
+    remaining_words = _words(remaining)
+    for aside in asides:
+        content = [word for word in _words(aside) if word not in _CLAIM_STOPWORDS]
+        # Only the claim's terms that the rest of the sentence does not also use: in
+        # "324 metres, not 300 metres" the unit is shared and only the figure is set aside.
+        own = [
+            word
+            for word in content
+            if any(_same_word(term, word) for term in terms) and not any(_same_word(word, other) for other in remaining_words)
+        ]
+        if own and len(own) * 2 >= len(content):
+            rejected = True
+    return remaining, rejected
+
+
+_REFUTATION_WORDING = {
+    "false": "calls it false",
+    "myth": "calls it a myth",
+    "hoax": "calls it a hoax",
+    "debunk": "says it has been debunked",
+    "fake": "calls it fake",
+    "baseless": "says there is no evidence for it",
+    "misinformation": "calls it misinformation",
+    "conspiracy": "calls it a conspiracy theory",
+    "pseudoscience": "calls it pseudoscience",
+}
+
+
+def _figures(values: set[float]) -> str:
+    return ", ".join(f"{value:,.10g}" for value in sorted(values))
+
+
+def _judge(sentence: str, claim_cues: set[str], claim_words: set[str], claim: str = "") -> tuple[str, str]:
+    """(stance, why) for one passage that addresses the claim."""
+
+    if sentence.rstrip().endswith("?"):
+        return "mentions", "It asks the question; it does not answer it."
+    terms = _claim_terms(claim) if claim else []
+    text, rejected = _set_aside(sentence, terms) if terms else (sentence, False)
+    lowered_claim = (claim or "").lower()
+    unsettled = [found.strip() for found in _UNSETTLED_RE.findall(text) if found.lower() not in lowered_claim]
+    if unsettled:
+        return "mentions", f'It says the matter is open ("{unsettled[0]}").'
+    sentence_cues = _polarity_cues(text) | ({"negation"} if rejected else set())
+    # Signals the claim and the passage share cancel out: for the claim "the landing was a hoax",
+    # "hoax" in a passage is the claim's own wording, while an extra "debunked" refutes it.
+    extra_in_claim = claim_cues - sentence_cues
+    extra_in_passage = sentence_cues - claim_cues
+    negated = bool(extra_in_claim) != bool(extra_in_passage)
+    # "is a myth", "has been debunked": said outright, whoever the passage attributes the claim to.
+    refutations = sorted(extra_in_passage - {"negation"}) if negated else []
+    attributions = [
+        word for word in _ATTRIBUTION_RE.findall(text) if not any(_same_word(word.lower(), claim_word) for claim_word in claim_words)
+    ]
+    hedges = [hedge for hedge in _HEDGE_RE.findall(text) if hedge.lower() not in lowered_claim]
+    second_hand = (
+        f'it reports what others say ("{attributions[0]}") without confirming it.'
+        if attributions
+        else f'it is tentative ("{hedges[0]}").'
+        if hedges
+        else ""
+    )
+    if terms:
+        _covered, opposite = _align(terms, text)
+        claim_amounts, claim_years = _numbers(claim)
+        passage_amounts, passage_years = _numbers(text)
+        other_amount = bool(claim_amounts and passage_amounts and not _share_an_amount(claim_amounts, passage_amounts))
+        other_year = bool(claim_years and passage_years and not (claim_years & passage_years))
+        if opposite or other_amount or (other_year and _ONE_TIME_EVENTS.search(claim)):
+            if second_hand:
+                return "mentions", f"It says something different, but {second_hand}"
+            if negated and opposite and not (other_amount or other_year):
+                # "did not fall" about a claim that it rose says the same as the claim.
+                return "supports", f'It denies the opposite ("{opposite[1]}"), which is what the claim says.'
+            if other_amount:
+                return "contradicts", f"It gives a different figure ({_figures(passage_amounts)}; the claim has {_figures(claim_amounts)})."
+            if other_year:
+                return "contradicts", f"It gives a different year ({', '.join(sorted(passage_years))}; the claim has {', '.join(sorted(claim_years))})."
+            assert opposite is not None
+            return "contradicts", f'It uses the opposite word ("{opposite[1]}" where the claim has "{opposite[0]}").'
+        if other_year:
+            # The same thing on another occasion settles nothing.
+            return "mentions", f"It is about another year ({', '.join(sorted(passage_years))}), not {', '.join(sorted(claim_years))}."
+    if refutations:
+        return "contradicts", "It " + " and ".join(_REFUTATION_WORDING.get(cue, f"rejects it ({cue})") for cue in refutations) + "."
+    if second_hand:
+        # "Critics claim it never happened" and "it might not happen" settle nothing either way.
+        return "mentions", second_hand[0].upper() + second_hand[1:]
+    if negated:
+        if rejected:
+            return "contradicts", "It sets the claim's version aside as the wrong one."
+        if extra_in_claim:
+            return "contradicts", "The claim says it is not so; the passage states that it is."
+        return "contradicts", "It negates what the claim says."
+    if claim_cues:
+        return "supports", "It makes the same negative statement as the claim."
+    return "supports", "It states the claim: the key terms are there with no negation, hedge or attribution."
+
+
+def _passage_stance(sentence: str, claim_cues: set[str], claim_words: set[str], claim: str = "") -> str:
+    return _judge(sentence, claim_cues, claim_words, claim)[0]
+
+
+def _addressing_clause(profile: _ClaimProfile, sentence: str) -> tuple[str, int] | None:
+    """The clause of a sentence that addresses the claim, with how many key terms it covers.
+
+    None when no single clause does. That includes the claim's words being spread over
+    independent clauses, which means the sentence relates them differently from the claim.
+    """
+
+    clauses = [part.strip() for part in _CLAUSE_SPLIT.split(sentence) if part and part.strip()] or [sentence]
+    aligned = [(clause, _align(profile.terms, clause)[0]) for clause in clauses]
+    best: tuple[str, set[str]] | None = None
+    for clause, covered in aligned:
+        if len(covered) >= profile.needed and profile.required <= covered and (best is None or len(covered) > len(best[1])):
+            best = (clause, covered)
+    if best is None:
+        return None
+    missing = set(profile.terms) - best[1]
+    if missing and any(missing & covered for clause, covered in aligned if clause is not best[0]):
+        return None
+    return best[0], len(best[1])
+
+
+def _judged_text(clause: str, sentence: str) -> str:
+    """The clause that addresses the claim, or the whole sentence when a later clause refers back
+    to it with a refutation ("..., but that has been debunked")."""
+
+    if clause == sentence:
+        return sentence
+    for part in _CLAUSE_SPLIT.split(sentence):
+        part = (part or "").strip()
+        if part and part != clause and _REFERS_BACK.match(part) and _polarity_cues(part) - _polarity_cues(clause) - {"negation"}:
+            return sentence
+    return clause
+
+
+def stance_with_reason(claim: str, passage: str) -> tuple[str, str]:
+    """What one passage says about a claim ("supports", "contradicts" or "mentions"), and why.
+
+    "mentions" also covers a passage that does not address the claim at all.
+    """
+
+    profile = _profile(claim)
+    if len(profile.terms) < 2:
+        return "mentions", "The claim is too short to match passages against."
+    claim_cues, claim_words = _polarity_cues(claim), set(_words(claim))
+    first_mention: tuple[str, str] | None = None
+    for sentence in _sentences(passage):
+        found = _addressing_clause(profile, sentence)
+        if found is None:
+            continue
+        judged = _judge(_judged_text(found[0], sentence), claim_cues, claim_words, claim)
+        if judged[0] != "mentions":
+            return judged
+        first_mention = first_mention or judged
+    return first_mention or ("mentions", "No sentence covers the claim's key terms.")
+
+
+def stance_of(claim: str, passage: str) -> str:
+    return stance_with_reason(claim, passage)[0]
+
+
+def claim_evidence_breakdown(claim: str, sources: list[SourceRecord]) -> dict[str, Any]:
+    """Per independent source, the passage that best addresses the claim, and what was left out.
+
+    Returns {"evidence": [ClaimEvidence], "repeats": [{"url", "counted_as", "why"}], "unaddressed": [url]}.
+
+    A passage addresses the claim when one clause of a sentence covers its key terms (see
+    _profile); a number in the claim is covered by a number, and a word by its opposite, so that a
+    passage saying something different about the same thing is found and counted as contradicting.
+    Sources on the same site count once, and the same passage copied across sites counts once:
+    a rumour repeated on ten sites is one piece of evidence, not ten.
+    """
+
+    profile = _profile(claim)
+    if len(profile.terms) < 2:
+        return {"evidence": [], "repeats": [], "unaddressed": [source.url for source in sources]}
     claim_cues = _polarity_cues(claim)
     claim_words = set(_words(claim))
     trust_rank = {"High": 2, "Medium": 1}
@@ -237,41 +659,145 @@ def assess_claim_evidence(claim: str, sources: list[SourceRecord]) -> list[Claim
     def rank(item: ClaimEvidence) -> tuple[bool, float, int]:
         return (item.stance != "mentions", item.coverage, trust_rank.get(item.trust_label, 0))
 
-    best_by_domain: dict[str, ClaimEvidence] = {}
+    candidates: list[ClaimEvidence] = []
+    unaddressed: list[str] = []
     for source in sources:
         best: ClaimEvidence | None = None
         for sentence in _sentences(f"{source.excerpt} {source.snippet}"):
-            sentence_words = _words(sentence)
-            matched = sum(1 for term in terms if any(_same_word(term, word) for word in sentence_words))
-            if matched < needed:
+            found = _addressing_clause(profile, sentence)
+            if found is None:
                 continue
+            clause, matched = found
+            stance, reason = _judge(_judged_text(clause, sentence), claim_cues, claim_words, claim)
             candidate = ClaimEvidence(
-                stance=_passage_stance(sentence, claim_cues, claim_words),
+                stance=stance,
                 passage=sentence if len(sentence) <= MAX_PASSAGE_CHARS else sentence[: MAX_PASSAGE_CHARS - 1].rstrip() + "…",
                 url=source.url,
                 title=source.title,
                 source=source.source,
                 trust_label=source.trust_label,
-                coverage=round(matched / len(terms), 2),
+                coverage=round(matched / len(profile.terms), 2),
+                reason=reason,
+                retrieved_at=source.retrieved_at,
+                published=source.published,
             )
             if best is None or rank(candidate) > rank(best):
                 best = candidate
         if best is None:
-            continue
-        domain = (source.source or get_domain(source.url) or source.url).lower()
-        current = best_by_domain.get(domain)
-        if current is None or rank(best) > rank(current):
-            best_by_domain[domain] = best
+            unaddressed.append(source.url)
+        else:
+            candidates.append(best)
 
     evidence: list[ClaimEvidence] = []
-    seen_passages: set[str] = set()
-    for item in sorted(best_by_domain.values(), key=rank, reverse=True):
-        key = " ".join(_words(item.passage))[:200]
-        if key in seen_passages:
+    repeats: list[dict[str, str]] = []
+    counted_for_site: dict[str, ClaimEvidence] = {}
+    seen_passages: list[tuple[set[str], ClaimEvidence]] = []
+    for item in sorted(candidates, key=rank, reverse=True):
+        site = (item.source or get_domain(item.url) or item.url).lower()
+        if site in counted_for_site:
+            repeats.append({"url": item.url, "counted_as": counted_for_site[site].url, "why": "same site"})
             continue
-        seen_passages.add(key)
+        # Near-copies count as the same passage: most of the words are the same.
+        shingle = set(_words(item.passage))
+        original = next((other for words, other in seen_passages if len(shingle & words) / max(len(shingle | words), 1) >= 0.8), None)
+        if original is not None:
+            counted_for_site[site] = original
+            repeats.append({"url": item.url, "counted_as": original.url, "why": "same passage on another site"})
+            continue
+        counted_for_site[site] = item
+        seen_passages.append((shingle, item))
         evidence.append(item)
-    return evidence
+    return {"evidence": evidence, "repeats": repeats, "unaddressed": unaddressed}
+
+
+def assess_claim_evidence(claim: str, sources: list[SourceRecord]) -> list[ClaimEvidence]:
+    """The evidence part of claim_evidence_breakdown: one passage per independent source."""
+
+    return claim_evidence_breakdown(claim, sources)["evidence"]
+
+
+# A second reading by a model, for passages the rules count as supporting the claim. Counting a
+# passage that does not support the claim is the worst mistake a claim check can make, and the
+# rules make it with passages a reader would not be fooled by ("will close unless ...", "denied
+# dumping ..."). Measured with the local 8B model (docs/benchmarks/stance.json): its second reading
+# removes most of those. It is not asked about contradicting passages: there it overruled correct
+# ones and caught nothing the rules had got wrong.
+SECOND_OPINION_LIMIT = 6  # passages per claim check; each takes several seconds on a CPU
+
+
+def second_opinion_prompt(claim: str, passage: str) -> str:
+    """The question put to a model about one passage. The passage is web text, so lines aimed at a
+    model are removed and the rest is fenced, as in every other research prompt."""
+
+    cleaned, _removed = defuse_untrusted_text(passage)
+    return (
+        f"{UNTRUSTED_RULE}\n\n"
+        f"Claim: {claim}\n"
+        f"Passage:\n{fence_untrusted(cleaned, 'passage')}\n\n"
+        "Does the passage state that the claim is true, state something that makes the claim false, or neither "
+        "(it only reports what others say, asks, hedges, or is about another time or thing)?\n"
+        "Answer with one word: SUPPORTS, CONTRADICTS or NEITHER.\nAnswer:"
+    )
+
+
+def read_opinion(answer: str) -> str:
+    """"supports", "contradicts" or "mentions" from a model's one-word answer; "" when it is none of them."""
+
+    word = re.sub(r"[^a-z]", " ", (answer or "").lower()).split()
+    first = word[0] if word else ""
+    if first.startswith("support"):
+        return "supports"
+    if first.startswith("contradict"):
+        return "contradicts"
+    if first.startswith("neither"):
+        return "mentions"
+    return ""
+
+
+def apply_second_opinion(
+    claim: str,
+    evidence: list[ClaimEvidence],
+    ask: Callable[[str], str],
+    limit: int = SECOND_OPINION_LIMIT,
+) -> dict[str, int]:
+    """Ask a model to read each passage the rules counted as supporting the claim.
+
+    The passage keeps counting only where the model also reads it as support; otherwise it is
+    moved to "mentions" (and keeps what the rules said in rule_stance). The model can only take
+    support away: it never turns a "mentions" into support, and it is not asked about passages
+    that contradict the claim. Returns how many were asked, agreed, disagreed and could not be asked.
+    """
+
+    counts = {"asked": 0, "agreed": 0, "disagreed": 0, "unavailable": 0}
+    model_down = False
+    for item in evidence:
+        if item.stance != "supports":
+            continue
+        if counts["asked"] >= limit:
+            item.second_opinion = "not asked"
+            continue
+        opinion = ""
+        if not model_down:
+            counts["asked"] += 1
+            try:
+                opinion = read_opinion(ask(second_opinion_prompt(claim, item.passage)))
+            except Exception as exc:
+                logger.info("Second opinion unavailable: %s", exc)
+                model_down = True  # do not wait for the same failure once per passage
+        if not opinion:
+            item.second_opinion = "unavailable"
+            counts["unavailable"] += 1
+        elif opinion == item.stance:
+            item.second_opinion = "agrees"
+            counts["agreed"] += 1
+        else:
+            read_as = "neither" if opinion == "mentions" else opinion
+            item.second_opinion = "disagrees"
+            item.rule_stance = item.stance
+            item.reason = f"{item.reason} The model read it as {read_as.upper()}, so it is not counted."
+            item.stance = "mentions"
+            counts["disagreed"] += 1
+    return counts
 
 
 def _evidence_score(supporting: int, contradicting: int) -> float:
@@ -289,11 +815,13 @@ def determine_verdict(
     claims: list[ClaimRecord],
     contradictions: list[ContradictionRecord],
     verify: bool | None = None,
+    second_opinion: Callable[[str], str] | None = None,
 ) -> dict[str, Any]:
     """Check the claim in a verification-style query against the retrieved passages.
 
     verify=None detects a verification request from the query text; pass True when the caller
-    already stripped the "verify ..." command from it.
+    already stripped the "verify ..." command from it. second_opinion, when given, is asked to read
+    each passage counted as supporting the claim (see apply_second_opinion).
     """
 
     result: dict[str, Any] = {
@@ -307,6 +835,9 @@ def determine_verdict(
         "claim": "",
         "evidence_strength": "",
         "evidence": [],
+        "unaddressed": [],
+        "repeats": [],
+        "second_opinion": {},
     }
     if not (is_verification_request(query) if verify is None else verify):
         return result
@@ -314,7 +845,9 @@ def determine_verdict(
     if len(_claim_terms(claim)) < 2:
         return result  # nothing specific enough to match passages against
 
-    evidence = assess_claim_evidence(claim, sources)
+    breakdown = claim_evidence_breakdown(claim, sources)
+    evidence = breakdown["evidence"]
+    opinions = apply_second_opinion(claim, evidence, second_opinion) if second_opinion is not None else {}
     supports = [item for item in evidence if item.stance == "supports"]
     contradicts = [item for item in evidence if item.stance == "contradicts"]
     mentions = [item for item in evidence if item.stance == "mentions"]
@@ -362,10 +895,29 @@ def determine_verdict(
         uncertainty.append(f"Only {len(sources)} source(s) were retrieved.")
     if mentions:
         uncertainty.append(f"{len(mentions)} source(s) mention the claim without clearly affirming or denying it.")
-    if contradictions:
+    if opinions.get("disagreed"):
         uncertainty.append(
-            f"The lightweight checker flagged {len(contradictions)} possible contradiction(s) between sources on related statements."
+            f"The model did not read {opinions['disagreed']} passage(s) as supporting the claim, although the wording rules did; those are not counted."
         )
+    if opinions.get("unavailable"):
+        uncertainty.append(
+            f"The model could not be asked for a second reading of {opinions['unavailable']} passage(s); they are counted on the wording rules alone."
+        )
+    if breakdown["repeats"]:
+        uncertainty.append(f"{len(breakdown['repeats'])} source(s) repeat a site or passage already counted and were not counted again.")
+    newest_for = max((item.published for item in supports if item.published), default="")
+    newest_against = max((item.published for item in contradicts if item.published), default="")
+    if newest_for and newest_against and newest_for[:10] != newest_against[:10]:
+        newer, older = ("supporting", "contradicting") if newest_for > newest_against else ("contradicting", "supporting")
+        uncertainty.append(
+            f"The newest {newer} page is dated {max(newest_for, newest_against)[:10]}, later than the newest {older} page "
+            f"({min(newest_for, newest_against)[:10]}); the facts may have changed in between."
+        )
+    undated = [item for item in supports + contradicts if not item.published]
+    if undated and (supports or contradicts):
+        uncertainty.append(f"{len(undated)} of the pages counted do not say when they were published.")
+    if contradictions:
+        uncertainty.append(f"{len(contradictions)} pair(s) of sources say opposite things about a related matter.")
     if any(topic in query.lower() for topic in _PHYSICS_DEFYING_TOPICS):
         uncertainty.append(
             "This topic conflicts with physics as currently understood; a supporting passage may describe fiction, speculation or theory."
@@ -383,6 +935,9 @@ def determine_verdict(
             "claim": claim,
             "evidence_strength": strength,
             "evidence": evidence,
+            "unaddressed": breakdown["unaddressed"],
+            "repeats": breakdown["repeats"],
+            "second_opinion": opinions,
         }
     )
     return result
@@ -430,6 +985,8 @@ class ResearchRequest:
     save_report: bool = True
     # True/False forces the claim check on or off; None detects a "verify ..." style query.
     verify_claim: bool | None = None
+    # Have the model read each passage counted as supporting the claim; it counts only if both agree.
+    second_opinion: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -456,6 +1013,8 @@ class SourceRecord:
     timestamp: str = ""
     why_it_matters: str = ""
     matched_terms: list[str] = field(default_factory=list)
+    retrieved_at: str = ""  # when the page was fetched
+    published: str = ""  # the date the page gives for itself, when it gives one
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -519,6 +1078,9 @@ class ResearchReport:
     verdict_claim: str = ""
     verdict_evidence: str = ""  # Strong / Moderate / Weak / Conflicting / None
     claim_evidence: list[ClaimEvidence] = field(default_factory=list)
+    unaddressed_sources: list[str] = field(default_factory=list)  # retrieved, but no passage addresses the claim
+    repeated_sources: list[dict[str, str]] = field(default_factory=list)  # same site or same passage as one counted
+    second_opinion: dict[str, int] = field(default_factory=dict)  # asked / agreed / disagreed / unavailable
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -560,7 +1122,33 @@ class ResearchReport:
                     lines.append("None found.")
                 for item in items[:5]:
                     label = item.title or item.source or item.url
-                    lines.append(f'- "{item.passage}" - [{label}]({item.url}) (trust: {item.trust_label})')
+                    dates = "".join(
+                        f"; {word} {value[:10]}" for word, value in (("retrieved", item.retrieved_at), ("published", item.published)) if value
+                    )
+                    lines.append(f'- "{item.passage}" - [{label}]({item.url}) (trust: {item.trust_label}{dates})')
+                    if item.reason:
+                        lines.append(f"  - Why: {item.reason}")
+                    if item.second_opinion == "agrees":
+                        lines.append("  - The model, asked to read the passage too, agreed.")
+                lines.append("")
+            if self.second_opinion.get("asked"):
+                lines.extend(
+                    [
+                        f"The model was asked to read {self.second_opinion['asked']} supporting passage(s) as well: it agreed on "
+                        f"{self.second_opinion.get('agreed', 0)} and disagreed on {self.second_opinion.get('disagreed', 0)}. "
+                        "A passage counts as support only where both agree.",
+                        "",
+                    ]
+                )
+            if self.unaddressed_sources:
+                lines.extend(["### Sources that did not address the claim", ""])
+                lines.extend(f"- {url}" for url in self.unaddressed_sources[:10])
+                if len(self.unaddressed_sources) > 10:
+                    lines.append(f"- and {len(self.unaddressed_sources) - 10} more")
+                lines.append("")
+            if self.repeated_sources:
+                lines.extend(["### Repeats counted once", ""])
+                lines.extend(f"- {item['url']} ({item['why']} as {item['counted_as']})" for item in self.repeated_sources[:10])
                 lines.append("")
             if self.uncertainty_notes:
                 lines.extend(["### Uncertainty Notes", ""])
@@ -597,7 +1185,7 @@ class ResearchReport:
             lines.append(f"  Source: {claim.source_url}")
         lines.extend(["", "## Potential Contradictions", ""])
         if not self.contradictions:
-            lines.append("No direct contradictions were detected by the lightweight checker.")
+            lines.append("No two sources were found saying opposite things about the same matter.")
         for item in self.contradictions[:20]:
             lines.append(f"- **{item.severity}:** {item.reason}")
             lines.append(f"  - A: {item.claim_a} ({item.source_a})")
@@ -741,6 +1329,8 @@ def score_source_trust(source: dict[str, Any], query: str) -> SourceRecord:
         timestamp=str(source.get("timestamp") or ""),
         why_it_matters=clean_text(source.get("why_it_matters", "")),
         matched_terms=matched,
+        retrieved_at=str(source.get("retrieved_at") or ""),
+        published=str(source.get("published") or ""),
     )
 
 
@@ -784,36 +1374,52 @@ def extract_claim_records(sources: list[SourceRecord], max_claims: int = 40) -> 
     return records
 
 
+def _is_firm(statement: str) -> bool:
+    """A statement made outright: not a question, a report of what others say, a possibility or an open matter."""
+
+    return not (
+        statement.rstrip().endswith("?")
+        or _HEDGE_RE.search(statement)
+        or _ATTRIBUTION_RE.search(statement)
+        or _UNSETTLED_RE.search(statement)
+    )
+
+
 def detect_claim_contradictions(claims: list[ClaimRecord]) -> list[ContradictionRecord]:
-    """Find likely contradictions without pretending full semantic proof."""
+    """Pairs of statements from different sources where one says what the other denies.
+
+    Uses the rules of the claim check, so both statements have to be about the same thing (one
+    covers the other's key terms) and one has to negate it, use the opposite word, give a different
+    figure or, for something that happens once, a different year. Sharing words is not enough, and
+    the same event in two different years is two occasions, not a contradiction. Only statements
+    made outright are compared: "it may have fallen" does not contradict "it rose". Statements
+    that disagree in other words are missed.
+    """
 
     contradictions: list[ContradictionRecord] = []
+    term_sets = [set(_claim_terms(claim.text)) for claim in claims]
+    firm = [_is_firm(claim.text) for claim in claims]
     for i, first in enumerate(claims):
-        first_terms = _term_set(first.text)
-        if not first_terms:
-            continue
-        for second in claims[i + 1 :]:
-            if first.source_url == second.source_url:
+        for j in range(i + 1, len(claims)):
+            second = claims[j]
+            if first.source_url == second.source_url or not (firm[i] and firm[j]) or len(term_sets[i] & term_sets[j]) < 2:
                 continue
-            overlap = first_terms & _term_set(second.text)
-            if len(overlap) < 2:
+            stance, reason = stance_with_reason(first.text, second.text)
+            if stance != "contradicts":
+                stance, reason = stance_with_reason(second.text, first.text)
+            if stance != "contradicts":
                 continue
-            first_neg = bool(NEGATION_RE.search(first.text))
-            second_neg = bool(NEGATION_RE.search(second.text))
-            first_aff = bool(AFFIRMATION_RE.search(first.text))
-            second_aff = bool(AFFIRMATION_RE.search(second.text))
-            if first_neg != second_neg and (first_aff or second_aff):
-                severity = "Medium" if min(first.source_trust, second.source_trust) >= 0.48 else "Weak"
-                contradictions.append(
-                    ContradictionRecord(
-                        claim_a=first.text,
-                        claim_b=second.text,
-                        source_a=first.source_url,
-                        source_b=second.source_url,
-                        severity=severity,
-                        reason=f"Shared terms with conflicting certainty/negation language: {', '.join(sorted(overlap)[:5])}",
-                    )
+            severity = "Medium" if min(first.source_trust, second.source_trust) >= 0.48 else "Weak"
+            contradictions.append(
+                ContradictionRecord(
+                    claim_a=first.text,
+                    claim_b=second.text,
+                    source_a=first.source_url,
+                    source_b=second.source_url,
+                    severity=severity,
+                    reason=f"One source against the other: {reason[0].lower()}{reason[1:]}",
                 )
+            )
             if len(contradictions) >= 20:
                 return contradictions
     return contradictions
@@ -847,13 +1453,30 @@ def _build_ai_prompt(report: ResearchReport) -> str:
         )
     claim_blocks = "\n".join(f"- {claim.text} ({claim.source_url})" for claim in report.claims[:18])
     contradiction_blocks = "\n".join(f"- {item.reason}: {item.claim_a} / {item.claim_b}" for item in report.contradictions[:8])
+    # Everything below the query was copied from web pages: take out lines aimed at the model
+    # and fence the rest, so a page cannot give the model instructions.
+    removed = 0
+    fenced = []
+    for label, body in (
+        ("source evidence", chr(10).join(source_blocks)),
+        ("extracted claims", claim_blocks or "No claims extracted."),
+        ("potential contradictions", contradiction_blocks or "None detected."),
+    ):
+        pieces = []
+        for piece in body.split(chr(10) * 2):
+            text, count = defuse_untrusted_text(piece)
+            removed += count
+            pieces.append(text)
+        fenced.append(fence_untrusted((chr(10) * 2).join(piece for piece in pieces if piece.strip()), label))
     return (
         "You are Cognitive Nexus Reality-First Research Agent. Use only the supplied sources and extracted claims. "
         "Do not invent sources, quotes, dates, or conclusions. Clearly separate confirmed findings from weak leads.\n\n"
+        f"{UNTRUSTED_RULE}\n\n"
         f"Query: {report.query}\n\n"
-        f"Source evidence:\n{chr(10).join(source_blocks)}\n\n"
-        f"Extracted claims:\n{claim_blocks or 'No claims extracted.'}\n\n"
-        f"Potential contradictions:\n{contradiction_blocks or 'None detected.'}\n\n"
+        f"Source evidence:\n{fenced[0]}\n\n"
+        f"Extracted claims:\n{fenced[1]}\n\n"
+        f"Potential contradictions:\n{fenced[2]}\n"
+        f"{removed_note(removed)}\n\n"
         "Write a concise report with: Direct answer, key findings, source trust notes, contradictions/uncertainty, and next steps."
     )
 
@@ -913,8 +1536,13 @@ def run_reality_research(
     ai_callback: Callable[[str], str] | None = None,
     research_module: Any | None = None,
     search_runner: Callable[..., dict[str, Any]] | None = None,
+    second_opinion_callback: Callable[[str], str] | None = None,
 ) -> ResearchReport:
-    """Run the full Reality-First research workflow."""
+    """Run the full Reality-First research workflow.
+
+    second_opinion_callback answers one short prompt with a model; it is used to double-check the
+    passages counted as supporting a claim (see apply_second_opinion).
+    """
 
     settings = settings or {}
     progress = progress_callback or (lambda _message: None)
@@ -979,7 +1607,10 @@ def run_reality_research(
     progress("Checking contradictions")
     contradictions = detect_claim_contradictions(claims)
 
-    verdict_data = determine_verdict(query, sources, claims, contradictions, verify=request.verify_claim)
+    asking = second_opinion_callback if request.second_opinion else None
+    if asking is not None and (is_verification_request(query) if request.verify_claim is None else request.verify_claim):
+        progress("Asking the model to read the evidence too")
+    verdict_data = determine_verdict(query, sources, claims, contradictions, verify=request.verify_claim, second_opinion=asking)
     if verdict_data["verdict"] and errors:
         # Don't imply the search was exhaustive when parts of it failed.
         verdict_data["uncertainty"].append(f"{len(errors)} search or page-fetch step(s) failed, so coverage is incomplete.")
@@ -1006,6 +1637,9 @@ def run_reality_research(
         verdict_claim=verdict_data["claim"],
         verdict_evidence=verdict_data["evidence_strength"],
         claim_evidence=verdict_data["evidence"],
+        unaddressed_sources=verdict_data["unaddressed"],
+        repeated_sources=verdict_data["repeats"],
+        second_opinion=verdict_data["second_opinion"],
     )
 
     if request.use_ai_summary and ai_callback and sources:

@@ -1281,6 +1281,7 @@ class NexusCore:
                 save_to_memory=bool(settings.get("reality_research_save_memory", True)),
                 show_weak_matches=bool(settings.get("reality_research_show_weak", True)),
                 use_ai_summary=bool(settings.get("reality_research_use_ai", True)),
+                second_opinion=bool(settings.get("reality_research_second_opinion", True)),
                 save_report=True,
                 # The command word ("verify ...", "fact check ...") was stripped from the query, so
                 # tell the agent this is a claim check; otherwise let it decide from the query.
@@ -1816,6 +1817,10 @@ class NexusCore:
         def ai_callback(prompt: str) -> str:
             return self._model_text(prompt, settings, {"temperature": 0.2, "num_predict": 700, "num_ctx": 4096})
 
+        def second_opinion(prompt: str) -> str:
+            # One word is wanted; a short answer keeps each passage to a few seconds on a CPU.
+            return self._model_text(prompt, settings, {"temperature": 0.0, "num_predict": 6, "num_ctx": 2048})
+
         return run_reality_research(
             request,
             settings=settings | {
@@ -1827,6 +1832,7 @@ class NexusCore:
             progress_callback=progress_callback,
             ai_callback=ai_callback if settings.get("provider_order") else None,
             research_module=self.get_research_module() if request.save_to_memory else None,
+            second_opinion_callback=second_opinion if settings.get("provider_order") else None,
         )
 
     def answer_knowledge(

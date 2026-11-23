@@ -137,7 +137,10 @@ class WebResearchTests(unittest.TestCase):
 
         prompt = web_research._build_brief_prompt("q", results, [])
 
-        self.assertLess(len(prompt), 800)
+        # The cap is on the snippet (300 characters); the fixed text around it (the instructions,
+        # the untrusted-content rule and the fence) is about 670 characters.
+        self.assertLess(len(prompt), 1080)
+        self.assertLess(prompt.count("word "), 70)
 
     def test_brief_session_scrapes_top_pages_and_asks_for_short_answer(self) -> None:
         results = [

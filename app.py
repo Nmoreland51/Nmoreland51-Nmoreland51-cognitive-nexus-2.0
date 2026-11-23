@@ -1180,6 +1180,12 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
     with col3:
         show_weak = st.checkbox("Show weak matches", value=True)
         use_ai_summary = st.checkbox("Provider synthesis", value=True)
+        second_opinion = st.checkbox(
+            "Model double-checks evidence",
+            value=bool(settings.get("reality_research_second_opinion", True)),
+            help="When checking a claim, the model also reads each passage counted as supporting it, and the passage "
+            "counts only where the model agrees with the wording rules. Adds a few seconds per passage on a CPU.",
+        )
 
     disabled = not bool(settings.get("enable_reality_research_agent", True))
     if disabled:
@@ -1197,6 +1203,7 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
             save_to_memory=save_to_memory,
             show_weak_matches=show_weak,
             use_ai_summary=use_ai_summary,
+            second_opinion=second_opinion,
             save_report=True,
         )
         progress_lines: list[str] = []
@@ -1228,7 +1235,26 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
                 if passages:
                     st.markdown(f"**{heading}**")
                 for item in passages[:5]:
-                    st.markdown(f'- "{item.passage}" - [{item.title or item.source or item.url}]({item.url}) (trust: {item.trust_label})')
+                    dates = "".join(f"; {word} {value[:10]}" for word, value in (("retrieved", item.retrieved_at), ("published", item.published)) if value)
+                    st.markdown(f'- "{item.passage}" - [{item.title or item.source or item.url}]({item.url}) (trust: {item.trust_label}{dates})')
+                    if item.reason:
+                        st.caption(f"Why: {item.reason}" + (" The model agreed." if item.second_opinion == "agrees" else ""))
+            set_aside = [item for item in report.claim_evidence if item.stance == "mentions"]
+            if set_aside:
+                with st.expander(f"Passages that mention the claim without settling it ({len(set_aside)})"):
+                    for item in set_aside[:8]:
+                        st.markdown(f'- "{item.passage}" - [{item.title or item.source or item.url}]({item.url})')
+                        if item.reason:
+                            st.caption(f"Why: {item.reason}")
+            if report.unaddressed_sources or report.repeated_sources:
+                with st.expander(
+                    f"Left out: {len(report.unaddressed_sources)} source(s) that did not address the claim, "
+                    f"{len(report.repeated_sources)} repeat(s)"
+                ):
+                    for url in report.unaddressed_sources[:15]:
+                        st.markdown(f"- Did not address the claim: {url}")
+                    for item in report.repeated_sources[:15]:
+                        st.markdown(f"- Counted once ({item['why']}): {item['url']}")
             for note in report.uncertainty_notes:
                 st.caption(f"Note: {note}")
 

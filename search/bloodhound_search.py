@@ -15,6 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from modules.web_research import clean_text, get_domain, scrape_url, search_web, slugify_query
 from search.onion_search import run_onion_search
+from core.reality_grounding.prompt_firewall import UNTRUSTED_RULE, defuse_untrusted_text, fence_untrusted, removed_note
 from modules.data_stores import DATA_ROOT
 from modules.file_utils import atomic_write_text
 
@@ -78,6 +79,8 @@ class BloodhoundResult:
     page_title: str = ""
     excerpt: str = ""
     links_followed_from: str = ""
+    retrieved_at: str = ""  # when the page (or, failing that, the search result) was fetched
+    published: str = ""  # the date the page gives for itself, when it gives one
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -312,6 +315,8 @@ def _score_result(result: dict[str, Any], query: str, page: dict[str, Any] | Non
         page_title=str((page or {}).get("title", "")),
         excerpt=excerpt,
         links_followed_from=str(result.get("links_followed_from", "")),
+        retrieved_at=str((page or {}).get("retrieved_at") or result.get("retrieved_at") or ""),
+        published=str((page or {}).get("published") or ""),
     )
 
 
@@ -547,13 +552,21 @@ def _build_ai_prompt(query: str, ranked: list[BloodhoundResult], coverage: dict[
             f"Score: {item.score}\n"
             f"Snippet: {item.excerpt or item.snippet}\n"
         )
+    cleaned = []
+    removed = 0
+    for block in blocks:
+        text, count = defuse_untrusted_text(block)
+        removed += count
+        cleaned.append(text)
     return (
         "You are Cognitive Nexus Bloodhound Search Mode. Summarize only the supplied sources. "
         "Do not invent sources, timestamps, or claims.\n\n"
+        f"{UNTRUSTED_RULE}\n\n"
         f"Query: {query}\n\n"
         f"Coverage: {json.dumps(coverage, ensure_ascii=False)}\n\n"
         "Ranked evidence:\n"
-        + "\n".join(blocks)
+        + fence_untrusted("\n\n".join(cleaned), "search results")
+        + (f"\n{removed_note(removed)}" if removed else "")
         + "\n\nWrite: Summary, confirmed matches, weak/possible matches, uncertainty, final answer."
     )
 

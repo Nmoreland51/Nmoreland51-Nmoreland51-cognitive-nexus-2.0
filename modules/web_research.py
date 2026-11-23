@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import logging
@@ -9,11 +10,10 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from functools import lru_cache
-from threading import local
+from datetime import datetime, timezone
+from threading import Lock, local
 from typing import Any, Callable
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
 import requests
 
@@ -35,6 +35,7 @@ try:
 except Exception:
     trafilatura = None
 
+from core.reality_grounding.prompt_firewall import UNTRUSTED_RULE, defuse_untrusted_text, fence_untrusted, removed_note
 from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
 from modules.file_utils import atomic_write_text
@@ -154,7 +155,89 @@ def _search_result(title: str, url: str, snippet: str, timestamp: str = "") -> d
         "snippet": _shorten(clean_text(snippet), MAX_SNIPPET_CHARS),
         "source": get_domain(url),
         "timestamp": timestamp or "",
+        "retrieved_at": _utc_now(),
     }
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# How long a search result list and a fetched page are reused. Without an expiry, a "latest
+# version" answer stayed whatever it was when the app started.
+SEARCH_CACHE_SECONDS = 600
+PAGE_CACHE_SECONDS = 1800
+_TRACKING_PARAMETERS = re.compile(r"^(?:utm_[a-z]+|fbclid|gclid|msclkid|mc_cid|mc_eid|ref|ref_src|igshid|spm)$", re.IGNORECASE)
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+_HOST_SPACING_SECONDS = 0.4
+_host_lock = Lock()
+_host_last_request: dict[str, float] = {}
+
+
+class _ExpiringCache:
+    """Decorator: remember results for a limited time. `keep` decides whether a result is worth keeping."""
+
+    def __init__(self, seconds: float, maxsize: int, keep: Callable[[Any], bool] = lambda _value: True) -> None:
+        self.seconds, self.maxsize, self.keep = seconds, maxsize, keep
+        self._items: dict[tuple, tuple[float, Any]] = {}
+        self._lock = Lock()
+
+    def __call__(self, function: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any) -> Any:
+            now = time.monotonic()
+            with self._lock:
+                hit = self._items.get(args)
+                if hit and now - hit[0] < self.seconds:
+                    return hit[1]
+            value = function(*args)
+            if self.keep(value):
+                with self._lock:
+                    if len(self._items) >= self.maxsize:
+                        oldest = min(self._items, key=lambda key: self._items[key][0])
+                        del self._items[oldest]
+                    self._items[args] = (now, value)
+            return value
+
+        wrapper.cache_clear = self.clear  # type: ignore[attr-defined]
+        wrapper.__doc__ = function.__doc__
+        return wrapper
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+def canonical_url(url: str) -> str:
+    """The same page under one address: no fragment, no tracking parameters, no trailing slash."""
+
+    try:
+        parts = urlsplit(url.strip())
+    except ValueError:
+        return url.strip()
+    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if not _TRACKING_PARAMETERS.match(key)]
+    path = parts.path.rstrip("/") or "/"
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, urlencode(query), ""))
+
+
+def _retry_wait(retry_after: Any) -> float:
+    """Seconds to wait before the one retry: what the server asked for, up to five."""
+
+    try:
+        return min(max(float(retry_after), 0.0), 5.0)
+    except (TypeError, ValueError):
+        return 1.0  # no header, or a date instead of a number of seconds
+
+
+def _wait_for_host(url: str) -> None:
+    """Space out requests to the same site so a research run does not hammer it."""
+
+    host = get_domain(url)
+    with _host_lock:
+        now = time.monotonic()
+        wait = _host_last_request.get(host, 0.0) + _HOST_SPACING_SECONDS - now
+        _host_last_request[host] = max(now, now + wait)
+    if wait > 0:
+        time.sleep(wait)
 
 
 def _get_json(url: str, *, params: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
@@ -290,7 +373,7 @@ def search_sources_status() -> list[dict[str, Any]]:
     return status
 
 
-@lru_cache(maxsize=64)
+@_ExpiringCache(SEARCH_CACHE_SECONDS, 64)
 def _search_web_cached(query: str, max_results: int) -> tuple[str, ...]:
     """Search with automatic switching between sources and cache successful queries."""
 
@@ -415,7 +498,7 @@ def _extract_with_beautifulsoup(html: str) -> dict[str, Any]:
     }
 
 
-@lru_cache(maxsize=128)
+@_ExpiringCache(PAGE_CACHE_SECONDS, 128, keep=lambda value: '"success": true' in value)
 def _scrape_url_cached(url: str, timeout: int = 8) -> str:
     """Scrape a URL into readable text and cache repeat visits."""
 
@@ -432,14 +515,32 @@ def _scrape_url_cached(url: str, timeout: int = 8) -> str:
         "excerpt": "",
         "success": False,
         "error": None,
+        "retrieved_at": _utc_now(),
+        "published": "",
+        "canonical_url": canonical_url(url),
     }
 
     try:
         # URLs come from search results and links on other pages: refuse local/private addresses,
         # including ones reached through redirects.
-        response = safe_get(url, session=_http_session(), timeout=timeout)
+        response = None
+        for attempt in range(2):
+            _wait_for_host(url)
+            try:
+                response = safe_get(url, session=_http_session(), timeout=timeout)
+            except (requests.Timeout, requests.ConnectionError):
+                if attempt:
+                    raise
+                time.sleep(1.0)  # one retry for a dropped or slow connection
+                continue
+            if response.status_code in _RETRY_STATUS and not attempt:
+                time.sleep(_retry_wait(response.headers.get("Retry-After")))
+                continue
+            break
+        assert response is not None
         response.raise_for_status()
         html = response.text
+        output["published"] = _published_date(html)
 
         soup_payload = _extract_with_beautifulsoup(html)
         output.update(soup_payload)
@@ -467,10 +568,65 @@ def _scrape_url_cached(url: str, timeout: int = 8) -> str:
     return json.dumps(output, ensure_ascii=False)
 
 
+def _published_date(html: str) -> str:
+    """When the page says it was published or last changed (YYYY-MM-DD), or "" when it does not say."""
+
+    if trafilatura is not None:
+        try:
+            metadata = trafilatura.extract_metadata(html)
+            date = getattr(metadata, "date", None) if metadata is not None else None
+            if date:
+                return str(date)[:10]
+        except Exception:
+            pass
+    match = re.search(
+        r'<meta[^>]+(?:property|name|itemprop)=["\'](?:article:(?:published|modified)_time|date|datePublished|dateModified|last-modified)["\'][^>]+content=["\'](\d{4}-\d{2}-\d{2})',
+        html or "",
+        flags=re.IGNORECASE,
+    )
+    return match.group(1) if match else ""
+
+
+_FRESHNESS_WORDS = re.compile(r"\b(?:latest|newest|current(?:ly)?|today|now|recent(?:ly)?|this (?:week|month|year)|up[- ]to[- ]date)\b", re.IGNORECASE)
+
+
+def staleness_note(query: str, scraped_pages: list[dict[str, Any]], today: datetime | None = None) -> str:
+    """A caution when the question is about what is current and the sources are old or undated."""
+
+    if not _FRESHNESS_WORDS.search(query or ""):
+        return ""
+    dates = sorted(str(page.get("published") or "")[:10] for page in scraped_pages if page.get("success") and page.get("published"))
+    if not dates:
+        if not any(page.get("success") for page in scraped_pages):
+            return ""
+        return "\n\nNote: none of the pages state when they were published, so this may not be the current situation."
+    newest = dates[-1]
+    try:
+        age_days = ((today or datetime.now()) - datetime.fromisoformat(newest)).days
+    except ValueError:
+        return ""
+    if age_days > 365:
+        return f"\n\nNote: the newest dated page is from {newest}, over a year old; the current situation may differ."
+    return ""
+
+
 def scrape_url(url: str, timeout: int = 8) -> dict[str, Any]:
     """Scrape a URL into readable text and structured page parts."""
 
     return json.loads(_scrape_url_cached(url, int(timeout)))
+
+
+def _fenced_context(pieces: list[str], label: str) -> tuple[str, str]:
+    """The web text for a prompt: lines aimed at the model removed, the rest fenced. Returns (block, note)."""
+
+    cleaned = []
+    removed = 0
+    for piece in pieces:
+        text, count = defuse_untrusted_text(piece)
+        removed += count
+        if text.strip():
+            cleaned.append(text)
+    return fence_untrusted("\n\n".join(cleaned), label), removed_note(removed)
 
 
 def _build_research_prompt(
@@ -490,22 +646,27 @@ def _build_research_prompt(
 
     for idx, page in enumerate(scraped_pages, 1):
         if page.get("success"):
+            published = f"Published: {page.get('published')}\n" if page.get("published") else ""
             source_blocks.append(
-                f"\nSCRAPED PAGE {idx}: {page.get('title')}\n"
+                f"SCRAPED PAGE {idx}: {page.get('title')}\n"
                 f"URL: {page.get('url')}\n"
-                f"TEXT EXCERPT:\n{page.get('excerpt', '')}\n"
+                f"{published}"
+                f"TEXT EXCERPT: {page.get('excerpt', '')}\n"
             )
 
-    research_context = "\n\n".join(source_blocks)
+    research_context, note = _fenced_context(source_blocks, "web research")
 
     return f"""
 You are Cognitive Nexus Web Research.
+
+{UNTRUSTED_RULE}
 
 User query:
 {query}
 
 Research context:
 {research_context}
+{note}
 
 Write a useful answer with:
 1. Direct answer
@@ -568,15 +729,19 @@ def _build_brief_prompt(
     for page in scraped_pages:
         if page.get("success"):
             blocks.append(f"PAGE {page.get('title') or page.get('url')}: {_relevant_excerpt(page.get('text', ''), query)}")
-    context = "\n".join(blocks)
+    context, note = _fenced_context(blocks, "web results")
     return f"""Question: {query}
+
+{UNTRUSTED_RULE}
 
 Fresh web results (newer than your training data):
 {context}
+{note}
 
-Answer in 2-3 short sentences using only these web results. Include dates or version numbers
-when relevant. Do not list sources or URLs; the app shows them. If the results do not answer
-the question, say so.
+Answer the question in 2-3 short sentences using only these web results. Include dates or
+version numbers when relevant. Do not list sources or URLs; the app shows them. If the results
+do not contain the answer, begin with "The web results do not say" and name what is missing;
+do not offer other facts in its place.
 """
 
 
@@ -603,6 +768,41 @@ def unsourced_numbers_note(answer: str, source_text: str) -> str:
     )
 
 
+_LINK_IN_TEXT = re.compile(r"https?://[^\s<>()\[\]\"'`]+")
+
+
+def unlisted_links(answer: str, source_text: str) -> list[str]:
+    """Links in the answer that appear nowhere in what the model was given.
+
+    A model asked for a source list sometimes writes a plausible address instead of copying one.
+    Addresses are compared without tracking parameters, fragments or a trailing slash. The front
+    page or a parent folder of a retrieved page is accepted; another page on the same site is not.
+    """
+
+    known = {canonical_url(link.rstrip(".,;:!?*_")) for link in _LINK_IN_TEXT.findall(source_text or "")}
+    found: list[str] = []
+    for raw in _LINK_IN_TEXT.findall(answer or ""):
+        link = raw.rstrip(".,;:!?*_")
+        address = canonical_url(link)
+        # The front page or a parent folder of a retrieved page is that site, not an invention.
+        parent_of_known = any(source.startswith(address.rstrip("/") + "/") for source in known) and "?" not in address
+        if address not in known and not parent_of_known and link not in found:
+            found.append(link)
+    return found
+
+
+def unlisted_links_note(answer: str, source_text: str) -> str:
+    """Warning to append when the answer cites links that were not retrieved, else ""."""
+
+    missing = unlisted_links(answer, source_text)
+    if not missing:
+        return ""
+    return (
+        f"\n\n⚠️ Not among the pages that were retrieved: {', '.join(missing[:5])}. "
+        "The model may have made these links up, so do not rely on them."
+    )
+
+
 def summarize_research_result(
     query: str,
     results: list[dict[str, Any]],
@@ -616,7 +816,7 @@ def summarize_research_result(
     outcomes (no sources, no provider, the model failed) return a plain statement of what
     happened, which must not be stored or presented as a research summary.
 
-    Version numbers or years the model wrote that aren't in its sources get a warning appended.
+    Version numbers, years or links the model wrote that aren't in its sources get a warning appended.
     """
 
     if not _has_research_sources(results, scraped_pages):
@@ -639,7 +839,8 @@ def summarize_research_result(
     if not summary:
         return "AI summarization returned no text. The pages that were found are listed below.", False
     logger.info("Research summary generated query=%r chars=%s", query, len(summary))
-    return summary + unsourced_numbers_note(summary, prompt), True
+    notes = unsourced_numbers_note(summary, prompt) + unlisted_links_note(summary, prompt) + staleness_note(query, scraped_pages)
+    return summary + notes, True
 
 
 def summarize_research(
@@ -795,7 +996,9 @@ def gather_research(
     timings["search"] = time.perf_counter() - started
 
     if scrape_pages:
-        urls = [result.get("url") for result in results if result.get("url")]
+        # The same page often appears twice in results under addresses that differ only in
+        # tracking parameters; fetch it once.
+        urls = list({canonical_url(str(result.get("url"))): str(result.get("url")) for result in results if result.get("url")}.values())
         if brief:
             urls = urls[:BRIEF_MAX_PAGES]
         with ThreadPoolExecutor(max_workers=min(4, max(1, len(urls)))) as executor:
@@ -815,6 +1018,19 @@ def gather_research(
                 if not page.get("success") and page.get("error"):
                     errors.append(f"Scrape failed for {url}: {page['error']}")
     timings["scrape"] = time.perf_counter() - started - timings["search"]
+    # Keep the pages in the order of the search results, and mark copies of the same text on
+    # several sites: a syndicated article is one source, not several.
+    order = {canonical_url(str(result.get("url"))): index for index, result in enumerate(results)}
+    scraped_pages.sort(key=lambda page: order.get(canonical_url(str(page.get("url"))), len(order)))
+    seen_text: dict[str, str] = {}
+    for page in scraped_pages:
+        if not page.get("success"):
+            continue
+        fingerprint = hashlib.sha1(re.sub(r"\W+", " ", str(page.get("text", "")).lower())[:4000].encode("utf-8")).hexdigest()
+        if fingerprint in seen_text:
+            page["duplicate_of"] = seen_text[fingerprint]
+        else:
+            seen_text[fingerprint] = str(page.get("url"))
 
     return {
         "query": query,
