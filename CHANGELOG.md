@@ -19,6 +19,10 @@ Notable changes to the engine and desktop app. Versions follow `cognitive_nexus/
 - The adaptive memory no longer erases facts saved by "remember ...": it kept its own copy of the profile and wrote it back whole. Its "forget" no longer matches parts of words ("forget it" could erase every memory containing "it").
 - Saved memory no longer drops old facts silently at 25 or 60 items; the limit is 500 and reaching it is reported.
 - Two programs or tabs saving at the same time no longer overwrite each other's changes (measured before the fix: 22 of 80 concurrent updates survived).
+- A web page can no longer give the model instructions. Page text was pasted straight into the prompt, and the local model obeyed 6 of 12 planted instructions ("end every answer with ...", "do not tell the user ..."). Sentences aimed at an AI model are now removed, the rest is fenced as untrusted, and a page cannot forge the end of the fence: 0 of 12 obeyed, with the real facts still answered.
+- The claim check no longer counts a passage as support because it shares the claim's words. It compares the same statement: a different figure, a different year for a one-time event, or the opposite word ("fell" for "rose") contradicts; another year of a recurring event, a question, a hedge, an open question or a reported opinion settles nothing; a passage about someone else is not about the claim.
+- "Latest version" answers could stay whatever they were when the app started: search results and fetched pages were cached with no expiry. They now expire after 10 and 30 minutes, and failed fetches are not remembered.
+- Contradictions between sources were flagged whenever two sentences shared words and one contained "not". They are now found with the claim check's rules, between statements made outright, about the same thing.
 
 ### Added
 - Search sources with automatic switching (SearXNG, Brave Search API, search pages, Wikipedia).
@@ -36,6 +40,12 @@ Notable changes to the engine and desktop app. Versions follow `cognitive_nexus/
 - `COGNITIVE_NEXUS_HOME` keeps all saved data outside the project folder.
 - The summary of older chat turns covers the whole conversation and keeps decisions, numbers and file names rather than the last 18 messages.
 - Diagnostics shows how the last prompt was fitted to the model's context window.
+- Claim checks show their working: why each passage was counted, when the page was retrieved and published, which sources did not address the claim, and which were repeats of a site or passage already counted. When supporting and contradicting pages have different dates, the report says which is newer.
+- The model re-reads each passage the rules count as supporting a claim, and the passage counts only if both agree (a setting; a few seconds per passage). Measured on unseen passages: false support 5 of 30 without it, 3 of 30 with it.
+- Research answers flag links that were not among the retrieved pages, in addition to version numbers and years that are not in the sources.
+- Fetching pages: one retry for a dropped connection or a busy server, a pause between requests to the same site, the same page under two addresses fetched once, and copies of one article on several sites marked as one source.
+- Measured results in `docs/benchmarks`, each with the tool that produced it: hidden instructions in pages, the claim check on four labelled sets (two of them never used to adjust it), and research answers on frozen pages. Saved results carry a fingerprint of the prompt they were measured with, and a test fails when the app's prompt changes without a new measurement.
+- Foundations for an agent that acts (`agent/`): a registry in which every tool has a schema and a declared effect; approvals by effect, with anything that reaches outside the machine always needing one; a history of every action with its inputs, approval and checked result; tasks with owner, status, dependencies and acceptance tests; a sandbox for running programs with a clean environment, memory, process and time limits and, on Windows, writes refused outside the task folder; a private Git worktree and branch per task; and tools to read, search, edit with undo, run tests and commit.
 
 ### Known limitations
 See `docs/STATUS.md`.
