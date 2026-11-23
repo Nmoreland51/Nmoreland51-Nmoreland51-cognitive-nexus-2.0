@@ -651,6 +651,13 @@ def analyze_conversational_pragmatics(message: str, history_tail: str = "") -> d
     return payload
 
 
+_MEMORY_COMMAND = re.compile(
+    r"^\s*(?:please\s+)?(?:remember|forget)\b"
+    r"|\bwhat (?:did i (?:tell|ask) you to remember|do you remember)\b"
+    r"|\b(?:show|list) saved memor(?:y|ies)\b"
+)
+
+
 def _keyword_score(text: str, words: list[str]) -> int:
     return sum(1 for word in words if re.search(rf"\b{re.escape(word)}\b", text))
 
@@ -676,6 +683,10 @@ def analyze_intent_cached(message: str, history_tail: str = "") -> dict[str, Any
         scores["file_or_memory_lookup"] += _keyword_score(text, ["local knowledge", "saved material", "retrieved knowledge", "knowledge chunks"])
         if "local knowledge" in text or "saved material" in text or "knowledge chunks" in text:
             scores["file_or_memory_lookup"] += 3
+        # Same phrasings the local memory handler acts on (context_manager.handle_local_memory_command),
+        # plus asking what was saved. Without this, "Remember that X is Y" scored as simple_fact.
+        if _MEMORY_COMMAND.search(text):
+            scores["memory_command"] += 4
         scores["project_planning"] += _keyword_score(text, ["plan", "next", "improve", "roadmap", "repo"])
         scores["research"] += _keyword_score(text, ["research", "latest", "current", "sources", "look up"])
         scores["reality_check"] += _keyword_score(text, ["reality", "hallucination", "verify", "grounded"])

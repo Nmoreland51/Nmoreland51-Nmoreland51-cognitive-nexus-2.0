@@ -511,6 +511,12 @@ class TestResponsePlanner(unittest.TestCase):
         self.assertTrue(reality["show_perf_timings"])
         self.assertTrue(debugging["show_perf_timings"])
 
+    def test_memory_commands_are_classified_without_catching_ordinary_remember(self):
+        for message in ("remember that ollama is my default provider.", "what did i tell you to remember?", "forget my old address"):
+            self.assertEqual(analyze_intent_cached(message, "")["intent"], "memory_command", message)
+        for message in ("do you remember the movie inception?", "i can never remember my passwords"):
+            self.assertNotEqual(analyze_intent_cached(message, "")["intent"], "memory_command", message)
+
     def test_web_research_route_keeps_search_on_for_other_intents(self):
         # "search the web for the latest stable Python release" reads as coding_help, but the
         # router flags it as web_research, so search must stay on.
