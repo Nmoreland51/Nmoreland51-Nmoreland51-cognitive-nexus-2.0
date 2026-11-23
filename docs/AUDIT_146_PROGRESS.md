@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 34 |
-| PARTIAL | 47 |
-| MISSING | 64 |
+| COMPLETE | 44 |
+| PARTIAL | 41 |
+| MISSING | 60 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -18,14 +18,14 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 |---|---|---|---|---|
 | 1. Fix the foundations and release confusion (P0) | 4 | 5 | 1 | 0 |
 | 2. Make core AI chat genuinely reliable (P1) | 4 | 6 | 3 | 0 |
-| 3. Fix reality-first reasoning, fact checking, and research (P0) | 6 | 7 | 2 | 0 |
+| 3. Fix reality-first reasoning, fact checking, and research (P0) | 13 | 2 | 0 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 0 | 0 | 17 | 0 |
 | 6. Make external actions and automation useful (P1) | 0 | 0 | 11 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
-| 8. Performance and local hardware (P1) | 1 | 5 | 5 | 0 |
-| 9. Security, privacy and data integrity (P0) | 3 | 6 | 4 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 4 | 6 | 6 | 0 |
+| 8. Performance and local hardware (P1) | 2 | 4 | 5 | 0 |
+| 9. Security, privacy and data integrity (P0) | 3 | 7 | 3 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 5 | 5 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
 
 ## How to continue
@@ -62,6 +62,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, after Phase 1a and 1b: CI now runs lint, type checks, the secret scan and a dependency audit against pinned versions (Phase 1a). Providers: cloud fallback is off unless chosen, the fallback notice is never treated as a model answer, providers are proven with a real test prompt, the Anthropic default model and request are current, failures are logged by kind, and every answer is labelled with who wrote it (Phase 1b, commits de2332c, 725edd5, 4963836). Next: Phase 1c (cross-process locking for the JSON stores; fact records with provenance, conflicts and schema migrations; a token-aware context budget; export, encrypted backup, restore and selective wipe), then 1d (semantic embeddings; PDF and DOCX ingestion), then 1e (prompt-injection defence for research and the research benchmarks).
 - 2026-11-23, after Phase 1c: saved data is changed under cross-process locks; one fact store with provenance, replacement, expiry, migrations and forget that reaches history and snapshots; every store is listed in modules/data_stores.py (docs/DATA_STORES.md is generated); export, encrypted backup, verified restore, snapshots, repair and wipe (modules/backup.py, tools/data_tool.py, ui/data_panel.py); the prompt is sized in tokens against the model's real window (modules/token_estimate.py, modules/context_budget.py) after measuring that long prompts were being cut by the model server. Tests run in a throwaway home (tests/conftest.py). Still open from this phase: the knowledge index has no lock, version or migration (do it with the index rewrite in 1d); live files are not encrypted (item 112, security phase); project memory (048). Next: Phase 1d (knowledge store in SQLite with semantic embeddings from Ollama, hybrid keyword search, PDF and DOCX ingestion, a measured retrieval benchmark), then 1e (research prompts fence page text; hostile-content and stance benchmarks).
 - 2026-11-23, after Phase 1d: the knowledge index is one SQLite database (modules/knowledge_store.py) with a keyword index and vectors from an Ollama embedding model (all-minilm was installed on the test machine; the app never downloads a model itself). Search is scored on evidence and measured by tools/retrieval_benchmark.py (results in docs/benchmarks). PDF, Word, HTML, notebooks and source code can be uploaded (modules/ingest.py); images need OCR, which is not installed. To run the live search test: set CN_LIVE_OLLAMA_URL=http://localhost:11434. Next: Phase 1e (fence web page text in research prompts; hostile-content and stance benchmarks; cache web search results; evidence dates), then Phase 2 (the coding agent).
+- 2026-11-23, after Phase 1e: research prompts fence web text and drop sentences aimed at a model (measured: 6 of 12 planted instructions obeyed before, 0 after); the claim check compares the same statement, gives a reason and dates for every passage, lists what it left out, and has the model re-read supporting passages; contradictions between sources use the same rules; caches expire; fetching retries. Three benchmark tools with saved real-model results and gates are in tools/ and docs/benchmarks (re-run them after changing a research prompt: the tests tell you when). Phase 2 has started: agent/store.py, registry.py, approvals.py, sandbox.py, workspace.py and tools.py are in and tested. Next in Phase 2: the model interface and the coding loop (reproduce, edit, test, retry, stop, escalate) in agent/coder.py, the independent review (agent/review.py), pull requests (agent/github.py, needs a token to run for real), the durable job queue and scheduler (agent/jobs.py), a command-line entry and a tab in the app, then a live run with the local model on small seeded bugs, saved under docs/benchmarks.
 
 ## Items that need the owner
 
@@ -71,6 +72,8 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **003** (MISSING): Owner decision on which Android pull requests and branches to merge or close.
 - **004** (PARTIAL): Owner to merge the work branch into main (pull request not opened yet).
 - **014** (PARTIAL): An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
+- **028** (PARTIAL): The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.
+- **030** (PARTIAL): A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
 - **051** (PARTIAL): An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
 - **081** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **085** (PARTIAL): A phone and a private network (for example Tailscale) to test from home and cellular connections.
@@ -83,6 +86,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **095** (MISSING): Depends on item 094.
 - **112** (PARTIAL): Encryption of the live files is planned for the security phase. Until then, full-disk encryption (BitLocker) protects them.
 - **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
+- **115** (PARTIAL): The same measurement for uploaded documents, tool output and comments in code the agent reads.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
 - **134** (MISSING): Code-signing certificates and the Android signing keys (repository secrets).
@@ -283,13 +287,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** tests/test_reality_research_agent.py (report contains no 'Confidence:' line; score is 0.0 without evidence).
 - **Commits:** 1eb0e4a
 
-### 026 · P0 · observed · PARTIAL
+### 026 · P0 · observed · COMPLETE
 
 > Judge whether evidence actually supports/refutes the specific user claim, not just whether trusted sites were retrieved.
 
-- **Evidence:** assess_claim_evidence classes each source's best passage as supporting, contradicting or merely mentioning the claim. The judgement is keyword-level; its accuracy has not been measured on a labelled set.
-- **Tests:** tests/test_reality_research_agent.py::ClaimCheckTests.
-- **Commits:** 1eb0e4a
+- **Evidence:** The claim check judges what each passage says about the specific claim: one clause must cover the claim's key terms, names and numbers, and is then compared (a different figure, a different year of a one-time event or the opposite word contradicts; a question, hedge, open matter, reported opinion or another occasion settles nothing). The local model re-reads passages counted as support and they count only where both agree. Measured with dolphin3:8b on two labelled sets never used to adjust the rules (docs/benchmarks/stance.json): 83% and 80% of passages judged correctly, false support 2 of 47 and 3 of 30 (rules alone: 81% and 77%, false support 5 and 5). Known misses: a passage that says the same thing in other words; 'will close unless ...', 'was a hospital until ...', 'almost went bankrupt'.
+- **Tests:** tests/test_stance_benchmark.py (development sets fully right, held-out rounds as floors, saved measurement tied to the current rules and prompt); tests/test_claim_check_evidence.py; tests/test_reality_research_agent.py.
+- **Commits:** 1eb0e4a, 5278dea, 1878cee
 
 ### 027 · P0 · observed · COMPLETE
 
@@ -303,23 +307,27 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Map every factual claim to the exact cited passage, source URL, and retrieval timestamp.
 
-- **Evidence:** The claim check records the quoted passage, source URL and title for each piece of evidence. Retrieval timestamps are not stored per passage.
-- **Commits:** 1eb0e4a
+- **Evidence:** Every passage the claim check counts carries the quoted passage, source URL and title, when the page was retrieved, the date the page gives for itself, and the reason it was classed as it was; all of it is in the saved report and shown in the app. Search results and fetched pages record a retrieval time.
+- **Tests:** tests/test_claim_check_evidence.py::test_evidence_records_reason_and_dates_from_the_source, test_dates_travel_from_the_fetched_page_to_the_source_record, test_report_shows_reasons_dates_the_second_reading_and_what_was_left_out.
+- **Commits:** 1eb0e4a, 5278dea
+- **Needs:** The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.
 
-### 029 · P0 · recommended · PARTIAL
+### 029 · P0 · recommended · COMPLETE
 
 > Show why a source supports, contradicts, or does not address a claim.
 
-- **Evidence:** Reports list supporting, contradicting and 'mentions' passages. They do not explain which words drove the classification or list the sources that did not address the claim.
-- **Commits:** 1eb0e4a
+- **Evidence:** Each passage comes with the reason for its class in plain words ('It gives a different figure (54,000; the claim has 80,000)', 'It reports what others say ("believe") without confirming it'), whether the model agreed on a second reading, and the report lists the sources that did not address the claim and the ones that repeated a site or passage already counted.
+- **Tests:** tests/test_claim_check_evidence.py::test_every_classification_comes_with_its_reason (17 cases), test_breakdown_lists_repeats_and_sources_that_did_not_address_the_claim, test_report_shows_reasons_dates_the_second_reading_and_what_was_left_out.
+- **Commits:** 1eb0e4a, 5278dea
 
 ### 030 · P0 · recommended · PARTIAL
 
 > Handle misinformation repeated across many websites as one underlying unsupported claim, not independent confirmation.
 
-- **Evidence:** Sources on the same domain count once and an identical passage copied across sites counts once. Paraphrased copies of one underlying claim are not detected.
-- **Tests:** test_same_site_and_copied_passages_count_once.
-- **Commits:** 1eb0e4a
+- **Evidence:** Sources on the same site count once; the same passage on several sites counts once, including near-copies (four fifths of the words shared), and the report lists what was folded together; fetched pages with the same text are marked as copies of one source. A verdict stronger than 'weakly supported' needs two independent passages from medium- or high-trust sources.
+- **Tests:** tests/test_claim_check_evidence.py::test_a_rumour_copied_across_sites_is_one_weak_piece_of_evidence, test_breakdown_lists_repeats_and_sources_that_did_not_address_the_claim; tests/test_research_hardening.py::test_same_page_under_two_addresses_is_fetched_once_and_copies_are_marked.
+- **Commits:** 1eb0e4a, 5278dea
+- **Needs:** A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
 
 ### 031 · P0 · recommended · COMPLETE
 
@@ -329,12 +337,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** test_trusted_sources_...prove_nothing, test_reported_beliefs_and_questions_are_not_support.
 - **Commits:** 1eb0e4a
 
-### 032 · P0 · recommended · PARTIAL
+### 032 · P0 · recommended · COMPLETE
 
 > Account for stale pages, publication dates, changed facts, and retrieval failures.
 
-- **Evidence:** Failed searches and fetches add an 'incomplete coverage' note. Publication dates and page staleness are not considered.
-- **Commits:** 1eb0e4a
+- **Evidence:** Pages record when they were retrieved and the publication date they state. A question about what is current gets a caution when the newest dated page is over a year old or no page is dated. When supporting and contradicting pages carry different dates the claim check says which side is newer and that the facts may have changed; undated pages are pointed out. Failed searches and fetches are reported as incomplete coverage. Search results and pages are no longer cached for the life of the app (10 and 30 minutes; failures are not remembered).
+- **Tests:** tests/test_research_hardening.py (staleness note, published date, cache expiry); tests/test_claim_check_evidence.py::test_conflicting_evidence_notes_which_side_is_newer, test_undated_pages_are_pointed_out.
+- **Commits:** 1eb0e4a, 5278dea
 
 ### 033 · P0 · recommended · COMPLETE
 
@@ -344,33 +353,37 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** test_report_quotes_the_passages_and_admits_incomplete_coverage; tests/test_web_research.py no-results tests.
 - **Commits:** 58e902f, 853820e, 1eb0e4a
 
-### 034 · P0 · recommended · MISSING
+### 034 · P0 · recommended · COMPLETE
 
 > Improve contradiction extraction beyond keyword matching; compare the same proposition and timeframe.
 
-- **Evidence:** detect_claim_contradictions still compares shared keywords plus negation words; it does not compare the same proposition or timeframe.
+- **Evidence:** Contradictions between sources are found with the claim check's rules instead of shared keywords plus a negation word: both statements must be made outright and be about the same thing, and one must negate the other, use the opposite word, or give a different figure or (for a one-time event) year. The same event in two years is two occasions, not a contradiction; a hedged or reported statement contradicts nothing. Statements that disagree in other words are missed, and the report says so.
+- **Tests:** tests/test_claim_check_evidence.py::test_contradictions_are_statements_about_the_same_thing_that_disagree, test_different_figures_for_the_same_thing_are_a_contradiction, test_related_statements_that_do_not_disagree_are_not_flagged (5 cases), test_one_source_cannot_contradict_itself_into_the_list.
+- **Commits:** 5278dea
 
-### 035 · P0 · recommended · PARTIAL
+### 035 · P0 · recommended · COMPLETE
 
 > Harden scraper text extraction, retries, rate limits, canonical URLs, and duplicate handling.
 
-- **Evidence:** Extraction keeps headings, glued search titles are trimmed, search switches source on errors with a cool-down, and URLs are normalised and de-duplicated. There are no fetch retries or back-off.
-- **Tests:** tests/test_web_research.py.
-- **Commits:** 58e902f, 5453611, 853820e
+- **Evidence:** Fetching retries once after a dropped connection, a timeout or a busy server (waiting as long as the server asks, up to five seconds), pauses between requests to the same site, treats addresses that differ only in tracking parameters, fragment or trailing slash as one page, and marks pages with identical text as copies. Failed fetches are not cached. Text extraction keeps headings (done earlier).
+- **Tests:** tests/test_research_hardening.py::test_a_dropped_connection_is_retried_once, test_a_busy_server_is_retried_once_after_the_wait_it_asks_for, test_a_page_that_keeps_failing_is_reported_and_not_remembered, test_canonical_url_drops_tracking_fragments_and_trailing_slashes, test_same_page_under_two_addresses_is_fetched_once_and_copies_are_marked.
+- **Commits:** 58e902f, 5453611, 853820e, 5278dea
 
-### 036 · P0 · recommended · MISSING
+### 036 · P0 · recommended · COMPLETE
 
 > Evaluate search relevance and citation faithfulness on a fixed research benchmark.
 
-- **Evidence:** No fixed benchmark for search relevance or citation faithfulness exists.
+- **Evidence:** tools/research_benchmark.py runs 12 fixed questions over frozen search results and page texts through the app's own code and the real model. Measured with dolphin3:8b (docs/benchmarks/research_dolphin3-8b.json): the answering page is ranked first for 7 of 9 and within the first two for 9 of 9; the excerpt taken from it contains the answer for 9 of 9; chat web answers state the right fact for 9 of 9; no answer contains a version, year or link that is in none of its sources (0 of 12 chat, 0 of 3 full). Weak spot found: for questions the pages cannot answer, the model said so in only 1 of 3 and otherwise recited nearby facts.
+- **Tests:** tests/test_research_benchmark.py (ranking and excerpt gates on every run; the saved answers are re-judged and tied to the current prompt by fingerprint).
+- **Commits:** 1878cee
 
-### 037 · P0 · observed · PARTIAL
+### 037 · P0 · observed · COMPLETE
 
 > Treat prompt-injection checks as one defense layer, not proof that retrieved text is harmless.
 
-- **Evidence:** Untrusted content is fenced in marked blocks and scanned for injection patterns; the scan result changes how a block is presented, it is not treated as proof the text is safe. New: text that imitates the block markers is neutralized so content cannot appear to close its own block, a block that shows signs of injection keeps its full warning even after being shortened, and text is shortened before it is fenced so a closing marker is never cut off. Web pages placed in research prompts are still not fenced, and there is no hostile-content benchmark yet (items 026, 115).
-- **Tests:** tests/test_prompt_firewall.py; tests/test_context_budget.py::test_block_markers_inside_content_cannot_close_the_block, test_a_suspicious_block_keeps_its_warning_even_after_it_is_shortened, test_harmless_blocks_are_compact_and_the_rule_is_stated_once_in_the_prompt.
-- **Commits:** ba0708c
+- **Evidence:** The injection scan is one of three layers and is not treated as proof of safety: sentences aimed at an AI model are removed before the model sees web text, the rest is fenced as untrusted with markers a page cannot forge, and web text never reaches a tool. Measured against the real model on 12 hostile pages: 6 obeyed before, 0 now, with the real fact kept in all 14 answers. The documentation states that this shows the defence works on these pages, not that web text is safe.
+- **Tests:** tests/test_research_hardening.py (removal, false positives on ordinary prose, forged markers, every research prompt fenced, saved result tied to the current prompt).
+- **Commits:** ba0708c, 5278dea, 1878cee
 
 ### 038 · P0 · observed · COMPLETE
 
@@ -805,13 +818,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** tests/test_context_budget.py::test_budget_never_asks_for_more_than_the_model_or_the_machine_allows, test_the_window_never_shrinks_while_the_model_is_loaded, test_router_raises_the_window_for_a_prompt_that_would_not_fit, test_router_respects_a_small_model_and_reports_a_prompt_it_cannot_fit, test_default_window_limit_follows_installed_memory.
 - **Commits:** ba0708c
 
-### 100 · P1 · recommended · PARTIAL
+### 100 · P1 · recommended · COMPLETE
 
 > Cache embeddings, document parse results and safe research requests with invalidation rules.
 
-- **Evidence:** Embeddings are cached by backend and text (reused when a document is added again; the cache is pruned at 50,000 entries and a different model has its own entries), a document whose content has not changed is recognised by hash and not processed again, query vectors are kept in memory, and the vector matrix is reloaded only when the data changed. Bloodhound search results are cached for 24 hours. Web search results and fetched pages in the Web Research path are not cached.
-- **Tests:** tests/test_knowledge_store.py::test_adding_the_same_document_again_does_no_work, test_re_adding_text_reuses_saved_vectors; tests/test_ingest.py::test_uploading_the_same_file_again_is_recognised.
-- **Commits:** 3a1c1e5
+- **Evidence:** Embeddings are cached by model and text and pruned; a document whose content has not changed is recognised by its hash and not parsed again; query vectors are kept in memory. Research requests are now cached with an expiry instead of for the life of the app: search results 10 minutes, fetched pages 30 minutes, failures not at all, with a size limit and an explicit clear.
+- **Tests:** tests/test_research_hardening.py::test_cache_reuses_a_result_then_forgets_it, test_cache_keeps_only_what_is_worth_keeping_and_stays_bounded, test_search_and_page_caches_have_an_expiry; tests/test_knowledge_store.py (embedding cache, unchanged document).
+- **Commits:** 3a1c1e5, 5278dea
 
 ### 101 · P1 · recommended · PARTIAL
 
@@ -911,11 +924,14 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** No written access model. The desktop app is single-user by design and the Android backend uses one shared token.
 
-### 115 · P0 · recommended · MISSING
+### 115 · P0 · recommended · PARTIAL
 
 > Test prompt injection through webpages, documents, tools, and code comments with a hostile-content benchmark.
 
-- **Evidence:** tests/test_prompt_firewall.py unit-tests the firewall; there is no hostile-content benchmark across web pages, documents and tools.
+- **Evidence:** A hostile-content benchmark exists for web pages and is run against the real model (tools/injection_benchmark.py, 12 attacks and 2 controls; 6 of 12 obeyed before the defences, 0 of 12 after).
+- **Tests:** tests/test_research_hardening.py.
+- **Commits:** 1878cee
+- **Needs:** The same measurement for uploaded documents, tool output and comments in code the agent reads.
 
 ### 116 · P0 · recommended · COMPLETE
 
@@ -1000,11 +1016,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** All automated tests mock the model. Live checks against Ollama were done by hand on 2026-11-23 and are not repeatable as a test.
 
-### 127 · P0 · recommended · MISSING
+### 127 · P0 · recommended · COMPLETE
 
 > Make citation accuracy, hallucination resistance, model fallback and research verdict quality release gates.
 
-- **Evidence:** No release gates on citation accuracy, hallucination resistance, fallback behaviour or verdict quality.
+- **Evidence:** Release gates that run on every push: citation faithfulness and hallucination resistance (tests/test_research_benchmark.py: the answering page must be ranked within the pages that get read, the excerpt must contain the answer, and the saved real-model answers must be right in at least 8 of 9 with at most 2 of 12 stating anything outside their sources); verdict quality (tests/test_stance_benchmark.py: development sets fully right, held-out rounds not below their measured scores); model fallback (tests/test_provider_truth.py and tests/test_model_failure_paths.py: no cloud call unless chosen, the fallback notice never stored as an answer). CI cannot run a model, so the model's answers are saved measurements; each is tied to the prompt it was measured with, and the gate fails when the app's prompt changes without a new measurement.
+- **Tests:** tests/test_research_benchmark.py, tests/test_stance_benchmark.py, tests/test_research_hardening.py::test_saved_benchmark_describes_the_prompts_the_app_builds_now, tests/test_provider_truth.py, tests/test_model_failure_paths.py.
+- **Commits:** 1878cee, de2332c
 
 ### 128 · P0 · observed · MISSING
 
@@ -1036,13 +1054,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** Reviewed the three documents after the change.
 - **Commits:** dc1662f
 
-### 132 · P0 · recommended · PARTIAL
+### 132 · P0 · recommended · COMPLETE
 
 > Implement logging/metrics that separate actual errors, model failures, tool failures and degraded-mode fallbacks.
 
-- **Evidence:** modules/event_log.py records typed events with counts, in memory and in logs/events.jsonl, never with prompts or answers. Recorded today: model failures, fallback notices, cloud providers skipped, search-source failures, and degraded modes (word-hash search, a document saved without vectors, a prompt too long for the window, a token estimate that was too low). Diagnostics shows the counts separately. Nothing records tool_failure yet: that belongs to the coding-agent and tool work.
-- **Tests:** tests/test_event_log.py; tests/test_provider_truth.py::test_failures_and_fallbacks_are_recorded_as_separate_events; tests/test_knowledge_store.py::test_a_document_saved_while_the_model_is_down_is_still_found_by_keyword.
-- **Commits:** de2332c, 725edd5, 3a1c1e5
+- **Evidence:** Problems are logged by kind: model failures, provider fallbacks and skips, search-source failures, degraded modes and, now that tools exist, tool failures (every failed tool call through agent/registry.py is counted with the tool, its effect and the error). Diagnostics shows the counts.
+- **Tests:** tests/test_event_log.py; tests/test_agent_registry.py::test_a_tool_that_fails_or_crashes_returns_a_result_and_is_counted.
+- **Commits:** de2332c, 725edd5, 3a1c1e5, 6bb0b97
 
 ### 133 · P0 · recommended · PARTIAL
 
