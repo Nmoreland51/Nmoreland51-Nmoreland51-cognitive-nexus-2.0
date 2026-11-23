@@ -7,3 +7,8 @@ filelock>=3.12
 cryptography>=43
 # Memory size, to choose a context window the machine can hold.
 psutil>=5.9
+# Vectors for knowledge search (already required by Streamlit).
+numpy>=1.26
+# Reading uploaded PDF and Word files (modules/ingest.py).
+pypdf>=5
+python-docx>=1.1

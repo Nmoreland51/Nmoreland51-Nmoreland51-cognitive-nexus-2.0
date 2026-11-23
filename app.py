@@ -51,9 +51,10 @@ from modules.providers import (
     check_ollama_status,
     get_provider_inventory,
 )
+from modules.ingest import UPLOAD_TYPES
 from modules.research import (
     get_research_module,
-    ingest_text,
+    ingest_file,
     list_knowledge_notes,
     process_url,
     save_knowledge_note,
@@ -1719,14 +1720,24 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
         except Exception as exc:
             st.error(str(exc))
 
-    uploaded = st.file_uploader("Upload text, markdown, JSON, or CSV", type=["txt", "md", "json", "csv"])
+    uploaded = st.file_uploader(
+        "Upload a document: text, Markdown, PDF, Word (.docx), HTML, CSV, JSON, a notebook or source code",
+        type=UPLOAD_TYPES,
+    )
     if uploaded and st.button("Ingest uploaded file"):
-        text = uploaded.getvalue().decode("utf-8", errors="ignore")
-        result = ingest_text(module, name=uploaded.name, text=text, source_type="upload")
+        with st.spinner(f"Reading {uploaded.name}..."):
+            result = ingest_file(module, name=uploaded.name, data=uploaded.getvalue())
         if result.get("status") == "success":
-            st.success(f"Stored {result.get('chunks_count', 0)} chunks from {uploaded.name}")
+            what = f"{result.get('language')} source file" if result.get("kind") == "code" else "document"
+            if result.get("unchanged"):
+                st.info(f"{uploaded.name} is already stored and has not changed.")
+            else:
+                st.success(f"Stored {result.get('chunks_count', 0)} passage(s) from the {what} {uploaded.name}.")
+            for warning in result.get("warnings") or []:
+                st.warning(warning)
+            get_cached_project_inventory.clear()
         else:
-            st.error(result.get("error", "File ingestion failed."))
+            st.error(result.get("error", "The file could not be read."))
 
     st.divider()
     st.markdown("### Markdown Knowledge Notes")
@@ -1755,9 +1766,22 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
     summary = module.get_processing_summary()
     embedding_status = summary.get("embedding_status", {})
     st.caption(
-        f"Retrieval backend: {embedding_status.get('runtime_backend', summary.get('embedding_backend', 'unknown'))} | "
-        f"Model: {embedding_status.get('model', summary.get('embedding_model', 'unknown'))}"
+        f"{summary.get('total_urls', 0)} document(s), {summary.get('total_chunks', 0)} passage(s). "
+        f"{embedding_status.get('message', '')}"
     )
+    if embedding_status.get("degraded"):
+        st.warning(
+            "Search is matching words only. For search by meaning, install a small embedding model "
+            "(45 MB): run `ollama pull all-minilm`, then restart the app."
+        )
+    if summary.get("waiting_for_vectors") and not embedding_status.get("degraded"):
+        if st.button(f"Prepare {summary['waiting_for_vectors']} passage(s) for search by meaning", key="knowledge_reembed"):
+            with st.spinner("Embedding passages..."):
+                outcome = module.reembed()
+            if outcome.get("error"):
+                st.error(outcome["error"])
+            else:
+                st.success(f"Prepared {outcome.get('embedded', 0)} passage(s).")
 
     notes = list_knowledge_notes(limit=8)
     if notes:
