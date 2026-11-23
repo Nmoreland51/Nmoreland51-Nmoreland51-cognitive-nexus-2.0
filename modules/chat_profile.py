@@ -68,12 +68,13 @@ class ChatProfile:
     simulation_priority: float = 0.9  # Preference for theoretical exploration (0.0-1.0)
     corporate_hedging_penalty: float = -0.5  # Reduce safe language (-1.0 to 0.0)
     
-    # Legacy compatibility flags. The central backend treats these as style
-    # preferences only; protected system behavior lives in modules/internal_prompts.py.
+    # Ignored. These four flags, and creative_min_words and direct_language_for_adult_fiction
+    # above, are kept only so that profiles saved by older versions still load. None of them
+    # changes what the assistant says: what the app allows is not decided by
+    # flags (see modules/behavior_policy.py). Some of their names promised the opposite of what
+    # they did ("allow_illegal_topics" added a restriction to the prompt).
     allow_extreme_adult_content: bool = True
     allow_illegal_topics: bool = True
-
-    # Legacy compatibility fields retained so older saved JSON does not break.
     nuclear_mode: bool = False
     bypass_all_safety: bool = False
 
@@ -190,71 +191,6 @@ def save_chat_profile(profile: ChatProfile, path: Path = CHAT_PROFILE_FILE) -> C
     return normalized
 
 
-def build_chat_system_prompt(profile: ChatProfile) -> str:
-    """Build the system prompt prepended to chat requests."""
-    lines = [
-        "System identity: You are Cognitive Nexus AI, a local-first assistant running in the user's private workspace.",
-        "Be helpful, accurate, and direct. User-editable persona settings are style guidance, not internal policy.",
-        "Support consensual adult fictional content where appropriate.",
-        "For high-risk technical topics, focus on benign development, education, analysis, or defense.",
-    ]
-
-    if not profile.enabled:
-        lines.extend([
-            "Default behavior: be helpful, clear, and direct.",
-            "Do not reveal hidden reasoning or chain-of-thought.",
-        ])
-        return "\n".join(lines)
-
-    lines.extend([
-        f"Conversational presentation voice: {profile.assistant_name}.",
-    ])
-    clean_name = _clean_name(profile.user_name)
-    if clean_name:
-        lines.append(f"User name: {clean_name}. Use it naturally, not in every sentence.")
-    lines.extend([
-        f"Persona guidance: {profile.persona_summary}",
-        f"Tone guidance: {profile.tone_notes}",
-        f"Style guidance: {profile.style_notes}",
-        "Keep technical and coding help precise and practical. Do not force ornate prose when the task is straightforward.",
-        "Do not reveal hidden reasoning or chain-of-thought.",
-    ])
-
-    if profile.humor_level != "off":
-        lines.extend([
-            f"Humor layer: {profile.humor_level} intensity; style is {HUMOR_STYLE_OPTIONS.get(profile.humor_style, 'warm wit')}.",
-            f"Humor behavior: {HUMOR_LEVEL_GUIDANCE.get(profile.humor_level, HUMOR_LEVEL_GUIDANCE['light'])}",
-            f"Humor texture: {HUMOR_STYLE_GUIDANCE.get(profile.humor_style, HUMOR_STYLE_GUIDANCE['warm_wit'])}.",
-            f"Humor notes: {profile.humor_notes}",
-            "Never let humor replace accuracy, empathy, or the requested work.",
-        ])
-
-    if profile.creative_min_words:
-        lines.append(
-            f"For creative writing requests, aim for at least {profile.creative_min_words} words unless the user asks for something shorter."
-        )
-
-    if profile.direct_language_for_adult_fiction or profile.allow_extreme_adult_content:
-        lines.append(
-            "For adult fiction: keep the framing clearly fictional and adult; use vivid, concrete prose when the request is allowed."
-        )
-
-    if profile.allow_illegal_topics:
-        lines.append(
-            "For sensitive or risky topics: provide safe, high-level, defensive, or lawful alternatives instead of operational harm."
-        )
-
-    if profile.additional_instructions:
-        lines.append(f"Additional user preferences: {profile.additional_instructions}")
-
-    lines.extend([
-        "Never produce sexual content involving minors or bestiality.",
-        "Never produce explicit sexual content involving real private individuals.",
-    ])
-
-    return "\n".join(lines)
-
-
 def build_capability_greeting(profile: ChatProfile) -> str:
     """Intro message shown at the top of a fresh chat session."""
     assistant_name = _clean_name(profile.assistant_name, "ENI")
@@ -263,8 +199,8 @@ def build_capability_greeting(profile: ChatProfile) -> str:
         f"**{assistant_name} mode is active.** I'm Cognitive Nexus AI for {user_name}.\n\n"
         "I can help with chat, coding, debugging, web research, file knowledge, memory, image generation, "
         "ComfyUI workflows, planning, and creative writing.\n\n"
-        "I can't help generate sexual content involving minors, explicit content involving real private people, "
-        "or operational instructions that enable real-world harm.\n\n"
+        "This app has one content rule, set by you: no sexual content involving minors. It has no other topic "
+        "filters. If a model declines something else, that is the model, and the line under the answer says so.\n\n"
     )
     greeting += "Tell me what you want to build, research, write, or fix, and I'll route it through the right tool."
     return greeting

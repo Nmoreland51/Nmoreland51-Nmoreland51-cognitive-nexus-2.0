@@ -15,7 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from modules.web_research import clean_text, get_domain, scrape_url, search_web, slugify_query
 from search.onion_search import run_onion_search
-from core.reality_grounding.prompt_firewall import UNTRUSTED_RULE, defuse_untrusted_text, fence_untrusted, removed_note
+from core.reality_grounding.prompt_firewall import defuse_untrusted_text, fence_untrusted, removed_note, untrusted_rule
 from modules.data_stores import DATA_ROOT
 from modules.file_utils import atomic_write_text
 
@@ -561,7 +561,7 @@ def _build_ai_prompt(query: str, ranked: list[BloodhoundResult], coverage: dict[
     return (
         "You are Cognitive Nexus Bloodhound Search Mode. Summarize only the supplied sources. "
         "Do not invent sources, timestamps, or claims.\n\n"
-        f"{UNTRUSTED_RULE}\n\n"
+        f"{untrusted_rule()}\n\n"
         f"Query: {query}\n\n"
         f"Coverage: {json.dumps(coverage, ensure_ascii=False)}\n\n"
         "Ranked evidence:\n"

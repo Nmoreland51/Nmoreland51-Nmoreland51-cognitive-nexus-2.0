@@ -41,8 +41,41 @@ def build_generation_constraints(
     feasibility: FeasibilityReport,
     *,
     manual_mode: str = "auto",
+    reality_check: str = "label",
 ) -> GenerationConstraints:
+    """What the reality check adds to the prompt.
+
+    reality_check="label" (the default, the owner's choice): the answer is given in full. Fiction,
+    role-play and what-ifs are written as asked; for questions about the real world the model is
+    asked to say what is established, what is theoretical and what is invented. Nothing is withheld.
+    reality_check="withhold" is the earlier behaviour: for things judged impossible or fictional
+    the model is told not to give step-by-step detail.
+    """
+
     mode = select_epistemic_mode(reality, feasibility, manual_mode)
+    if reality_check != "withhold" and reality.reality_status != "instruction_only":
+        if mode == "science_fiction" or reality.reality_status in {"fictional_construct", "fiction_or_roleplay"}:
+            return GenerationConstraints(
+                mode,
+                True,
+                "normal",
+                (
+                    "Reality check (labels only):\n"
+                    "- This is fiction, role-play or a what-if. Write it as asked, in full detail.\n"
+                    "- Do not present it as a claim about the real world.\n"
+                ),
+            )
+        instruction = (
+            "Reality check (labels only):\n"
+            f"- Reality status: {reality.reality_status}; domain: {reality.domain}; feasibility: {feasibility.level} ({feasibility.score}).\n"
+            "- Answer the question in full. Where it matters, say what is established, what is theoretical, and what "
+            "does not exist or is not possible today. Do not present invented parts or steps as real engineering.\n"
+        )
+        if mode == "strict_fact":
+            instruction += "- Say when the evidence is insufficient.\n"
+        elif mode == "theoretical":
+            instruction += "- Present theory as theory.\n"
+        return GenerationConstraints(mode, True, "normal", instruction)
     if reality.reality_status == "instruction_only":
         return GenerationConstraints(
             mode,

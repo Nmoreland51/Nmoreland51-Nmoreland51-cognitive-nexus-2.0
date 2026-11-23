@@ -42,13 +42,14 @@ def analyze_epistemic_request(
     rag_used: bool = False,
     tool_confirmed: bool = False,
     manual_mode: str = "auto",
+    reality_check: str = "label",
 ) -> EpistemicAssessment:
     """Classify reality status and build generation constraints before drafting."""
 
     reality = model_reality(user_message, route_category)
     feasibility = analyze_feasibility(user_message, reality)
     evidence = classify_evidence(source_count=source_count, web_used=web_used, rag_used=rag_used, tool_confirmed=tool_confirmed)
-    constraints = build_generation_constraints(reality, feasibility, manual_mode=manual_mode)
+    constraints = build_generation_constraints(reality, feasibility, manual_mode=manual_mode, reality_check=reality_check)
     ontology = validate_ontology(user_message, reality.reality_status)
     structural = inspect_procedural_structure(user_message)
     return EpistemicAssessment(reality, feasibility, evidence, constraints, ontology, structural)

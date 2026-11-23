@@ -171,8 +171,9 @@ def ask_reviewer(reviewer: Model, task: Task, diff: str, tests: str) -> tuple[st
     prompt = REVIEW_PROMPT.format(
         title=task.title,
         description=task.description or "(no further description)",
-        diff=fence_untrusted(diff[:8000] + ("\n[diff cut]" if len(diff) > 8000 else ""), "diff"),
-        tests=fence_untrusted(tests[:2500], "test output"),
+        # Always fenced, whatever the owner chose for chat: the reviewer must not take orders from a diff.
+        diff=fence_untrusted(diff[:8000] + ("\n[diff cut]" if len(diff) > 8000 else ""), "diff", mode="fence"),
+        tests=fence_untrusted(tests[:2500], "test output", mode="fence"),
     )
     try:
         reply = reviewer.complete(prompt, max_tokens=180, temperature=0.0)

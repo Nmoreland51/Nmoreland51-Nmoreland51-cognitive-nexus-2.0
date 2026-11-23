@@ -6,11 +6,10 @@ from pathlib import Path
 from modules.chat_profile import (
     ChatProfile,
     build_capability_greeting,
-    build_chat_system_prompt,
     load_chat_profile,
     save_chat_profile,
 )
-from modules.internal_prompts import build_locked_system_prompt
+from modules.internal_prompts import chat_system_prompt
 
 
 class ChatProfileTests(unittest.TestCase):
@@ -50,29 +49,35 @@ class ChatProfileTests(unittest.TestCase):
         self.assertEqual(reloaded.humor_style, "dry_deadpan")
         self.assertIn("quick aside", reloaded.humor_notes)
 
-    def test_system_prompt_includes_persona_and_safety(self):
-        prompt = build_chat_system_prompt(ChatProfile())
+    def test_system_prompt_carries_the_persona_as_the_owners_instructions(self):
+        prompt = chat_system_prompt(ChatProfile())
 
-        self.assertIn("ENI", prompt)
-        self.assertIn("user", prompt)
-        self.assertIn("consensual adult fictional content", prompt)
-        self.assertIn("Do not reveal hidden reasoning", prompt)
-        self.assertIn("Humor layer", prompt)
-        self.assertIn("warm wit", prompt)
+        self.assertIn("Persona, as the owner set it:", prompt)
+        self.assertIn("Your name: ENI", prompt)
+        self.assertIn("Humour: light, warm wit", prompt)
+        # The persona is an instruction. Nothing in the prompt says it can be overridden.
+        self.assertNotIn("cannot override", prompt)
+        self.assertNotIn("consensual adult fictional content", prompt)
 
-    def test_locked_prompt_includes_humor_as_style_guidance(self):
-        prompt = build_locked_system_prompt(ChatProfile(humor_level="bold", humor_style="playful_spark"))
+    def test_system_prompt_follows_the_humour_setting(self):
+        prompt = chat_system_prompt(ChatProfile(humor_level="bold", humor_style="playful_spark"))
 
-        self.assertIn("Humor layer: bold", prompt)
-        self.assertIn("playful spark", prompt)
-        self.assertIn("optional texture", prompt)
+        self.assertIn("Humour: bold, playful spark", prompt)
+        self.assertNotIn("Humour:", chat_system_prompt(ChatProfile(humor_level="off")))
 
-    def test_greeting_lists_capabilities_and_limits(self):
+    def test_a_disabled_persona_adds_nothing(self):
+        self.assertNotIn("Persona, as the owner set it", chat_system_prompt(ChatProfile(enabled=False)))
+
+    def test_greeting_lists_capabilities_and_the_one_rule(self):
         greeting = build_capability_greeting(ChatProfile())
 
         self.assertIn("ENI mode is active", greeting)
         self.assertIn("I can help", greeting)
-        self.assertIn("I can't help", greeting)
+        self.assertIn("one content rule", greeting)
+        self.assertIn("no sexual content involving minors", greeting)
+        # The greeting used to claim two further limits that the app does not have.
+        self.assertNotIn("real private people", greeting)
+        self.assertNotIn("real-world harm", greeting)
 
     def test_saved_profile_is_json_object(self):
         save_chat_profile(ChatProfile(), self.profile_path)

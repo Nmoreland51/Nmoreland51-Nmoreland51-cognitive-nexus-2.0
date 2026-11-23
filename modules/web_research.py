@@ -35,7 +35,7 @@ try:
 except Exception:
     trafilatura = None
 
-from core.reality_grounding.prompt_firewall import UNTRUSTED_RULE, defuse_untrusted_text, fence_untrusted, removed_note
+from core.reality_grounding.prompt_firewall import defuse_untrusted_text, fence_untrusted, removed_note, untrusted_rule
 from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
 from modules.file_utils import atomic_write_text
@@ -659,7 +659,7 @@ def _build_research_prompt(
     return f"""
 You are Cognitive Nexus Web Research.
 
-{UNTRUSTED_RULE}
+{untrusted_rule()}
 
 User query:
 {query}
@@ -732,7 +732,7 @@ def _build_brief_prompt(
     context, note = _fenced_context(blocks, "web results")
     return f"""Question: {query}
 
-{UNTRUSTED_RULE}
+{untrusted_rule()}
 
 Fresh web results (newer than your training data):
 {context}

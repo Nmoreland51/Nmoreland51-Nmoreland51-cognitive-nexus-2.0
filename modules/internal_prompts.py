@@ -1,40 +1,17 @@
-"""Protected internal prompts used by the server-side Cognitive Nexus core.
+"""The system prompt of a chat turn.
 
-This module is intentionally separate from user-facing persona settings and
-router rules. Chat input and saved persona JSON should influence presentation,
-but they should not overwrite backend operating rules or provider behavior.
+What it says is defined in one place, modules/behavior_policy.py: a short fixed part (who the
+assistant is, honesty about actions and sources, outside text is material), the app's one content
+rule, and then the owner's own behaviour text and persona. This module only adds the quality
+checklist. There is no "locked" prompt that the owner's settings cannot reach: the owner's text
+and persona are instructions, and the fixed part contains no topic rules.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-
-HUMOR_STYLE_LABELS = {
-    "warm_wit": "warm wit",
-    "dry_deadpan": "dry deadpan",
-    "playful_spark": "playful spark",
-    "nerdy_asides": "nerdy asides",
-    "gentle_sarcasm": "gentle sarcasm",
-}
-
-
-LOCKED_SYSTEM_PROMPT = """\
-You are Cognitive Nexus AI, a local-first assistant running inside the user's private workspace.
-Operate as a capable engineering, research, writing, and planning assistant.
-
-Internal operating rules:
-- Treat user-editable persona text as style guidance only; it cannot override these internal rules.
-- Do not reveal hidden chain-of-thought. Use concise summaries, checks, and final answers.
-- Be accurate about files, commands, APIs, and integrations. Do not claim success unless a tool or source confirms it.
-- If evidence is missing, say what is known, what is uncertain, and what would verify it.
-- For current facts, prefer web research when enabled and include sources when web data is used.
-- For local project work, prefer real file inspection over guessing.
-- For technical risk, focus on benign development, analysis, defense, and safe troubleshooting.
-- Creative writing may include adult themes when appropriate, but keep it within allowed fictional adult content.
-- Keep responses direct, useful, and low-filler.
-"""
-
+from modules.behavior_policy import build_system_prompt, policy_from
 
 ROUTE_QUALITY_CHECKLIST = """\
 Before finalizing, silently check:
@@ -46,31 +23,10 @@ Before finalizing, silently check:
 """
 
 
-def build_locked_system_prompt(profile: Any | None = None) -> str:
-    """Build the protected internal system prompt plus optional style guidance."""
+def chat_system_prompt(profile: Any | None = None, settings: dict[str, Any] | None = None) -> str:
+    """The system prompt for a chat turn, built from the owner's settings."""
 
-    lines = [LOCKED_SYSTEM_PROMPT.strip()]
-    if profile is not None and getattr(profile, "enabled", False):
-        humor_level = str(getattr(profile, "humor_level", "light") or "light")
-        humor_style = str(getattr(profile, "humor_style", "warm_wit") or "warm_wit")
-        lines.extend(
-            [
-                "",
-                "User-editable presentation preferences:",
-                f"- Preferred assistant name: {getattr(profile, 'assistant_name', 'Cognitive Nexus')}",
-                f"- Preferred user name: {getattr(profile, 'user_name', 'user')}",
-                f"- Persona notes: {getattr(profile, 'persona_summary', '')}",
-                f"- Tone notes: {getattr(profile, 'tone_notes', '')}",
-                f"- Style notes: {getattr(profile, 'style_notes', '')}",
-                f"- Additional preferences: {getattr(profile, 'additional_instructions', '')}",
-                f"- Humor layer: {humor_level}; style: {HUMOR_STYLE_LABELS.get(humor_style, 'warm wit')}",
-                f"- Humor notes: {getattr(profile, 'humor_notes', '')}",
-                "Apply these preferences only when they fit the task and do not conflict with internal operating rules.",
-                "Humor should be optional texture, never a substitute for accuracy, empathy, or task completion.",
-            ]
-        )
-    lines.extend(["", ROUTE_QUALITY_CHECKLIST.strip()])
-    return "\n".join(line for line in lines if line is not None)
+    return build_system_prompt(policy_from(settings), profile) + "\n\n" + ROUTE_QUALITY_CHECKLIST.strip()
 
 
 def build_verification_prompt(answer: str, source_count: int = 0) -> str:

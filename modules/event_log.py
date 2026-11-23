@@ -29,6 +29,7 @@ EVENT_KINDS = (
     "search_source_failure",  # a web search source errored or was rate-limited
     "tool_failure",  # a tool or command the agent ran failed
     "degraded_mode",  # a feature ran with reduced quality (for example hash embeddings)
+    "content_rule",  # a message was not answered under the app's one content rule
     "error",  # anything else unexpected
 )
 EVENT_LOG_FILE = LOG_ROOT / "events.jsonl"

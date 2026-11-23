@@ -59,11 +59,13 @@ from modules.research import (
     process_url,
     save_knowledge_note,
 )
+from modules.behavior_policy import ContentRuleBlocked
 from modules.nexus_config import save_runtime_config
 from modules.nexus_core import NexusCore
 from modules.web_research import search_sources_status
 from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
+from ui.behavior_panel import render_behavior_panel
 from ui.data_panel import render_data_panel, start_daily_snapshot
 from nexus_router import (
     RouterConfig,
@@ -616,11 +618,6 @@ def render_sidebar(
         bloodhound_enable_cache = bool(core_status.get("config", {}).get("enable_search_cache", True))
         bloodhound_enable_onion = bool(core_status.get("config", {}).get("enable_onion_search", False))
 
-        safety_level = "balanced"
-        allow_nsfw = True
-        allow_controversial = True
-        allow_technical_dark = True
-
         manual_disabled = bool(auto_precision_mode)
         with st.expander("Advanced Overrides", expanded=not auto_precision_mode):
             if auto_precision_mode:
@@ -662,17 +659,7 @@ def render_sidebar(
             )
             show_route_debug = st.checkbox("Show routing debug", value=show_route_debug, disabled=manual_disabled)
 
-            st.markdown("**Safety Controls (Unhinged Mode)**")
-            safety_level = st.select_slider(
-                "Safety level",
-                options=["strict", "balanced", "loose", "unhinged"],
-                value=safety_level,
-                disabled=manual_disabled,
-            )
-            allow_nsfw = st.checkbox("Allow NSFW / adult content", value=allow_nsfw, disabled=manual_disabled)
-            allow_controversial = st.checkbox("Allow controversial / political", value=allow_controversial, disabled=manual_disabled)
-            allow_technical_dark = st.checkbox("Allow dark technical / hypotheticals", value=allow_technical_dark, disabled=manual_disabled)
-
+            st.caption("What the assistant may talk about is not set here. See Settings, Behaviour.")
             st.markdown("**Response controls**")
             response_mode = st.selectbox(
                 "Response mode",
@@ -924,12 +911,6 @@ def render_sidebar(
             "reality_research_use_ai": True,
             "comfyui_url": comfyui_url.rstrip("/"),
             "chat_profile": profile,
-            "safety_config": {
-                "level": safety_level,
-                "allow_nsfw": allow_nsfw,
-                "allow_controversial": allow_controversial,
-                "allow_technical_dark": allow_technical_dark,
-            },
             "router_config": RouterConfig(
                 enabled=enable_router,
                 god_mode=god_mode,
@@ -1064,12 +1045,13 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
     if show_advanced_debug and "last_trust_audit" in st.session_state:
         trust = st.session_state.last_trust_audit or {}
         if trust:
-            with st.expander("Prompt firewall / trust audit", expanded=False):
-                user_audit = trust.get("user_request", {})
+            with st.expander("Outside text in this prompt", expanded=False):
+                # Only text you did not write is examined: passages from files and saved pages.
+                outside = trust.get("retrieved_context", {})
                 cols = st.columns(3)
-                cols[0].metric("User trust", str(user_audit.get("trust_level", "unknown")))
-                cols[1].metric("Instruction risk", str(user_audit.get("instruction_risk", "unknown")))
-                cols[2].metric("Signals", len(user_audit.get("signals", []) or []))
+                cols[0].metric("Your message", "not scanned")
+                cols[1].metric("File/knowledge text", str(outside.get("instruction_risk", "none in this prompt")))
+                cols[2].metric("Signs of orders in it", len(outside.get("signals", []) or []))
                 st.json(trust)
     if show_advanced_debug and "last_epistemic_assessment" in st.session_state:
         epistemic = st.session_state.last_epistemic_assessment or {}
@@ -1092,17 +1074,6 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
     add_message("user", user_message)
     with messages_box.chat_message("user"):
         st.markdown(user_message)
-
-    safety = settings.get("safety_config", {"level": "balanced", "allow_nsfw": True, "allow_controversial": True, "allow_technical_dark": True})
-    blocked = False
-    block_reason = None
-    if safety["level"] == "strict" and any(word in user_message.lower() for word in ["child", "underage", "cp", "illegal"]):
-        blocked = True
-        block_reason = "Strict safety: potential illegal content"
-    if blocked:
-        messages_box.warning(f"🚫 BLOCKED: {block_reason}. Logged for audit.")
-        st.session_state.setdefault("safety_blocks", []).append({"message": user_message[:100], "reason": block_reason, "time": time.time()})
-        return
 
     with messages_box.chat_message("assistant"):
         started = time.perf_counter()
@@ -1214,11 +1185,16 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
                     st.write(message)
 
             started = time.perf_counter()
-            report = get_nexus_core().run_reality_research(
-                request,
-                settings | {"reality_research_depth": depth},
-                progress_callback=progress,
-            )
+            try:
+                report = get_nexus_core().run_reality_research(
+                    request,
+                    settings | {"reality_research_depth": depth},
+                    progress_callback=progress,
+                )
+            except ContentRuleBlocked as stopped:
+                status.update(label="Not run", state="error")
+                st.warning(stopped.reply)
+                return
             record_perf("reality_research.run", time.perf_counter() - started, settings)
             status.update(label="Reality-first research complete", state="complete")
 
@@ -1464,7 +1440,10 @@ def render_image_tab(settings: dict[str, Any] | None = None) -> None:
         )
         with st.spinner("Generating image..."):
             started = time.perf_counter()
-            result = get_nexus_core().generate_image(req)
+            try:
+                result = get_nexus_core().generate_image(req)
+            except ContentRuleBlocked as stopped:
+                result = {"success": False, "error": stopped.reply, "images": [], "saved": []}
             record_perf("image.generate", time.perf_counter() - started)
             get_cached_gallery.clear()
             get_cached_image_summary.clear()
@@ -1545,6 +1524,8 @@ def render_comfyui_workflow_section(settings: dict[str, Any] | None = None) -> N
                     st.image(path, caption=Path(path).name, width="stretch")
             if result.metadata_path:
                 st.caption("Metadata saved locally." if demo_safe else f"Metadata saved: {result.metadata_path}")
+        except ContentRuleBlocked as stopped:
+            st.warning(stopped.reply)
         except Exception as exc:
             st.error(f"ComfyUI workflow failed: {exc}")
 
@@ -1694,15 +1675,20 @@ def render_web_research_tab(settings: dict[str, Any]) -> None:
             st.warning("Enter a search query first.")
             return
         with st.status("Researching...", expanded=True) as status:
-            research = get_nexus_core().run_web_research(
-                query,
-                max_results=max_results,
-                scrape_pages=scrape_pages,
-                summarize_with_ai=summarize,
-                save_locally=save_locally,
-                save_to_memory=save_to_memory,
-                settings=settings,
-            )
+            try:
+                research = get_nexus_core().run_web_research(
+                    query,
+                    max_results=max_results,
+                    scrape_pages=scrape_pages,
+                    summarize_with_ai=summarize,
+                    save_locally=save_locally,
+                    save_to_memory=save_to_memory,
+                    settings=settings,
+                )
+            except ContentRuleBlocked as stopped:
+                status.update(label="Not run", state="error")
+                st.warning(stopped.reply)
+                return
             status.update(label="Research complete", state="complete")
         if research["errors"]:
             st.warning("\n".join(research["errors"]))
@@ -1833,7 +1819,11 @@ def render_files_knowledge_tab(settings: dict[str, Any]) -> None:
         if not query.strip():
             st.warning("Enter a knowledge query first.")
             return
-        result = get_nexus_core().answer_knowledge(query, settings, top_k=top_k)
+        try:
+            result = get_nexus_core().answer_knowledge(query, settings, top_k=top_k)
+        except ContentRuleBlocked as stopped:
+            st.warning(stopped.reply)
+            return
         st.markdown(result["answer"])
         knowledge_label = "" if demo_safe else describe_answer(result.get("produced_by"))
         if knowledge_label:
@@ -2192,11 +2182,12 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     reality_cols[4].metric("Epistemic mode", str((last_epistemic.get("constraints") or {}).get("epistemic_mode", settings.get("epistemic_mode", "auto"))))
 
     if last_trust:
-        user_audit = last_trust.get("user_request", {})
+        # Only text you did not write is examined: passages from files and saved pages.
+        outside = last_trust.get("retrieved_context", {})
         trust_cols = st.columns(3)
-        trust_cols[0].metric("Prompt trust", str(user_audit.get("trust_level", "unknown")))
-        trust_cols[1].metric("Instruction risk", str(user_audit.get("instruction_risk", "unknown")))
-        trust_cols[2].metric("Detected signals", len(user_audit.get("signals", []) or []))
+        trust_cols[0].metric("Your message", "not scanned")
+        trust_cols[1].metric("File/knowledge text", str(outside.get("instruction_risk", "none in last prompt")))
+        trust_cols[2].metric("Signs of orders in it", len(outside.get("signals", []) or []))
 
     st.markdown("### Search And Reports")
     search_cols = st.columns(5)
@@ -2283,8 +2274,17 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
 
 
 def render_settings_tab(settings: dict[str, Any]) -> None:
-    st.subheader("Settings")
     profile = settings["chat_profile"]
+    render_behavior_panel(
+        get_nexus_core(),
+        profile,
+        settings,
+        after_save=clear_runtime_caches,
+        read_only=is_demo_safe(settings),
+    )
+    st.divider()
+    st.subheader("Persona")
+    st.caption("Name, voice and style. Like the behaviour text above, this is sent to the model as your instructions.")
     with st.form("chat_profile_form"):
         enabled = st.checkbox("Enable persona", value=profile.enabled)
         user_name = st.text_input("User name", value=profile.user_name)
@@ -2308,10 +2308,7 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
             format_func=lambda key: HUMOR_STYLE_OPTIONS.get(key, key),
         )
         humor_notes = st.text_area("Humor notes", value=getattr(profile, "humor_notes", ChatProfile.humor_notes), height=80)
-        creative_min_words = st.number_input("Creative writing minimum words", min_value=0, max_value=2000, value=profile.creative_min_words)
         additional_instructions = st.text_area("Additional instructions", value=profile.additional_instructions, height=100)
-
-        direct_language_for_adult_fiction = st.checkbox("Allow direct language for adult fiction", value=getattr(profile, 'direct_language_for_adult_fiction', True))
         show_capability_greeting = st.checkbox("Show greeting on fresh chat", value=getattr(profile, 'show_capability_greeting', True))
 
         saved = st.form_submit_button("Save Persona")
@@ -2326,8 +2323,9 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
                 humor_level=humor_level,
                 humor_style=humor_style,
                 humor_notes=humor_notes,
-                creative_min_words=int(creative_min_words),
-                direct_language_for_adult_fiction=direct_language_for_adult_fiction,
+                # Stored by older versions and used by nothing; carried over so a saved profile is not changed.
+                creative_min_words=int(getattr(profile, "creative_min_words", 500)),
+                direct_language_for_adult_fiction=bool(getattr(profile, "direct_language_for_adult_fiction", True)),
                 show_capability_greeting=show_capability_greeting,
                 additional_instructions=additional_instructions,
                 allow_extreme_adult_content=getattr(profile, "allow_extreme_adult_content", True),

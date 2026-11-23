@@ -10,6 +10,7 @@ from typing import Any, Generator, Optional
 
 from core.reasoning import analyze_epistemic_request
 from core.reality_grounding import audit_answer
+from core.reality_grounding.prompt_firewall import set_untrusted_mode
 from modules.chat_profile import build_capability_greeting
 from modules.comfyui_client import ComfyUIClient
 from modules.context_manager import (
@@ -20,7 +21,16 @@ from modules.context_manager import (
     load_user_fact_records,
 )
 from modules.image_gen import ImageGenerationRequest, generate_images
-from modules.internal_prompts import build_locked_system_prompt
+from modules.behavior_policy import (
+    ContentRuleBlocked,
+    RuleDecision,
+    check_content_rule,
+    effective_policy,
+    looks_like_model_refusal,
+    policy_from,
+)
+from modules.event_log import record_event
+from modules.internal_prompts import chat_system_prompt
 from modules.nexus_config import LOG_DIR, ensure_runtime_dirs, load_runtime_config
 from modules.provider_router import SLOW_STARTUP_OLLAMA_READ_TIMEOUT, ProviderRequest, ProviderResult, ProviderRouter
 from modules.reality_research_agent import (
@@ -102,6 +112,7 @@ class NexusCore:
         self.response_preferences_path = self._configured_response_preferences_path()
         self.provider_router = ProviderRouter(self.config)
         self.comfyui = ComfyUIClient(str(self.config.get("comfyui_url", "http://127.0.0.1:8188")))
+        set_untrusted_mode(policy_from(self.config).untrusted_content)
         self._research_module = None
         self._adaptive_memory = None
         self.last_route_decision: dict[str, Any] = {}
@@ -112,6 +123,8 @@ class NexusCore:
         self.last_response_plan: dict[str, Any] = {}
         self.last_reality_audit: dict[str, Any] = {}
         self.last_trust_audit: dict[str, Any] = {}
+        # What the app's one content rule made of the last request (for Diagnostics).
+        self.last_content_rule: dict[str, Any] = {}
         self.last_epistemic_assessment: dict[str, Any] = {}
         self.last_reality_research_report: dict[str, Any] = {}
         self.last_retrieval: dict[str, Any] = {}
@@ -125,6 +138,7 @@ class NexusCore:
         self.response_preferences_path = self._configured_response_preferences_path()
         self.provider_router.config = self.config
         self.provider_router.invalidate_status_cache()
+        set_untrusted_mode(policy_from(self.config).untrusted_content)
         self.comfyui = ComfyUIClient(str(self.config.get("comfyui_url", "http://127.0.0.1:8188")))
 
     def _configured_response_preferences_path(self) -> Path:
@@ -265,51 +279,49 @@ class NexusCore:
             return "Got it, no on that. What should I change or skip?"
         return "Got it. I'll continue from the immediate previous point."
 
-    def _topic_aware_redirect(self, message: str) -> str:
-        """Narrowly redirect only direct operational harm without generic refusal text."""
+    def content_rule(self, text: str, settings: dict[str, Any] | None = None, recent: str = "") -> RuleDecision:
+        """Apply the app's one content rule (no sexual content involving minors) to a request.
 
-        return (
-            "I can discuss this at a high level, but not as actionable instructions for real-world harm. "
-            "Useful angles: risk analysis, prevention, legal consequences, or a fictional non-actionable version."
-        )
+        See modules/behavior_policy.check_content_rule. A model is asked only when a first, cheap
+        look finds both a sexual term and a term for a minor; for every other request this is a
+        pattern match and nothing more.
+        """
 
-    def _looks_like_generic_refusal(self, answer: str) -> bool:
-        lowered = " ".join(str(answer or "").lower().split())
-        return any(
-            marker in lowered
-            for marker in (
-                "i cannot fulfill requests that involve harm or illegal activities",
-                "i can't fulfill requests that involve harm or illegal activities",
-                "i can't provide information on illegal",
-                "i cannot provide information on illegal",
-                "i can't provide information on how to",
-                "i cannot provide information on how to",
-                "i can't provide instructions on illegal",
-                "i cannot provide instructions on illegal",
-                "i can't provide instructions on how to",
-                "i cannot provide instructions on how to",
-            )
-        )
+        settings = settings or {}
+        # Every request passes through here first, so this is also where the owner's setting for
+        # outside text takes effect for the request.
+        set_untrusted_mode(policy_from({**self.config, **settings}).untrusted_content)
 
-    def _topic_aware_discussion_fallback(self, message: str, topic_category: str) -> str:
-        if topic_category == "risk_analysis":
-            return (
-                "At a high level, treat this as a risk-analysis question: identify the threat, "
-                "how it is detected, who is affected, prevention controls, and what to do when warning signs appear."
-            )
-        if topic_category == "fictional_or_roleplay":
-            return (
-                "For a fictional version, keep the scenario non-operational: focus on motives, consequences, "
-                "atmosphere, and character decisions rather than real-world instructions."
-            )
-        if topic_category == "educational_context":
-            return (
-                "At a high level, this can be discussed through history, incentives, social harm, enforcement, "
-                "legal consequences, and prevention without giving operational instructions."
-            )
-        return (
-            "At a high level, I can discuss the topic, risks, consequences, prevention, and safer alternatives "
-            "without turning it into operational instructions."
+        def judge(prompt: str) -> str:
+            return self._model_text(prompt, settings, {"temperature": 0.0, "num_predict": 3})
+
+        decision = check_content_rule(text, recent, judge)
+        self.last_content_rule = decision.to_dict()
+        if decision.blocked:
+            # The event records that it happened and at which stage, never the message.
+            record_event("content_rule", "A request was not answered under the app's one content rule", stage=decision.stage)
+        return decision
+
+    def _require_content_rule(self, text: str, settings: dict[str, Any] | None = None) -> None:
+        """For entry points other than chat: stop with ContentRuleBlocked when the rule applies."""
+
+        decision = self.content_rule(text, settings)
+        if decision.blocked:
+            raise ContentRuleBlocked(decision)
+
+    def behavior(self, settings: dict[str, Any] | None = None, profile: Any | None = None) -> dict[str, Any]:
+        """What shapes an answer right now, in three parts: configured, application, provider."""
+
+        merged = {**self.config, **(settings or {})}
+        order = [str(name) for name in (merged.get("provider_order") or [])]
+        primary = next((name for name in order if name != "fallback"), "")
+        model = str(merged.get("selected_model") or merged.get(f"{primary}_model") or "")
+        return effective_policy(
+            merged,
+            profile,
+            provider=primary,
+            model=model,
+            cloud_fallback_allowed=bool(merged.get("allow_cloud_fallback")),
         )
 
     def _memory_context(self, user_message: str, messages: list[dict[str, str]], enabled: bool) -> tuple[str, str]:
@@ -326,7 +338,10 @@ class NexusCore:
             memory.observe_turn(user_message, signals)
             bundle = memory.build_context_bundle(
                 user_message,
-                recent_messages=messages,
+                # The prompt already has the recent conversation in full (build_context_bundle in
+                # modules/context_manager.py). Repeating clips of it here cost about 200 tokens a
+                # turn and put earlier answers, which may quote web pages, among the app's notes.
+                recent_messages=[],
                 chat_history=[],
                 topic_knowledge={},
                 learned_facts={},
@@ -625,7 +640,7 @@ class NexusCore:
                 "Be brief, direct, and natural. Do not use old chat, files, memory, research, or unrelated topics."
             )
         else:
-            base_prompt = build_locked_system_prompt(profile)
+            base_prompt = chat_system_prompt(profile, {**self.config, **settings})
             routed_system = build_routed_prompt(
                 user_message=user_message,
                 base_system_prompt=base_prompt,
@@ -1015,6 +1030,28 @@ class NexusCore:
         profile = settings.get("chat_profile")
         self.last_memory = {}
         self.last_provider_result = {}
+        recent_turns = "\n".join(
+            f"{str(item.get('role', 'user')).title()}: {str(item.get('content', ''))[-400:]}"
+            for item in (messages or [])[-4:]
+            if str(item.get("content", "")).strip() and str(item.get("content", "")).strip() != str(user_message or "").strip()
+        )
+        rule = self.content_rule(user_message, settings, recent_turns)
+        if rule.blocked:
+            self.last_verification = {}
+            self.last_reality_audit = {"enabled": False, "reason": "content_rule"}
+            self.last_trust_audit = {}
+            self.last_provider_result = {
+                "text": rule.reply,
+                "provider": "content_rule",
+                "model": "",
+                "elapsed": time.perf_counter() - started,
+                "success": True,
+                "attempts": [{"provider": "content_rule", "success": True}],
+                "content_rule": rule.to_dict(),
+                "sources": 0,
+            }
+            yield rule.reply
+            return
         direct_response = self._direct_response_instruction(user_message)
         if direct_response is not None:
             verification = verify_response(direct_response, tool_confirmed=True)
@@ -1106,12 +1143,18 @@ class NexusCore:
             return
 
         epistemic_start = time.perf_counter()
-        if bool(settings.get("enable_reality_first_reasoning", self.config.get("enable_reality_first_reasoning", True))) and not bool(settings.get("_skip_epistemic_for_turn")):
+        reality_check = policy_from({**self.config, **settings}).reality_check
+        if (
+            reality_check != "off"
+            and bool(settings.get("enable_reality_first_reasoning", self.config.get("enable_reality_first_reasoning", True)))
+            and not bool(settings.get("_skip_epistemic_for_turn"))
+        ):
             epistemic = analyze_epistemic_request(
                 user_message,
                 route_category="web_research" if bloodhound_query else route_decision.category,
                 rag_used=bool(settings.get("use_knowledge_for_chat", True)),
                 manual_mode=str(settings.get("epistemic_mode") or self.config.get("epistemic_mode", "auto")),
+                reality_check=reality_check,
             )
             self.last_epistemic_assessment = epistemic.to_dict()
         else:
@@ -1144,7 +1187,6 @@ class NexusCore:
             "model": route_decision.model,
             "requires_web_search": route_decision.requires_web_search,
             "search_query": route_decision.search_query,
-            "safety_mode": route_decision.safety_mode,
             "tags": route_decision.tags,
             "response_mode": plan.mode,
             "response_intent": plan.intent,
@@ -1157,7 +1199,6 @@ class NexusCore:
 
         pragmatic_function = str(plan.diagnostics.get("analysis", {}).get("pragmatics", {}).get("function") or "")
         topic_handling = dict(plan.diagnostics.get("analysis", {}).get("topic_handling") or {})
-        topic_category = str(topic_handling.get("category") or "")
         followup_functions = {
             "agreement",
             "proceed",
@@ -1203,7 +1244,6 @@ class NexusCore:
             plan.intent in {"casual_followup", "conversation_followup"}
             and pragmatic_function in followup_functions
             and not self._immediate_previous_assistant(messages)
-            and topic_category != "direct_harmful_instruction"
         ):
             answer = self._conversation_followup_reply(user_message, messages)
             verification = verify_response(answer, tool_confirmed=True)
@@ -1236,38 +1276,6 @@ class NexusCore:
             yield answer
             return
 
-        if topic_category == "direct_harmful_instruction":
-            answer = self._topic_aware_redirect(user_message)
-            verification = verify_response(answer, tool_confirmed=True)
-            completion = validate_response_against_plan(answer, plan)
-            timings["provider_first_token_ms"] = 0.0
-            timings["provider_total_ms"] = 0.0
-            timings["total_ms"] = _elapsed_ms(started)
-            self.last_verification = verification.to_dict()
-            self.last_reality_audit = {"enabled": False, "reason": "topic_aware_direct_harm_redirect"}
-            self.last_trust_audit = {}
-            log_verification(verification, "topic_aware_direct_harm_redirect")
-            self.last_provider_result = {
-                "text": answer,
-                "provider": "local_topic_handler",
-                "model": "",
-                "elapsed": float(timings["total_ms"]) / 1000.0,
-                "success": True,
-                "attempts": [{"provider": "local_topic_handler", "success": True}],
-                "fallback_reason": "",
-                "response_completion": completion,
-                "planned_tokens": plan.max_tokens,
-                "timings": timings,
-                "provider_order": list(settings.get("provider_order") or []),
-                "retrieval": {"enabled": False, "used_count": 0, "skipped_reason": "topic_aware_direct_harm_redirect"},
-                "topic_handling": topic_handling,
-                "sources": 0,
-            }
-            self.last_retrieval = self.last_provider_result["retrieval"]
-            self._record_response_self_critic(user_message, answer, plan, settings)
-            yield answer
-            return
-
         if settings.get("enable_reality_research_agent", True) and reality_research_query:
             if plan.acknowledge:
                 yield plan.acknowledgement
@@ -1287,7 +1295,7 @@ class NexusCore:
                 # tell the agent this is a claim check; otherwise let it decide from the query.
                 verify_claim=True if is_verification_request(user_message) else None,
             )
-            report = self.run_reality_research(request, settings)
+            report = self.run_reality_research(request, settings, rule_checked=True)
             self.last_reality_research_report = report.to_dict()
             yield "Composing grounded report...\n\n"
             answer = report.to_markdown()
@@ -1330,7 +1338,7 @@ class NexusCore:
                 yield plan.acknowledgement
             yield f'Bloodhound Search Mode engaged for "{bloodhound_query}".\n\n'
             yield "Expanding query...\n\nSearching sources...\n\nFetching pages...\n\nRanking results...\n\n"
-            result = self.run_bloodhound_search(bloodhound_query, settings)
+            result = self.run_bloodhound_search(bloodhound_query, settings, rule_checked=True)
             yield "Summarizing findings...\n\n"
             answer = format_bloodhound_markdown(result)
             answer = self._audit_answer(
@@ -1536,7 +1544,7 @@ class NexusCore:
             settings,
             options,
             model=route_decision.model or settings.get("selected_model") or "",
-            system_prompt=build_locked_system_prompt(profile),
+            system_prompt=chat_system_prompt(profile, {**self.config, **settings}),
         )
         if context.retrieved_context and not self._has_ready_model_provider(request.provider_order):
             if plan.acknowledge:
@@ -1598,12 +1606,7 @@ class NexusCore:
         guard_buffer = ""
         visible_stream_started = False
         social_presence_turn = self._is_social_presence_turn(plan)
-        suppress_provider_stream = social_presence_turn or topic_category in {
-            "sensitive_discussion",
-            "fictional_or_roleplay",
-            "educational_context",
-            "risk_analysis",
-        }
+        suppress_provider_stream = social_presence_turn
         for chunk in self.provider_router.stream(request):
             if first_provider_chunk_at is None:
                 first_provider_chunk_at = time.perf_counter()
@@ -1634,8 +1637,6 @@ class NexusCore:
         if suppress_provider_stream or not provider_visible_chunks:
             provider_answer = self._clean_model_answer(provider_raw_answer)
             provider_answer = self._repair_social_presence_answer(provider_answer, user_message, plan)
-            if topic_category != "direct_harmful_instruction" and self._looks_like_generic_refusal(provider_answer):
-                provider_answer = self._topic_aware_discussion_fallback(user_message, topic_category)
             if provider_answer:
                 chunks.append(provider_answer)
                 yield provider_answer
@@ -1714,6 +1715,8 @@ class NexusCore:
             "skipped_cloud": list(provider_meta.get("skipped_cloud") or []),
             "usage": dict(provider_meta.get("usage") or {}),
             "model_note": str(provider_meta.get("model_note") or ""),
+            # A label only: the answer is shown exactly as the model wrote it.
+            "declined_by_model": looks_like_model_refusal(provider_result.text),
             "retrieval": retrieval_meta,
             "sources": source_count,
             "throughput": {
@@ -1756,6 +1759,7 @@ class NexusCore:
         answer instead; see _stream_web_answer.
         """
 
+        self._require_content_rule(query, settings)
         options = BRIEF_WEB_SUMMARY_OPTIONS if brief else FULL_WEB_SUMMARY_OPTIONS
         ai_callback = None
         if summarize_with_ai:
@@ -1779,9 +1783,14 @@ class NexusCore:
         )
         return session
 
-    def run_bloodhound_search(self, query: str, settings: dict[str, Any]) -> dict[str, Any]:
-        """Run Bloodhound Search Mode through the shared provider router."""
+    def run_bloodhound_search(self, query: str, settings: dict[str, Any], *, rule_checked: bool = False) -> dict[str, Any]:
+        """Run Bloodhound Search Mode through the shared provider router.
 
+        rule_checked=True is passed by a chat turn, which has already applied the content rule to the message.
+        """
+
+        if not rule_checked:
+            self._require_content_rule(query, settings)
         config = default_bloodhound_config(
             {
                 "enabled": bool(settings.get("enable_bloodhound_search", True)),
@@ -1811,9 +1820,16 @@ class NexusCore:
         request: ResearchRequest,
         settings: dict[str, Any],
         progress_callback: Any | None = None,
+        *,
+        rule_checked: bool = False,
     ) -> ResearchReport:
-        """Run the signature source-grounded research workflow."""
+        """Run the signature source-grounded research workflow.
 
+        rule_checked=True is passed by a chat turn, which has already applied the content rule to the message.
+        """
+
+        if not rule_checked:
+            self._require_content_rule(request.query, settings)
         def ai_callback(prompt: str) -> str:
             return self._model_text(prompt, settings, {"temperature": 0.2, "num_predict": 700, "num_ctx": 4096})
 
@@ -1844,8 +1860,11 @@ class NexusCore:
     ) -> dict[str, Any]:
         """Query local knowledge and synthesize through provider router when available."""
 
-        module = self.get_research_module()
         use_ai_synthesis = bool(settings.get("knowledge_use_ai", False))
+        if use_ai_synthesis:
+            # Looking passages up writes nothing. The rule matters once a model answers from them.
+            self._require_content_rule(query, settings)
+        module = self.get_research_module()
 
         def ai_callback(prompt: str) -> str:
             return self._model_text(prompt, settings, {"temperature": 0.25, "num_predict": 420, "num_ctx": 4096})
@@ -1876,8 +1895,13 @@ class NexusCore:
         return result
 
     def generate_image(self, request: ImageGenerationRequest) -> dict[str, Any]:
-        """Generate images through the existing image provider module."""
+        """Generate images through the existing image provider module.
 
+        The content rule is applied to what is asked for (the prompt). The negative prompt lists
+        what to leave out and is not part of the request.
+        """
+
+        self._require_content_rule(str(request.prompt or ""))
         return generate_images(request)
 
     def run_comfyui_workflow(
@@ -1890,6 +1914,7 @@ class NexusCore:
     ):
         """Run a ComfyUI workflow through the central client."""
 
+        self._require_content_rule(str(prompt or ""))
         return self.comfyui.run_workflow(
             workflow=workflow,
             prompt=prompt,

@@ -41,11 +41,23 @@ class NexusRouterTests(unittest.TestCase):
         self.assertTrue(decision.requires_web_search)
         self.assertEqual(decision.model, "research-model")
 
-    def test_high_risk_technical_request_marks_constrained_mode(self):
-        decision = route_message("Explain an exploit chain for malware payload delivery", self.config)
+    def test_security_request_goes_to_the_technical_model_and_adds_no_rules(self):
+        message = "Explain an exploit chain for malware payload delivery"
+        decision = route_message(message, self.config)
 
         self.assertEqual(decision.category, "advanced_technical")
-        self.assertEqual(decision.safety_mode, "constrained")
+        # Routing picks a model. It does not put the turn into a "constrained" mode any more.
+        self.assertFalse(hasattr(decision, "safety_mode"))
+        prompt = build_routed_prompt(
+            user_message=message,
+            base_system_prompt="BASE",
+            history_prompt="",
+            route=decision,
+            chat_profile=ChatProfile(),
+            config=self.config,
+        )
+        for phrase in ("defensive", "safe alternatives", "high-level analysis", "constraints still apply", "non-consensual"):
+            self.assertNotIn(phrase, prompt)
 
     def test_prompt_builder_includes_route_mode_and_history(self):
         route = route_message("Help me refactor this API client", self.config)

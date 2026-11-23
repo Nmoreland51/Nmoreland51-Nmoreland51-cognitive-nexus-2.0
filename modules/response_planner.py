@@ -196,50 +196,13 @@ FOLLOWUP_FUNCTIONS = {
     "backchannel_acknowledgment",
 }
 SOCIAL_FUNCTIONS = {"greeting", "social_check_in", "vibe_check", "mic_check", "slang_as_intent"}
+# The app does not sort messages into topics. The only things recorded here are about the shape of
+# the conversation: a short follow-up that needs the previous turn, or an empty message.
 TOPIC_HANDLING_TYPES = {
-    "harmless",
-    "sensitive_discussion",
-    "fictional_or_roleplay",
-    "educational_context",
-    "risk_analysis",
-    "direct_harmful_instruction",
+    "not_classified",
     "ambiguous_followup",
     "unknown",
 }
-
-RISKY_TOPIC_RE = re.compile(
-    r"\b(?:crime|violence|violent|drug|drugs|meth|cocaine|heroin|weapon|bomb|explosive|gun|firearm|"
-    r"hack|hacking|phish|phishing|ddos|exploit|malware|ransomware|payload|scam|fraud|steal|"
-    r"traffick|smuggle|poison|kill|murder|evad(?:e|ing)|bypass)\b",
-    re.IGNORECASE,
-)
-DIRECT_OPERATION_RE = re.compile(
-    r"\b(?:how\s+to|step\s*by\s*step|steps?|instructions?|guide|tutorial|recipe|blueprint|make|build|create|"
-    r"manufacture|synthesize|cook|deploy|write|code|exploit|hack|phish|ddos|steal|bypass|evade|"
-    r"hide|smuggle|weaponize|poison|kill|hurt|launder|forge)\b",
-    re.IGNORECASE,
-)
-EDUCATIONAL_CONTEXT_RE = re.compile(
-    r"\b(?:history|historical|explain|overview|high level|high-level|educational|learn about|theory|"
-    r"legal|ethical|ethics|law|laws|consequences|policy)\b",
-    re.IGNORECASE,
-)
-RISK_ANALYSIS_RE = re.compile(
-    r"\b(?:risk|risks|threat model|prevention|prevent|detect|detection|defense|defensive|safety|"
-    r"mitigation|mitigate|warning signs|protect)\b",
-    re.IGNORECASE,
-)
-FICTION_CONTEXT_RE = re.compile(
-    r"\b(?:fiction|fictional|story|novel|screenplay|roleplay|role-play|character|scene|worldbuilding|"
-    r"game|campaign|dark scenario|hypothetical)\b",
-    re.IGNORECASE,
-)
-DIRECT_HARM_CONTEXT_RE = re.compile(
-    r"\b(?:make|build|create|deploy|write|code|synthesize|cook|manufacture|exploit|hack|phish|ddos|"
-    r"steal|bypass|evade|hide|smuggle|weaponize|poison|kill|hurt|malware|ransomware|"
-    r"bomb|explosive|payload)\b",
-    re.IGNORECASE,
-)
 
 SOCIAL_PRESENCE_BLOCKED_PHRASES = (
     "as an ai",
@@ -481,54 +444,29 @@ def _immediate_previous_assistant_text(messages: list[dict[str, str]]) -> str:
 
 
 def analyze_topic_handling(message: str, previous_assistant: str = "", pragmatics: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Classify topic risk after conversational intent has had first pass."""
+    """Whether a short follow-up can be resolved against the previous turn.
+
+    The name is historical. This function used to sort messages into "sensitive" and "harmful"
+    topics by keyword, and the app steered or refused them on that basis ("how do I kill a stuck
+    process" was refused). The app no longer classifies topics: what may be discussed is the
+    owner's decision (modules/behavior_policy.py), not a keyword list's.
+    """
 
     raw = str(message or "").strip()
     previous = str(previous_assistant or "")
     pragmatics = pragmatics or analyze_conversational_pragmatics(message, previous)
     function = str(pragmatics.get("function") or "unknown")
-    has_context = bool(previous.strip())
-    category = "harmless"
-    confidence = 0.65
-    reason = "no_sensitive_topic_detected"
-    resolved_source = "current_user_message"
-
     if function in FOLLOWUP_FUNCTIONS:
-        resolved_source = "immediate_previous_assistant"
-        if not has_context:
-            return {"category": "ambiguous_followup", "confidence": 0.82, "reason": "short_followup_without_context", "resolved_source": resolved_source}
-        if RISKY_TOPIC_RE.search(previous) and DIRECT_HARM_CONTEXT_RE.search(previous):
-            return {"category": "direct_harmful_instruction", "confidence": 0.88, "reason": "short_followup_resolves_to_operational_risky_context", "resolved_source": resolved_source}
-        return {"category": "ambiguous_followup", "confidence": 0.78, "reason": "short_followup_resolved_against_immediate_context", "resolved_source": resolved_source}
-
-    has_risky_topic = bool(RISKY_TOPIC_RE.search(raw))
-    has_direct_operation = bool(DIRECT_OPERATION_RE.search(raw))
-    if has_risky_topic and has_direct_operation:
-        category = "direct_harmful_instruction"
-        confidence = 0.9
-        reason = "operational_risky_request_detected"
-    elif has_risky_topic and FICTION_CONTEXT_RE.search(raw):
-        category = "fictional_or_roleplay"
-        confidence = 0.84
-        reason = "fictional_or_roleplay_context"
-    elif has_risky_topic and RISK_ANALYSIS_RE.search(raw):
-        category = "risk_analysis"
-        confidence = 0.84
-        reason = "risk_or_prevention_context"
-    elif has_risky_topic and EDUCATIONAL_CONTEXT_RE.search(raw):
-        category = "educational_context"
-        confidence = 0.82
-        reason = "educational_or_legal_context"
-    elif has_risky_topic:
-        category = "sensitive_discussion"
-        confidence = 0.76
-        reason = "sensitive_topic_without_operational_request"
-    elif not raw:
-        category = "unknown"
-        confidence = 0.35
-        reason = "empty_message"
-
-    return {"category": category if category in TOPIC_HANDLING_TYPES else "unknown", "confidence": round(confidence, 3), "reason": reason, "resolved_source": resolved_source}
+        has_context = bool(previous.strip())
+        return {
+            "category": "ambiguous_followup",
+            "confidence": 0.78 if has_context else 0.82,
+            "reason": "short_followup_resolved_against_immediate_context" if has_context else "short_followup_without_context",
+            "resolved_source": "immediate_previous_assistant",
+        }
+    if not raw:
+        return {"category": "unknown", "confidence": 0.35, "reason": "empty_message", "resolved_source": "current_user_message"}
+    return {"category": "not_classified", "confidence": 1.0, "reason": "topics_are_not_classified", "resolved_source": "current_user_message"}
 
 
 def analyze_conversation_intelligence(
@@ -953,12 +891,6 @@ def plan_response(
         instructions.append("Score: give the verdict, strengths, weaknesses, and next upgrade in under 120 words.")
     elif intent == "creative" and mode == "short":
         instructions.append("Return exactly one option under 12 words.")
-
-    topic_category = str(topic_handling.get("category") or "unknown")
-    if topic_category in {"sensitive_discussion", "fictional_or_roleplay", "educational_context", "risk_analysis"}:
-        instructions.append("For sensitive topics: do not moralize or generic-refuse. Discuss at a high level, explain context, risks, legal/ethical consequences, prevention, or fictional framing without operational abuse steps.")
-    if topic_category == "direct_harmful_instruction":
-        instructions.append("For direct operational harm/crime requests: do not provide actionable steps. Briefly redirect the operational part and offer safe context, prevention, legal/ethical analysis, or a non-actionable fictional alternative.")
 
     diagnostics = {
         "auto_precision_mode": bool(settings.get("auto_precision_mode", False)),

@@ -15,6 +15,16 @@ named that tool in `always_allow`, which is their standing decision and is recor
 
 An approval is for one action: it is tied to the action's key (tool, arguments, task, step) and is
 used up when the action runs.
+
+The owner chooses with one setting, `agent_autonomy` (see modules/behavior_policy.py):
+
+    agent_autonomy     mode         standing permissions
+    publishing_asks    trusted      none: pushing a branch or opening a pull request asks once   (the default)
+    publish_drafts     trusted      push_branch, open_pull_request
+    ask_first          ask          none
+    read_only          read_only    none
+
+These are permissions for actions. They say nothing about what the assistant may talk about.
 """
 
 from __future__ import annotations
@@ -22,6 +32,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 MODES = ("read_only", "ask", "workspace", "trusted")
+# agent_autonomy -> (mode, tools the owner has thereby approved once and for all)
+AUTONOMY: dict[str, tuple[str, tuple[str, ...]]] = {
+    "publishing_asks": ("trusted", ()),
+    "publish_drafts": ("trusted", ("push_branch", "open_pull_request")),
+    "ask_first": ("ask", ()),
+    "read_only": ("read_only", ()),
+}
+DEFAULT_AUTONOMY = "publishing_asks"
 _TABLE: dict[str, dict[str, str]] = {
     "read_only": {"read": "allow", "write": "deny", "execute": "deny", "network": "deny", "external": "deny"},
     "ask": {"read": "allow", "write": "ask", "execute": "ask", "network": "ask", "external": "ask"},
@@ -63,10 +81,16 @@ class ApprovalPolicy:
             items = value.split(",") if isinstance(value, str) else list(value) if isinstance(value, (list, tuple, set)) else []
             return tuple(str(item).strip() for item in items if str(item).strip())
 
-        mode = str(settings.get("agent_approval_mode") or "workspace")
+        # The owner's one switch. An unknown value falls back to asking before every change.
+        autonomy = str(settings.get("agent_autonomy") or DEFAULT_AUTONOMY).strip().lower()
+        mode, standing = AUTONOMY.get(autonomy, ("ask", ()))
+        # agent_approval_mode, when given, sets the mode directly (finer control, and what tests use).
+        explicit = str(settings.get("agent_approval_mode") or "").strip()
+        if explicit:
+            mode, standing = (explicit, ()) if explicit in MODES else ("ask", ())
         return cls(
-            mode=mode if mode in MODES else "ask",
-            always_allow=names("agent_always_allow"),
+            mode=mode,
+            always_allow=tuple(dict.fromkeys(standing + names("agent_always_allow"))),
             never_allow=names("agent_never_allow"),
             always_ask=names("agent_always_ask"),
         )

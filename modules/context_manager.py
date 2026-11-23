@@ -69,12 +69,32 @@ def _is_relevant_fact(user_message: str, fact: str) -> bool:
     return bool(intersect)
 
 
+# An earlier answer that was put together from pages or files carries their text with it.
+_OUTSIDE_TEXT_PROVIDERS = frozenset({"web_research", "reality_research_agent", "bloodhound_search", "local_knowledge", "local_knowledge_fallback"})
+
+
+def _quotes_outside_text(message: dict[str, Any]) -> bool:
+    """True for an earlier assistant turn built from web pages or saved documents."""
+
+    meta = message.get("meta") or {}
+    if not isinstance(meta, dict):
+        return False
+    tools = {str(tool) for tool in meta.get("tools") or []}
+    return str(meta.get("provider") or "") in _OUTSIDE_TEXT_PROVIDERS or bool(tools & {"web_search", "local_knowledge"})
+
+
 def _message_text(message: dict[str, Any]) -> str:
+    """One turn of the conversation as it goes into the prompt.
+
+    The owner's turns and the assistant's own answers are plain text. Only an earlier answer that
+    quotes web pages or documents is fenced, because that text was not written by either of them.
+    """
+
     role = str(message.get("role", "user")).strip() or "user"
     content = str(message.get("content", "")).strip()
-    source_type = "assistant" if role == "assistant" else "user"
-    wrapped, _audit = sandbox_content(content, source_type, f"{role} conversation turn")
-    return f"{role.title()}:\n{wrapped}"
+    if role == "assistant" and _quotes_outside_text(message):
+        content = sandbox_content(content, "quoted", "earlier answer quoting outside text")[0]
+    return f"{role.title()}:\n{content}"
 
 
 _SALIENT = re.compile(
@@ -366,30 +386,21 @@ def build_context_bundle(
         relevant_facts = instructions + others[-6:]
 
         if relevant_facts:
-            sandboxed_facts = []
-            fact_audits = []
-            for text, kind in relevant_facts:
-                # Saying how a fact is known lets the model treat a guess differently from
-                # something the user stated.
-                label = f"[{KIND_LABELS[kind]}] " if kind in KIND_LABELS else ""
-                wrapped, audit = sandbox_content(f"- {label}{text}", "memory", "persistent fact")
-                sandboxed_facts.append(wrapped)
-                fact_audits.append(audit.to_dict())
-            facts_text = "Persistent facts:\n" + "\n".join(sandboxed_facts)
-            trust_audit["persistent_facts"] = fact_audits
+            # What the owner told the app to remember is theirs: plain text, not fenced or scanned.
+            # Saying how a fact is known lets the model treat a guess differently from something
+            # the owner stated.
+            fact_lines = [f"- {f'[{KIND_LABELS[kind]}] ' if kind in KIND_LABELS else ''}{text}" for text, kind in relevant_facts]
+            facts_text = "Saved by the owner (standing instructions and facts about them):\n" + "\n".join(fact_lines)
 
     recent_lines = [_message_text(message) for message in recent_history]
     memory_text = trim_text(memory_context, 2200)
     retrieved_text = trim_text(retrieved_context, 3200)
-    user_wrapped, user_audit = sandbox_content(user_message, "user", "current user request")
-    trust_audit["user_request"] = user_audit.to_dict()
+    # The owner's message goes in exactly as written. It is the instruction for this turn.
+    user_request = str(user_message or "").strip()
+    trust_audit["owner_text"] = "The owner's message, earlier turns, saved facts and memory are not scanned or fenced."
     # Whether a block repeats the full warning is decided once, from the content as received;
     # shortening the content later must not make a suspicious block look harmless.
-    compact_block = {"memory": True, "retrieved": True}
-    if memory_text:
-        memory_audit = sandbox_content(memory_text, "memory", "memory context")[1]
-        trust_audit["memory_context"] = memory_audit.to_dict()
-        compact_block["memory"] = memory_audit.instruction_risk == "low"
+    compact_block = {"retrieved": True}
     if retrieved_text:
         retrieved_audit = sandbox_content(retrieved_text, "retrieved", "retrieved knowledge")[1]
         trust_audit["retrieved_context"] = retrieved_audit.to_dict()
@@ -406,19 +417,21 @@ def build_context_bundle(
 
     def assemble(system_text: str = system_prompt.strip()) -> str:
         recent_text = "\n".join(recent_lines)
-        memory_block = fenced("memory", "memory", "memory context")
         retrieved_block = fenced("retrieved", "retrieved", "retrieved knowledge")
+        # The note about fenced blocks is only there when the prompt has one.
+        has_blocks = "[BEGIN UNTRUSTED " in retrieved_block or "[BEGIN UNTRUSTED " in recent_text
         sections = [
             system_text,
-            build_firewall_instruction(),
+            build_firewall_instruction(has_blocks),
             f"Active route: {route_label}",
             f"Route reason: {route_reason}" if route_reason else "",
             facts_text,
             parts["summary"],
-            f"Relevant memory:\n{memory_block}" if memory_block else "",
+            # The app's own notes about the owner's preferences, built from what the owner said.
+            f"Relevant memory (the app's notes about the owner):\n{parts['memory']}" if parts["memory"] else "",
             f"Relevant files/knowledge:\n{retrieved_block}" if retrieved_block else "",
             f"Recent conversation:\n{recent_text}" if recent_text else "",
-            f"User request:\n{user_wrapped}",
+            f"User request:\n{user_request}",
             "Final answer:",
         ]
         return "\n\n".join(section for section in sections if section.strip())
@@ -481,7 +494,7 @@ def build_context_bundle(
     if excess(prompt):
         # Only the instructions and the request are left. Keep the request whole and the start
         # of the instructions.
-        tail = f"\n\nUser request:\n{user_wrapped}\n\nFinal answer:"
+        tail = f"\n\nUser request:\n{user_request}\n\nFinal answer:"
         allowed_chars = max_context_chars
         if max_prompt_tokens is not None:
             allowed_chars = min(allowed_chars, characters_for_tokens(prompt, max_prompt_tokens))

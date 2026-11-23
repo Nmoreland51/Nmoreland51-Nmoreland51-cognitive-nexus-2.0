@@ -27,7 +27,7 @@ BUILT_IN_PROVIDERS = {
     "adaptive_memory",
     "local_fast_path",
     "local_followup_clarification",
-    "local_topic_handler",
+    "content_rule",
 }
 
 
@@ -80,6 +80,11 @@ def answer_meta(provider_result: dict[str, Any] | None) -> dict[str, Any]:
     skipped = [str(name) for name in result.get("skipped_cloud") or []]
     if skipped:
         meta["skipped_cloud"] = skipped
+    if result.get("declined_by_model") and answered:
+        # The answer opens like a refusal. It is the model's own: the app sent the request on unchanged.
+        meta["declined_by_model"] = True
+    if provider == "content_rule":
+        meta["content_rule"] = True
     note = str(result.get("model_note") or "").strip()
     if note:
         # For example: the chosen model is not installed and another one answered instead.
@@ -121,6 +126,8 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
         parts.append("Passages from your saved knowledge; no model was available")
     elif provider == "local_knowledge":
         parts.append("Passages from your saved knowledge, no model used")
+    elif provider == "content_rule":
+        parts.append("Not answered: the app's one content rule (no sexual content involving minors)")
     elif provider in BUILT_IN_PROVIDERS:
         parts.append("Built-in reply, no model used")
     elif answered:
@@ -162,6 +169,10 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
         line += f". Reason: {reason}"
     if meta.get("note"):
         line += f". Note: {meta['note']}"
+    if meta.get("declined_by_model"):
+        # Where a refusal came from. The app has no topic filter, so this one is the model's.
+        whose = f"{CLOUD_MODEL_PROVIDERS[model_provider]}'s model" if model_provider in CLOUD_MODEL_PROVIDERS else "the model"
+        line += f". This reads like a refusal by {whose}; the app passed your message on unchanged and did not block it."
     skipped = meta.get("skipped_cloud") or []
     if skipped and not answered:
         line += f" ({', '.join(CLOUD_MODEL_PROVIDERS.get(name, name) for name in skipped)} is set up but cloud fallback is off.)"

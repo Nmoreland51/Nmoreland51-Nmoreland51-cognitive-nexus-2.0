@@ -279,7 +279,8 @@ def read_issue(context: ToolContext, number: int) -> ToolResult:
     except GitHubError as exc:
         raise ToolError(str(exc)) from exc
     # An issue is text from the internet: anything in it addressed to an AI model is dropped.
-    body, removed = defuse_untrusted_text(str(issue.get("body") or ""))
+    # Always the strict handling, whatever the owner chose for chat: an agent acts on what it reads.
+    body, removed = defuse_untrusted_text(str(issue.get("body") or ""), mode="remove_and_fence")
     return ToolResult(
         ok=True,
         output=f"#{issue.get('number')} {issue.get('title', '')} ({issue.get('state', '')})\n\n{body[:6000]}",

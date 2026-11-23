@@ -16,7 +16,7 @@ from functools import lru_cache
 from typing import Any, Callable
 
 from core.reality_grounding.claim_validator import extract_claims
-from core.reality_grounding.prompt_firewall import UNTRUSTED_RULE, defuse_untrusted_text, fence_untrusted, removed_note
+from core.reality_grounding.prompt_firewall import defuse_untrusted_text, fence_untrusted, removed_note, untrusted_rule
 from modules.data_stores import DATA_ROOT
 from modules.file_lock import append_line
 from modules.file_utils import atomic_write_text
@@ -731,7 +731,7 @@ def second_opinion_prompt(claim: str, passage: str) -> str:
 
     cleaned, _removed = defuse_untrusted_text(passage)
     return (
-        f"{UNTRUSTED_RULE}\n\n"
+        f"{untrusted_rule()}\n\n"
         f"Claim: {claim}\n"
         f"Passage:\n{fence_untrusted(cleaned, 'passage')}\n\n"
         "Does the passage state that the claim is true, state something that makes the claim false, or neither "
@@ -1471,7 +1471,7 @@ def _build_ai_prompt(report: ResearchReport) -> str:
     return (
         "You are Cognitive Nexus Reality-First Research Agent. Use only the supplied sources and extracted claims. "
         "Do not invent sources, quotes, dates, or conclusions. Clearly separate confirmed findings from weak leads.\n\n"
-        f"{UNTRUSTED_RULE}\n\n"
+        f"{untrusted_rule()}\n\n"
         f"Query: {report.query}\n\n"
         f"Source evidence:\n{fenced[0]}\n\n"
         f"Extracted claims:\n{fenced[1]}\n\n"

@@ -88,6 +88,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "anthropic_effort": "low",
     # Let the API re-run a request on another Claude model when a safety classifier declines it.
     "anthropic_refusal_fallback": True,
+    # Owner-controlled behaviour (modules/behavior_policy.py). None means "the default text".
+    "behavior_text": None,
+    "reality_check": "label",
+    "untrusted_content": "remove_and_fence",
+    "agent_autonomy": "publishing_asks",
     # Off: a cloud provider is used only when it is first in provider_order. On: a configured
     # cloud provider lower in the order may answer when the providers before it fail.
     "allow_cloud_fallback": False,
