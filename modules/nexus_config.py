@@ -18,11 +18,52 @@ DEFAULT_CONFIG_FILE = CONFIG_DIR / "nexus_config.json"
 ENV_FILE = PROJECT_ROOT / ".env"
 
 
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5"
+
+# Claude model IDs that the API no longer serves, with the current model in the same tier.
+# Source: the "Retired Models" table in Anthropic's model reference, read 2026-11-23. A saved
+# config or .env that still names one of these would fail on every request.
+RETIRED_MODEL_IDS = {
+    "claude-opus-4-1-20250805": "claude-opus-5-5",
+    "claude-opus-4-1": "claude-opus-5-5",
+    "claude-opus-4-20250514": "claude-opus-5-5",
+    "claude-opus-4-0": "claude-opus-5-5",
+    "claude-sonnet-4-20250514": "claude-sonnet-5-5",
+    "claude-sonnet-4-0": "claude-sonnet-5-5",
+    "claude-3-7-sonnet-20250219": "claude-sonnet-5-5",
+    "claude-3-5-sonnet-20241022": "claude-sonnet-5-5",
+    "claude-3-5-sonnet-20240620": "claude-sonnet-5-5",
+    "claude-3-sonnet-20240229": "claude-sonnet-5-5",
+    "claude-3-opus-20240229": "claude-opus-5-5",
+    "claude-3-5-haiku-20241022": "claude-haiku-5-5",
+    "claude-3-haiku-20240307": "claude-haiku-5-5",
+    "claude-2.1": "claude-sonnet-5-5",
+    "claude-2.0": "claude-sonnet-5-5",
+}
+
+
+def current_model_id(model: str) -> tuple[str, str]:
+    """Return (usable model ID, note). The note is empty unless a retired ID was replaced."""
+
+    name = str(model or "").strip()
+    replacement = RETIRED_MODEL_IDS.get(name)
+    if replacement:
+        return replacement, f"Model '{name}' has been retired by Anthropic; using '{replacement}' instead."
+    return name, ""
+
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "provider_order": ["ollama", "openai", "anthropic", "huggingface_local", "fallback"],
     "ollama_url": "http://localhost:11434",
     "openai_model": "gpt-4.1-mini",
-    "anthropic_model": "claude-sonnet-4-20250514",
+    "anthropic_model": DEFAULT_ANTHROPIC_MODEL,
+    # How much thinking Claude does before answering: low, medium, high, xhigh or max.
+    "anthropic_effort": "low",
+    # Let the API re-run a request on another Claude model when a safety classifier declines it.
+    "anthropic_refusal_fallback": True,
+    # Off: a cloud provider is used only when it is first in provider_order. On: a configured
+    # cloud provider lower in the order may answer when the providers before it fail.
+    "allow_cloud_fallback": False,
     "hf_local_model": "",
     "comfyui_url": "http://127.0.0.1:8188",
     "max_context_chars": 12000,
@@ -86,7 +127,10 @@ def load_runtime_config(path: Path = DEFAULT_CONFIG_FILE) -> dict[str, Any]:
 
     config["ollama_url"] = os.environ.get("OLLAMA_URL", str(config["ollama_url"])).rstrip("/")
     config["openai_model"] = os.environ.get("OPENAI_MODEL", str(config["openai_model"]))
-    config["anthropic_model"] = os.environ.get("ANTHROPIC_MODEL", str(config["anthropic_model"]))
+    config["anthropic_model"], model_note = current_model_id(os.environ.get("ANTHROPIC_MODEL") or str(config["anthropic_model"]))
+    config["model_id_notes"] = [model_note] if model_note else []
+    config["anthropic_effort"] = os.environ.get("ANTHROPIC_EFFORT", str(config.get("anthropic_effort") or "low"))
+    config["allow_cloud_fallback"] = _env_bool("ALLOW_CLOUD_FALLBACK", bool(config.get("allow_cloud_fallback", False)))
     config["hf_local_model"] = os.environ.get("HF_LOCAL_MODEL", str(config["hf_local_model"]))
     config["comfyui_url"] = os.environ.get("COMFYUI_URL", str(config["comfyui_url"])).rstrip("/")
     config["enable_bloodhound_search"] = _env_bool("ENABLE_BLOODHOUND_SEARCH", bool(config["enable_bloodhound_search"]))
@@ -123,5 +167,5 @@ def save_runtime_config(config: dict[str, Any], path: Path = DEFAULT_CONFIG_FILE
     """Persist the non-secret runtime config."""
 
     ensure_runtime_dirs()
-    serializable = {key: value for key, value in config.items() if "key" not in key.lower()}
+    serializable = {key: value for key, value in config.items() if "key" not in key.lower() and key != "model_id_notes"}
     atomic_write_text(path, json.dumps(serializable, indent=2, ensure_ascii=False))
