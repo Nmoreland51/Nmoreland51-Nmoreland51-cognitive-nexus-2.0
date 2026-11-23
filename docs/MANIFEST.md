@@ -1,6 +1,6 @@
 # Manifest
 
-Discovery and this session. Implementation SHA is filled after the commit that contains this file; if the line below still says "see git log", the commit has not been amended into the doc yet. The pull request diff is the source of the file bytes.
+Discovery and this session. The implementation commit is `b18f3cb400fb1a1f979c43b27d462a9869dccdf7` on `cursor/grok-failover-handoff-3f8b`. This manifest update is a later commit on the same branch.
 
 ## Engine, pushed refs seen 2026-11-23
 
