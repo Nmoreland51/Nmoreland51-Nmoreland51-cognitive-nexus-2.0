@@ -465,6 +465,34 @@ def test_a_damaged_file_is_found_and_repaired_from_a_snapshot(home):
     assert check_integrity() == []
 
 
+def test_forgetting_a_fact_removes_it_from_snapshots_too(home, monkeypatch):
+    from modules import profile_store
+    from modules.context_manager import forget_user_fact, load_user_facts, remember_user_fact
+
+    profile = home / "data" / "user_profile.json"
+    monkeypatch.setattr(profile_store, "PROFILE_FILE", profile)
+    remember_user_fact("My favorite color is teal", path=profile)
+    remember_user_fact("My favorite color is red", path=profile)
+    remember_user_fact("My sister lives in Seattle", path=profile)
+    (home / "data" / "chat_history.json").write_text('{"messages": []}', encoding="utf-8")
+    create_snapshot("with the fact")
+
+    result = forget_user_fact("favorite color", path=profile)
+
+    assert result["removed_from_snapshots"] == 2  # the current value and the one it replaced
+    assert "in local snapshots" in result["message"]
+    snapshot = Path(list_snapshots()[0]["path"])
+    with zipfile.ZipFile(snapshot) as archive:
+        saved = archive.read("files/data/user_profile.json").decode("utf-8")
+    assert "favorite color" not in saved and "teal" not in saved
+    assert "My sister lives in Seattle" in saved
+    verify_archive(snapshot)  # the snapshot's checksums were updated with it
+
+    # Restoring that snapshot cannot bring the forgotten fact back.
+    restore_snapshot(list_snapshots()[0]["id"], ["user_profile"])
+    assert load_user_facts(profile) == ["My sister lives in Seattle"]
+
+
 def test_a_damaged_file_without_a_snapshot_is_reported_and_left_alone(home):
     fill(home)
     (home / "data/chat_history.json").write_text("{broken", encoding="utf-8")

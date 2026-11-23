@@ -461,12 +461,27 @@ def _forget_candidates(folder: Path, terms: list[str]) -> int:
         return 0
 
 
+def _forget_in_snapshots(profile_path: Path, terms: list[str]) -> int:
+    """Apply a forget request to the snapshot copies of the real profile (not of a test file)."""
+
+    try:
+        if profile_path.resolve() != Path(PROFILE_FILE).resolve():
+            return 0
+        from modules.backup import forget_in_snapshots
+
+        return forget_in_snapshots(terms)
+    except Exception as exc:  # forgetting the live copy must not fail because a snapshot is unreadable
+        logger.warning("Could not apply the forget request to snapshots: %s", exc)
+        return 0
+
+
 def forget(query: str, *, path: Path | None = None) -> dict[str, Any]:
     """Remove saved facts that contain every distinctive word of the request, as whole words.
 
     Deletion reaches every copy this app keeps of the fact: earlier values it replaced, matching
-    stated or inferred preferences, and the adaptive memory's candidates. A record of the deleted
-    ids (not their text) stays so that a stale copy elsewhere cannot bring the fact back.
+    stated or inferred preferences, the adaptive memory's candidates, and the profile copies in
+    local snapshots. A record of the deleted ids (not their text) stays so that a stale copy
+    elsewhere cannot bring the fact back. Chat history and exported backup files are not changed.
     """
 
     terms = forget_terms(query)
@@ -507,14 +522,17 @@ def forget(query: str, *, path: Path | None = None) -> dict[str, Any]:
 
     counts = update_profile(change, resolved)
     counts["extras"] += _forget_candidates(resolved.parent, terms)
+    counts["snapshots"] = _forget_in_snapshots(resolved, terms)
     fact_count = len(active_facts(load_profile(resolved)))
-    if counts["removed"] or counts["history"] or counts["extras"]:
+    if counts["removed"] or counts["history"] or counts["extras"] or counts["snapshots"]:
         message = f"I forgot {counts['removed']} matching saved memory item(s)."
         details = []
         if counts["history"]:
             details.append(f"{counts['history']} earlier value(s) it had replaced")
         if counts["extras"]:
             details.append(f"{counts['extras']} related preference or pattern record(s)")
+        if counts["snapshots"]:
+            details.append(f"{counts['snapshots']} copy/copies in local snapshots")
         if details:
             message += " Also removed: " + " and ".join(details) + "."
         message += " The chat history still shows the messages where it was said; clear the chat to remove those too."
@@ -525,6 +543,7 @@ def forget(query: str, *, path: Path | None = None) -> dict[str, Any]:
             "removed": counts["removed"],
             "removed_history": counts["history"],
             "removed_related": counts["extras"],
+            "removed_from_snapshots": counts["snapshots"],
             "fact_count": fact_count,
             "terms": terms,
         }

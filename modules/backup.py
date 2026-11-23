@@ -567,6 +567,63 @@ def wipe_stores(store_keys: Iterable[str], *, confirm: str, include_snapshots: b
     return {"wiped": removed, "files": sum(removed.values()), "removed_from_snapshots": from_snapshots}
 
 
+def forget_in_snapshots(terms: list[str]) -> int:
+    """Remove saved facts matching a forget request from the profile copies in local snapshots.
+
+    Without this, "forget ..." would leave the fact readable in snapshots for up to a week.
+    Only the matching facts (and the earlier values they replaced) are removed; the rest of each
+    snapshot is untouched. Returns the number of fact records removed.
+    """
+
+    from modules import profile_store
+
+    name = _archive_name(profile_store.PROFILE_FILE)
+    if not terms or not name:
+        return 0
+    removed = 0
+    for row in list_snapshots():
+        archive_path = Path(row["path"])
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                if name not in archive.namelist():
+                    continue
+                content = {entry: archive.read(entry) for entry in archive.namelist()}
+            profile = json.loads(content[name])
+            facts = profile.get("facts") or []
+            doomed = {fact.get("id") for fact in facts if isinstance(fact, dict) and profile_store.matches_terms(fact.get("text"), terms)}
+            doomed |= {
+                fact.get("id")
+                for fact in facts
+                if isinstance(fact, dict) and (fact.get("superseded_by") in doomed or doomed & set(fact.get("supersedes") or []))
+            }
+            plain = [fact for fact in facts if not isinstance(fact, dict) and profile_store.matches_terms(fact, terms)]
+            if not doomed and not plain:
+                continue
+            profile["facts"] = [
+                fact for fact in facts if (fact.get("id") not in doomed if isinstance(fact, dict) else fact not in plain)
+            ]
+            for section in ("preferences", "patterns"):
+                entries = profile.get(section) or {}
+                for key in [key for key, value in entries.items() if profile_store.entry_matches(key, value, terms)]:
+                    del entries[key]
+            content[name] = json.dumps(profile, indent=2, ensure_ascii=False).encode("utf-8")
+            manifest = json.loads(content[MANIFEST_NAME])
+            for entry in manifest["stores"].get("user_profile", {}).get("files", []):
+                if entry["path"] == name:
+                    entry["bytes"] = len(content[name])
+                    entry["sha256"] = hashlib.sha256(content[name]).hexdigest()
+            content[MANIFEST_NAME] = json.dumps(manifest, indent=2).encode("utf-8")
+            replacement = archive_path.with_name("snapshot.zip.partial")
+            with zipfile.ZipFile(replacement, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                for entry, data in content.items():
+                    archive.writestr(entry, data)
+            os.replace(replacement, archive_path)
+            removed += len(doomed) + len(plain)
+        except (OSError, zipfile.BadZipFile, json.JSONDecodeError, KeyError) as exc:
+            record_event("error", "A snapshot could not be updated while forgetting a fact", snapshot=row["id"], error=str(exc))
+    return removed
+
+
 # --- integrity ---------------------------------------------------------------------------------------
 
 
