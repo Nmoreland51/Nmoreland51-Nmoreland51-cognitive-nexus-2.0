@@ -3,3 +3,5 @@
 #   python -m pytest
 -r full.txt
 pytest>=8.0
+# Imported by legacy/old_apps/cognitive_nexus_ai.py, which two test files still exercise.
+psutil>=5.9
