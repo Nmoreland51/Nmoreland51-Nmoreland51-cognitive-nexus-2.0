@@ -106,6 +106,8 @@ class NexusCore:
         self._adaptive_memory = None
         self.last_route_decision: dict[str, Any] = {}
         self.last_provider_result: dict[str, Any] = {}
+        # How the last chat prompt was fitted to the model's window (for Diagnostics).
+        self.last_context: dict[str, Any] = {}
         self.last_verification: dict[str, Any] = {}
         self.last_response_plan: dict[str, Any] = {}
         self.last_reality_audit: dict[str, Any] = {}
@@ -485,6 +487,30 @@ class NexusCore:
             allow_cloud_fallback=(bool(settings["allow_cloud_fallback"]) if settings.get("allow_cloud_fallback") is not None else None),
         )
 
+    def _context_budget(self, model: str, options: dict[str, Any], settings: dict[str, Any], plan: ResponsePlan):
+        """Window and prompt allowance when the turn goes to the local Ollama model, else None.
+
+        Cloud models have windows far larger than any prompt this app builds, so only the
+        character limit applies to them.
+        """
+
+        order = list(settings.get("provider_order") or self.config.get("provider_order", []))
+        primary = next((name for name in order if name != "fallback"), "")
+        if primary != "ollama" or not model:
+            return None
+        try:
+            return self.provider_router.plan_context(
+                model,
+                requested_ctx=int(options.get("num_ctx") or 0),
+                reply_tokens=int(options.get("num_predict") or 512),
+                throughput_mode=str(settings.get("throughput_mode") or "balanced"),
+                long_task=plan.intent in {"research", "reality_check"} or plan.mode in {"deep", "research"},
+                base_url=settings.get("base_url") or "",
+            )
+        except Exception as exc:
+            logger.info("Context budget unavailable: %s", exc)
+            return None
+
     def _model_text(self, prompt: str, settings: dict[str, Any], options: dict[str, Any]) -> str:
         """Text written by a real model, or ModelUnavailableError.
 
@@ -683,6 +709,7 @@ class NexusCore:
                 1800 if minimal_context else 12000,
             ),
             recent_message_limit=recent_message_limit,
+            max_prompt_tokens=settings.get("_max_prompt_tokens"),
         )
         self.last_trust_audit = context.trust_audit
         return context.prompt, context
@@ -1460,6 +1487,22 @@ class NexusCore:
             prompt_settings["use_memory"] = False
             prompt_settings["use_knowledge_for_chat"] = False
         prompt_start = time.perf_counter()
+        options = dict(route_decision.generation_options or {})
+        options["num_predict"] = int(plan.max_tokens)
+        options["num_ctx"] = int(plan.num_ctx)
+        if plan.mode == "short":
+            options["temperature"] = min(float(options.get("temperature", 0.7)), 0.7)
+        elif plan.mode in {"deep", "research"}:
+            options["temperature"] = max(float(options.get("temperature", 0.75)), 0.8)
+        options = self._apply_throughput_profile(options, settings, plan)
+        # Decide the model's window first, then pack the prompt to what that window leaves for
+        # it. The answer rules are added after packing, so their size is taken off the allowance.
+        budget = self._context_budget(route_decision.model or settings.get("selected_model") or "", options, settings, plan)
+        if budget is not None:
+            rules_tokens = estimate_context_tokens(self.build_planned_chat_prompt("", plan))
+            prompt_settings["_max_prompt_tokens"] = max(256, budget.prompt_tokens - rules_tokens)
+            options["num_ctx"] = budget.num_ctx
+            options["num_predict"] = budget.reply_tokens
         prompt, context = self.build_chat_prompt(
             user_message,
             messages,
@@ -1472,14 +1515,16 @@ class NexusCore:
         retrieval_meta = dict(self.last_retrieval or {})
         timings["retrieval_ms"] = float(retrieval_meta.get("elapsed_ms", 0.0) or 0.0)
         source_count = int(retrieval_meta.get("used_count", 0) or 0)
-        options = dict(route_decision.generation_options or {})
-        options["num_predict"] = int(plan.max_tokens)
-        options["num_ctx"] = int(plan.num_ctx)
-        if plan.mode == "short":
-            options["temperature"] = min(float(options.get("temperature", 0.7)), 0.7)
-        elif plan.mode in {"deep", "research"}:
-            options["temperature"] = max(float(options.get("temperature", 0.75)), 0.8)
-        options = self._apply_throughput_profile(options, settings, plan)
+        self.last_context = {
+            "prompt_tokens_estimated": estimate_context_tokens(prompt),
+            "prompt_tokens_allowed": budget.prompt_tokens if budget else None,
+            "num_ctx": budget.num_ctx if budget else None,
+            "reply_tokens": int(options["num_predict"]),
+            "model_window": budget.model_window if budget else None,
+            "limited_by": budget.limited_by if budget else "",
+            "trim_steps": list(getattr(context, "trim_steps", []) or []),
+            "older_messages": int(getattr(context, "older_messages_total", 0) or 0),
+        }
         request = self._provider_request(
             prompt,
             settings,
@@ -1652,6 +1697,7 @@ class NexusCore:
         self.last_provider_result = provider_result.to_dict() | {
             "context_tokens_estimate": context.estimated_tokens,
             "context_trimmed": context.trimmed,
+            "context": dict(self.last_context),
             "response_completion": completion,
             "planned_tokens": plan.max_tokens,
             "timings": timings,

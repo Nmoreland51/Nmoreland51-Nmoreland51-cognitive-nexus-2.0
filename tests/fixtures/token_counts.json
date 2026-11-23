@@ -1,0 +1,97 @@
+{
+  "model": "dolphin3:8b (llama family, Q4_K_M)",
+  "measured_on": "2026-11-23",
+  "how": "Ollama /api/generate with raw=true and num_predict=1; prompt_eval_count minus the count for a random prefix.",
+  "samples": [
+    {
+      "name": "english_prose",
+      "text": "The committee reviewed the proposal on Tuesday and decided to postpone the final vote until the budget figures were confirmed by the finance office. Several members asked for clearer milestones. The committee reviewed the proposal on Tuesday and decided to postpone the final vote until the budget figures were confirmed by the finance office. Several members asked for clearer milestones. The committee reviewed the proposal on Tuesday and decided to postpone the final vote until the budget figures were confirmed by the finance office. Several members asked for clearer milestones. The committee reviewed the proposal on Tuesday and decided to postpone the final vote until the budget figures were confirmed by the finance office. Several members asked for clearer milestones. The committee reviewed the proposal on Tuesday and decided to postpone the final vote until the budget figures were confirmed by the finance office. Several members asked for clearer milestones. ",
+      "tokens": 161
+    },
+    {
+      "name": "chat_instructions",
+      "text": "You are a careful assistant. Answer the user's question directly. If you are not sure, say so. Do not invent sources. Keep the reply short unless the user asks for detail. You are a careful assistant. Answer the user's question directly. If you are not sure, say so. Do not invent sources. Keep the reply short unless the user asks for detail. You are a careful assistant. Answer the user's question directly. If you are not sure, say so. Do not invent sources. Keep the reply short unless the user asks for detail. You are a careful assistant. Answer the user's question directly. If you are not sure, say so. Do not invent sources. Keep the reply short unless the user asks for detail. You are a careful assistant. Answer the user's question directly. If you are not sure, say so. Do not invent sources. Keep the reply short unless the user asks for detail. ",
+      "tokens": 190
+    },
+    {
+      "name": "python",
+      "text": "class Cache:\n    def __init__(self, size: int = 128) -> None:\n        self._items: dict[str, bytes] = {}\n        self.size = size\n\n    def get(self, key: str) -> bytes | None:\n        return self._items.get(key)\n\nclass Cache:\n    def __init__(self, size: int = 128) -> None:\n        self._items: dict[str, bytes] = {}\n        self.size = size\n\n    def get(self, key: str) -> bytes | None:\n        return self._items.get(key)\n\nclass Cache:\n    def __init__(self, size: int = 128) -> None:\n        self._items: dict[str, bytes] = {}\n        self.size = size\n\n    def get(self, key: str) -> bytes | None:\n        return self._items.get(key)\n\nclass Cache:\n    def __init__(self, size: int = 128) -> None:\n        self._items: dict[str, bytes] = {}\n        self.size = size\n\n    def get(self, key: str) -> bytes | None:\n        return self._items.get(key)\n\n",
+      "tokens": 238
+    },
+    {
+      "name": "javascript",
+      "text": "export async function fetchUser(id) {\n  const res = await fetch(`/api/users/${id}`, { headers: { Accept: 'application/json' } });\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  return res.json();\n}\n\nexport async function fetchUser(id) {\n  const res = await fetch(`/api/users/${id}`, { headers: { Accept: 'application/json' } });\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  return res.json();\n}\n\nexport async function fetchUser(id) {\n  const res = await fetch(`/api/users/${id}`, { headers: { Accept: 'application/json' } });\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  return res.json();\n}\n\nexport async function fetchUser(id) {\n  const res = await fetch(`/api/users/${id}`, { headers: { Accept: 'application/json' } });\n  if (!res.ok) throw new Error(`HTTP ${res.status}`);\n  return res.json();\n}\n\n",
+      "tokens": 212
+    },
+    {
+      "name": "json",
+      "text": "[{\"id\": 0, \"name\": \"Sensor 0\", \"reading\": 20.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 1, \"name\": \"Sensor 1\", \"reading\": 21.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 2, \"name\": \"Sensor 2\", \"reading\": 22.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 3, \"name\": \"Sensor 3\", \"reading\": 23.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 4, \"name\": \"Sensor 4\", \"reading\": 24.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 5, \"name\": \"Sensor 5\", \"reading\": 25.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 6, \"name\": \"Sensor 6\", \"reading\": 26.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 7, \"name\": \"Sensor 7\", \"reading\": 27.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 8, \"name\": \"Sensor 8\", \"reading\": 28.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 9, \"name\": \"Sensor 9\", \"reading\": 29.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 10, \"name\": \"Sensor 10\", \"reading\": 30.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 11, \"name\": \"Sensor 11\", \"reading\": 31.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 12, \"name\": \"Sensor 12\", \"reading\": 32.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 13, \"name\": \"Sensor 13\", \"reading\": 33.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 14, \"name\": \"Sensor 14\", \"reading\": 34.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 15, \"name\": \"Sensor 15\", \"reading\": 35.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}, {\"id\": 16, \"name\": \"Sensor 16\", \"reading\": 36.5, \"ok\": true, \"tags\": [\"roof\", \"north\"]}, {\"id\": 17, \"name\": \"Sensor 17\", \"reading\": 37.5, \"ok\": false, \"tags\": [\"roof\", \"north\"]}]",
+      "tokens": 668
+    },
+    {
+      "name": "markdown_table",
+      "text": "| Feature | Tests | Live | Notes |\n|---|---|---|---|\n| Feature number 0 | Yes | Partly | Verified on 2026-11-10 |\n| Feature number 1 | Yes | Partly | Verified on 2026-11-11 |\n| Feature number 2 | Yes | Partly | Verified on 2026-11-12 |\n| Feature number 3 | Yes | Partly | Verified on 2026-11-13 |\n| Feature number 4 | Yes | Partly | Verified on 2026-11-14 |\n| Feature number 5 | Yes | Partly | Verified on 2026-11-15 |\n| Feature number 6 | Yes | Partly | Verified on 2026-11-16 |\n| Feature number 7 | Yes | Partly | Verified on 2026-11-17 |\n| Feature number 8 | Yes | Partly | Verified on 2026-11-18 |\n| Feature number 9 | Yes | Partly | Verified on 2026-11-19 |\n| Feature number 10 | Yes | Partly | Verified on 2026-11-20 |\n| Feature number 11 | Yes | Partly | Verified on 2026-11-21 |\n| Feature number 12 | Yes | Partly | Verified on 2026-11-22 |\n| Feature number 13 | Yes | Partly | Verified on 2026-11-23 |\n",
+      "tokens": 312
+    },
+    {
+      "name": "urls_and_paths",
+      "text": "https://docs.example.org/guide/section-0/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_0.xlsx\nhttps://docs.example.org/guide/section-1/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_1.xlsx\nhttps://docs.example.org/guide/section-2/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_2.xlsx\nhttps://docs.example.org/guide/section-3/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_3.xlsx\nhttps://docs.example.org/guide/section-4/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_4.xlsx\nhttps://docs.example.org/guide/section-5/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_5.xlsx\nhttps://docs.example.org/guide/section-6/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_6.xlsx\nhttps://docs.example.org/guide/section-7/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_7.xlsx\nhttps://docs.example.org/guide/section-8/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_8.xlsx\nhttps://docs.example.org/guide/section-9/page.html?ref=index&lang=en  C:\\Users\\sam\\Documents\\report_9.xlsx",
+      "tokens": 329
+    },
+    {
+      "name": "numbers",
+      "text": "0.000 0 2026-11-01 0x0000 1234.567 37 2026-11-02 0x00ff 2469.134 74 2026-11-03 0x01fe 3703.701 111 2026-11-04 0x02fd 4938.268 148 2026-11-05 0x03fc 6172.835 185 2026-11-06 0x04fb 7407.402 222 2026-11-07 0x05fa 8641.969 259 2026-11-08 0x06f9 9876.536 296 2026-11-09 0x07f8 11111.103 333 2026-11-10 0x08f7 12345.670 370 2026-11-11 0x09f6 13580.237 407 2026-11-12 0x0af5 14814.804 444 2026-11-13 0x0bf4 16049.371 481 2026-11-14 0x0cf3 17283.938 518 2026-11-15 0x0df2 18518.505 555 2026-11-16 0x0ef1 19753.072 592 2026-11-17 0x0ff0 20987.639 629 2026-11-18 0x10ef 22222.206 666 2026-11-19 0x11ee 23456.773 703 2026-11-20 0x12ed 24691.340 740 2026-11-21 0x13ec 25925.907 777 2026-11-22 0x14eb 27160.474 814 2026-11-23 0x15ea 28395.041 851 2026-11-24 0x16e9 29629.608 888 2026-11-25 0x17e8 30864.175 925 2026-11-26 0x18e7 32098.742 962 2026-11-27 0x19e6 33333.309 999 2026-11-28 0x1ae5 34567.876 1036 2026-11-01 0x1be4 35802.443 1073 2026-11-02 0x1ce3 37037.010 1110 2026-11-03 0x1de2 38271.577 1147 2026-11-04 0x1ee1 39506.144 1184 2026-11-05 0x1fe0 40740.711 1221 2026-11-06 0x20df 41975.278 1258 2026-11-07 0x21de 43209.845 1295 2026-11-08 0x22dd 44444.412 1332 2026-11-09 0x23dc 45678.979 1369 2026-11-10 0x24db 46913.546 1406 2026-11-11 0x25da 48148.113 1443 2026-11-12 0x26d9",
+      "tokens": 791
+    },
+    {
+      "name": "log_lines",
+      "text": "2026-11-23 07:00:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:01:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:02:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:03:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:04:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:05:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:06:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s\n2026-11-23 07:07:13,482 INFO modules.web_research: Research timings query='latest release' search=1.2s scrape=3.4s",
+      "tokens": 319
+    },
+    {
+      "name": "spanish",
+      "text": "El comité revisó la propuesta el martes y decidió posponer la votación final hasta que la oficina de finanzas confirmara las cifras del presupuesto. Varios miembros pidieron hitos más claros. El comité revisó la propuesta el martes y decidió posponer la votación final hasta que la oficina de finanzas confirmara las cifras del presupuesto. Varios miembros pidieron hitos más claros. El comité revisó la propuesta el martes y decidió posponer la votación final hasta que la oficina de finanzas confirmara las cifras del presupuesto. Varios miembros pidieron hitos más claros. El comité revisó la propuesta el martes y decidió posponer la votación final hasta que la oficina de finanzas confirmara las cifras del presupuesto. Varios miembros pidieron hitos más claros. ",
+      "tokens": 210
+    },
+    {
+      "name": "mixed_chat",
+      "text": "User:\nCan you check why the nightly job failed?\n\nAssistant:\nThe log shows `PermissionError: [WinError 5]` when writing to D:\\backups. Run `icacls D:\\backups` to see who can write there.\n\nUser:\nCan you check why the nightly job failed?\n\nAssistant:\nThe log shows `PermissionError: [WinError 5]` when writing to D:\\backups. Run `icacls D:\\backups` to see who can write there.\n\nUser:\nCan you check why the nightly job failed?\n\nAssistant:\nThe log shows `PermissionError: [WinError 5]` when writing to D:\\backups. Run `icacls D:\\backups` to see who can write there.\n\nUser:\nCan you check why the nightly job failed?\n\nAssistant:\nThe log shows `PermissionError: [WinError 5]` when writing to D:\\backups. Run `icacls D:\\backups` to see who can write there.\n\n",
+      "tokens": 203
+    },
+    {
+      "name": "short",
+      "text": "What is the capital of France?",
+      "tokens": 6
+    },
+    {
+      "name": "french",
+      "text": "Le comité a examiné la proposition mardi et a décidé de reporter le vote final jusqu'à ce que les chiffres du budget soient confirmés par le service financier. Plusieurs membres ont demandé des étapes plus claires. Le comité a examiné la proposition mardi et a décidé de reporter le vote final jusqu'à ce que les chiffres du budget soient confirmés par le service financier. Plusieurs membres ont demandé des étapes plus claires. Le comité a examiné la proposition mardi et a décidé de reporter le vote final jusqu'à ce que les chiffres du budget soient confirmés par le service financier. Plusieurs membres ont demandé des étapes plus claires. ",
+      "tokens": 157
+    },
+    {
+      "name": "german",
+      "text": "Der Ausschuss prüfte den Vorschlag am Dienstag und beschloss, die endgültige Abstimmung zu verschieben, bis die Haushaltszahlen von der Finanzabteilung bestätigt wurden. Mehrere Mitglieder baten um klarere Meilensteine. Der Ausschuss prüfte den Vorschlag am Dienstag und beschloss, die endgültige Abstimmung zu verschieben, bis die Haushaltszahlen von der Finanzabteilung bestätigt wurden. Mehrere Mitglieder baten um klarere Meilensteine. Der Ausschuss prüfte den Vorschlag am Dienstag und beschloss, die endgültige Abstimmung zu verschieben, bis die Haushaltszahlen von der Finanzabteilung bestätigt wurden. Mehrere Mitglieder baten um klarere Meilensteine. ",
+      "tokens": 199
+    },
+    {
+      "name": "chinese",
+      "text": "委员会在星期二审查了该提案，并决定推迟最终投票，直到财务办公室确认预算数字为止。几位成员要求更明确的里程碑。委员会在星期二审查了该提案，并决定推迟最终投票，直到财务办公室确认预算数字为止。几位成员要求更明确的里程碑。委员会在星期二审查了该提案，并决定推迟最终投票，直到财务办公室确认预算数字为止。几位成员要求更明确的里程碑。委员会在星期二审查了该提案，并决定推迟最终投票，直到财务办公室确认预算数字为止。几位成员要求更明确的里程碑。",
+      "tokens": 187
+    },
+    {
+      "name": "japanese",
+      "text": "委員会は火曜日に提案を検討し、財務部門が予算の数字を確認するまで最終投票を延期することを決定しました。委員会は火曜日に提案を検討し、財務部門が予算の数字を確認するまで最終投票を延期することを決定しました。委員会は火曜日に提案を検討し、財務部門が予算の数字を確認するまで最終投票を延期することを決定しました。委員会は火曜日に提案を検討し、財務部門が予算の数字を確認するまで最終投票を延期することを決定しました。",
+      "tokens": 150
+    },
+    {
+      "name": "emoji",
+      "text": "Great job! 🎉🎉 Deployment finished ✅ — latency down 35% 📉, errors 0 ❌→✅. Next: tests 🧪, docs 📚, release 🚀. Great job! 🎉🎉 Deployment finished ✅ — latency down 35% 📉, errors 0 ❌→✅. Next: tests 🧪, docs 📚, release 🚀. Great job! 🎉🎉 Deployment finished ✅ — latency down 35% 📉, errors 0 ❌→✅. Next: tests 🧪, docs 📚, release 🚀. Great job! 🎉🎉 Deployment finished ✅ — latency down 35% 📉, errors 0 ❌→✅. Next: tests 🧪, docs 📚, release 🚀. Great job! 🎉🎉 Deployment finished ✅ — latency down 35% 📉, errors 0 ❌→✅. Next: tests 🧪, docs 📚, release 🚀. ",
+      "tokens": 246
+    },
+    {
+      "name": "russian",
+      "text": "Комитет рассмотрел предложение во вторник и решил отложить окончательное голосование до тех пор, пока финансовый отдел не подтвердит бюджетные цифры. Комитет рассмотрел предложение во вторник и решил отложить окончательное голосование до тех пор, пока финансовый отдел не подтвердит бюджетные цифры. Комитет рассмотрел предложение во вторник и решил отложить окончательное голосование до тех пор, пока финансовый отдел не подтвердит бюджетные цифры. ",
+      "tokens": 121
+    }
+  ]
+}

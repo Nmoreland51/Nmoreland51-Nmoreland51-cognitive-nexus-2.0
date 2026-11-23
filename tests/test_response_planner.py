@@ -23,7 +23,10 @@ from modules.response_planner import (
 class TestResponsePlanner(unittest.TestCase):
     def test_estimate_tokens_is_stable(self):
         self.assertEqual(estimate_tokens("abcd"), 1)
-        self.assertGreaterEqual(estimate_tokens("hello " * 20), 20)
+        # About one token per ordinary English word (measured; see tests/test_token_estimate.py).
+        self.assertGreaterEqual(estimate_tokens("hello " * 20), 16)
+        self.assertLessEqual(estimate_tokens("hello " * 20), 24)
+        self.assertEqual(estimate_tokens("hello " * 20), estimate_tokens("hello " * 20))
 
     def test_detects_coding_debug_intent(self):
         result = analyze_intent_cached("Fix this Python traceback in my Streamlit app")

@@ -312,12 +312,13 @@ def test_ollama_connection_refused_is_retried_once(monkeypatch):
     monkeypatch.setattr("modules.provider_router.OLLAMA_SESSION", session)
     monkeypatch.setattr("modules.provider_router.time.sleep", lambda _seconds: None)
     router = ProviderRouter({"provider_order": ["ollama", "fallback"]})
+    router._model_windows["llama3.2:3b"] = 8192
     info = ProviderInfo(name="ollama", available=True, message="ok", models=["llama3.2:3b"], base_url="http://ollama.test")
 
     chunks = list(router._stream_ollama(ProviderRequest(prompt="hello"), info, "llama3.2:3b"))
 
     assert "".join(chunks) == "Hi"
-    assert len(session.calls) == 2
+    assert [call["url"] for call in session.calls] == ["http://ollama.test/api/generate"] * 2
 
 
 def ollama_stream_router(monkeypatch, *lines: dict) -> tuple[ProviderRouter, ProviderInfo]:
@@ -328,6 +329,7 @@ def ollama_stream_router(monkeypatch, *lines: dict) -> tuple[ProviderRouter, Pro
 
     monkeypatch.setattr("modules.provider_router.OLLAMA_SESSION", FakeSession(Stream()))
     router = ProviderRouter({"provider_order": ["ollama", "fallback"]})
+    router._model_windows["llama3.2:3b"] = 8192  # as if the server had already been asked
     info = ProviderInfo(name="ollama", available=True, message="ok", models=["llama3.2:3b"], base_url="http://ollama.test")
     return router, info
 

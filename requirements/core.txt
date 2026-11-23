@@ -5,3 +5,5 @@ pillow>=10.0.0
 filelock>=3.12
 # Encrypted backups (modules/backup.py).
 cryptography>=43
+# Memory size, to choose a context window the machine can hold.
+psutil>=5.9

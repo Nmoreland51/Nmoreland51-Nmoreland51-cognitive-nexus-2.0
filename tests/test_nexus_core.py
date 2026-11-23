@@ -313,7 +313,8 @@ class NexusCoreTests(unittest.TestCase):
         answer = core.generate_chat_response("What is Cognitive Nexus?", [], settings)
 
         self.assertEqual(answer, "Fast local answer.")
-        self.assertLessEqual(captured["options"]["num_ctx"], 1024)
+        # 2048 is the smallest window the router ever requests, so that is what turbo gets.
+        self.assertLessEqual(captured["options"]["num_ctx"], 2048)
         self.assertLessEqual(captured["options"]["num_predict"], 220)
         self.assertEqual(captured["options"]["num_batch"], 512)
         self.assertEqual(captured["options"]["top_k"], 20)

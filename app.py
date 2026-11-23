@@ -248,6 +248,34 @@ def model_check_caption(record: dict[str, Any] | None) -> str:
     return f"Model check failed: {record.get('error') or 'no text came back'}"
 
 
+def context_window_caption(context: dict[str, Any]) -> str:
+    """One paragraph on how the last chat prompt was fitted to the model's context window."""
+
+    if not context or not context.get("num_ctx"):
+        return ""
+    allowed = context.get("prompt_tokens_allowed")
+    limit_reason = {
+        "speed": "limited by how fast this machine reads a prompt",
+        "window": "limited by the window size",
+        "model": "limited by the model's own window",
+    }.get(str(context.get("limited_by") or ""), "")
+    model_window = context.get("model_window")
+    parts = [
+        f"Last chat turn: the prompt was about {context.get('prompt_tokens_estimated')} tokens"
+        + (f" of {allowed} allowed ({limit_reason})" if allowed else ""),
+        f"sent with a {context['num_ctx']}-token window that also holds a reply of up to {context.get('reply_tokens')} tokens",
+    ]
+    if model_window:
+        parts.append(f"the model itself can read {model_window} tokens")
+    line = "; ".join(parts) + "."
+    steps = [str(step) for step in context.get("trim_steps") or []]
+    if steps:
+        line += " To fit, in this order: " + ", ".join(dict.fromkeys(steps)) + "."
+    if context.get("older_messages"):
+        line += f" {context['older_messages']} older message(s) were condensed into a summary."
+    return line
+
+
 def data_locality_caption(provider_order: list[str], allow_cloud_fallback: bool, cloud_ready: list[str]) -> str:
     """One line saying where chat prompts can go with the current settings."""
 
@@ -1918,6 +1946,11 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
     if problem_rows and not demo_safe:
         with st.expander("Recent problems", expanded=False):
             st.dataframe(problem_rows, width="stretch", hide_index=True)
+
+    context_line = context_window_caption(last_provider.get("context") or {})
+    if context_line:
+        st.markdown("### Context Window")
+        st.caption(context_line)
 
     st.markdown("### Core Stability Self-Check")
     action_cols = st.columns([1, 1, 4])

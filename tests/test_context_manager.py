@@ -37,8 +37,13 @@ class ContextManagerTests(unittest.TestCase):
 
         self.assertIn("What changed in the project?", bundle.prompt)
         self.assertIn("System prompt", bundle.prompt)
-        self.assertLessEqual(len(bundle.prompt), 2500 + 16)
-        self.assertEqual(len(bundle.recent_history), 4)
+        self.assertLessEqual(len(bundle.prompt), 2500)
+        self.assertTrue(bundle.trimmed)
+        # recent_history is what the prompt really contains: the newest messages, oldest dropped first.
+        self.assertEqual(bundle.recent_history[-1]["content"], "older message 19")
+        self.assertGreaterEqual(len(bundle.recent_history), 2)
+        for message in bundle.recent_history:
+            self.assertIn(message["content"], bundle.prompt)
 
     def test_local_profile_memory_saves_recalls_and_forgets_facts(self):
         with tempfile.TemporaryDirectory() as tmp:

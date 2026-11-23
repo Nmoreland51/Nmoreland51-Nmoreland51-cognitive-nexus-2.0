@@ -12,9 +12,11 @@ from typing import Any, Generator, Optional
 
 import requests
 
+from modules.context_budget import PROMPT_SECONDS, ContextBudget, default_max_window, plan_budget, window_for_prompt
 from modules.event_log import record_event
 from modules.nexus_config import DEFAULT_ANTHROPIC_MODEL, load_runtime_config
 from modules.providers import FALLBACK_RESPONSE, OLLAMA_SESSION, check_ollama_status, get_ollama_base_url
+from modules.token_estimate import estimate_tokens
 
 
 @dataclass
@@ -155,6 +157,15 @@ def _cloud_model(provider: str, requested: str, info: "ProviderInfo") -> str:
     return info.models[0] if info.models else ""
 
 
+def _total_ram_gb() -> float | None:
+    try:
+        import psutil
+
+        return psutil.virtual_memory().total / 1024**3
+    except Exception:
+        return None
+
+
 def _plain_error(exc: Exception) -> str:
     """A short reason a person can read. The raw exception stays in the attempt log."""
 
@@ -203,6 +214,13 @@ class ProviderRouter:
         self.last_stream_metadata: dict[str, Any] = {}
         self._last_ollama_throughput: dict[str, Any] = {}
         self._last_cloud_usage: dict[str, Any] = {}
+        # Per Ollama model: its own window, the window it is loaded with now, the slowest
+        # prompt-reading speed seen, and a correction for a tokenizer the estimator under-counts.
+        self._model_windows: dict[str, int] = {}
+        self._window_lookup_failed: dict[str, float] = {}
+        self._window_in_use: dict[str, int] = {}
+        self._prompt_speed: dict[str, float] = {}
+        self._token_correction: dict[str, float] = {}
         # (provider, model) -> result of the last real test generation.
         self._verification: dict[tuple[str, str], dict[str, Any]] = {}
 
@@ -232,6 +250,69 @@ class ProviderRouter:
             return response.ok
         except requests.RequestException:
             return False
+
+    def model_window(self, model: str, base_url: str = "") -> int | None:
+        """The model's own context window in tokens, asked from Ollama once per model."""
+
+        if model in self._model_windows:
+            return self._model_windows[model]
+        # After a failed lookup, do not ask again for a minute: a server that is down would
+        # otherwise add a connection attempt to every turn.
+        if time.monotonic() - self._window_lookup_failed.get(model, -1e9) < 60.0:
+            return None
+        url = (base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/")
+        try:
+            response = OLLAMA_SESSION.post(f"{url}/api/show", json={"model": model}, timeout=(3.0, 10.0))
+            response.raise_for_status()
+            info = response.json().get("model_info") or {}
+            window = next((int(value) for key, value in info.items() if str(key).endswith(".context_length")), 0)
+        except Exception:  # best effort: an unknown window is handled as a small one
+            window = 0
+        if window <= 0:
+            self._window_lookup_failed[model] = time.monotonic()
+            return None
+        self._model_windows[model] = window
+        return window
+
+    def max_window(self) -> int:
+        """Largest window to request on this machine (setting ollama_max_num_ctx, else by memory)."""
+
+        configured = int(self.config.get("ollama_max_num_ctx") or 0)
+        return configured if configured > 0 else default_max_window(_total_ram_gb())
+
+    def plan_context(
+        self,
+        model: str,
+        *,
+        requested_ctx: int,
+        reply_tokens: int,
+        throughput_mode: str = "balanced",
+        long_task: bool = False,
+        base_url: str = "",
+    ) -> ContextBudget:
+        """Window and prompt allowance for a request to this Ollama model, before the prompt is built."""
+
+        seconds = PROMPT_SECONDS.get(str(throughput_mode or "balanced"), PROMPT_SECONDS["balanced"]) * (2.5 if long_task else 1.0)
+        budget = plan_budget(
+            requested_ctx=max(int(requested_ctx or 0), OLLAMA_MIN_NUM_CTX),
+            reply_tokens=reply_tokens,
+            model_window=self.model_window(model, base_url),
+            max_window=self.max_window(),
+            in_use=self._window_in_use.get(model, 0),
+            prompt_tokens_per_second=self._prompt_speed.get(model),
+            max_prompt_seconds=seconds,
+        )
+        correction = self._token_correction.get(model, 1.0)
+        if correction > 1.0:
+            # This model's tokenizer splits text finer than the estimator assumes.
+            budget = ContextBudget(
+                num_ctx=budget.num_ctx,
+                reply_tokens=budget.reply_tokens,
+                prompt_tokens=max(1, int(budget.prompt_tokens / correction)),
+                model_window=budget.model_window,
+                limited_by=budget.limited_by,
+            )
+        return budget
 
     def verify_ollama(self, model: str, base_url: str = "") -> dict[str, Any]:
         """Run a tiny real generation and record whether the model actually answers.
@@ -621,7 +702,26 @@ class ProviderRouter:
         if options.get("keep_alive"):
             payload["keep_alive"] = str(options.pop("keep_alive"))
         options.setdefault("num_predict", int(request.max_tokens or 512))
-        options["num_ctx"] = max(int(options.get("num_ctx") or OLLAMA_MIN_NUM_CTX), OLLAMA_MIN_NUM_CTX)
+        # Pick a window that holds this prompt and its reply. A prompt longer than the window is
+        # cut by the model server without any error, starting with the instructions.
+        prompt_estimate = int(estimate_tokens(request.prompt) * self._token_correction.get(model, 1.0))
+        num_ctx, prompt_fits = window_for_prompt(
+            prompt_estimate,
+            int(options["num_predict"]),
+            requested_ctx=max(int(options.get("num_ctx") or OLLAMA_MIN_NUM_CTX), OLLAMA_MIN_NUM_CTX),
+            model_window=self.model_window(model, base_url),
+            max_window=self.max_window(),
+            in_use=self._window_in_use.get(model, 0),
+        )
+        options["num_ctx"] = num_ctx
+        if not prompt_fits:
+            record_event(
+                "degraded_mode",
+                "The prompt is longer than the largest context window allowed here; the model server will drop its beginning",
+                model=model,
+                prompt_tokens_estimated=prompt_estimate,
+                num_ctx=num_ctx,
+            )
         payload["options"] = options
 
         read_timeout = max(float(request.timeout or 0), OLLAMA_MIN_READ_TIMEOUT)
@@ -664,6 +764,8 @@ class ProviderRouter:
                 tokens_per_second = 0.0
                 if eval_count > 0 and eval_duration > 0:
                     tokens_per_second = eval_count / (eval_duration / 1_000_000_000)
+                self._window_in_use[model] = num_ctx
+                self._learn_from_prompt(model, request.prompt, prompt_eval_count, prompt_eval_duration, prompt_fits)
                 self._last_ollama_throughput = {
                     "eval_count": eval_count,
                     "eval_duration_ns": eval_duration,
@@ -672,12 +774,34 @@ class ProviderRouter:
                     "tokens_per_second": round(tokens_per_second, 2) if tokens_per_second else 0.0,
                     # "length" means the answer hit the token limit rather than finishing.
                     "done_reason": str(data.get("done_reason") or ""),
+                    "num_ctx": num_ctx,
+                    "prompt_tokens_estimated": prompt_estimate,
+                    "prompt_fits": prompt_fits,
                 }
                 return
         if not yielded_any:
             raise RuntimeError(f"Ollama model '{model}' stream ended without text.")
         # Text arrived but the closing message never did: the connection dropped mid-answer.
         raise RuntimeError(f"Ollama model '{model}' stopped before finishing its answer.")
+
+    def _learn_from_prompt(self, model: str, prompt: str, prompt_tokens: int, duration_ns: int, fitted: bool) -> None:
+        """Use what the server reports about a real request to keep the next plans honest."""
+
+        if prompt_tokens < 100:
+            return
+        if duration_ns > 0:
+            # A prompt whose beginning the server had cached reports almost no reading time, so
+            # the slowest rate seen is the true one.
+            rate = prompt_tokens / (duration_ns / 1_000_000_000)
+            self._prompt_speed[model] = min(self._prompt_speed.get(model, rate), rate)
+        if fitted:
+            # The server always reports the full prompt size. If it is well above the estimate,
+            # this model's tokenizer splits text finer; plan with a matching margin from now on.
+            ratio = prompt_tokens / max(estimate_tokens(prompt), 1)
+            if ratio > 1.05:
+                current = self._token_correction.get(model, 1.0)
+                self._token_correction[model] = round(min(1.6, max(current, ratio)), 3)
+                record_event("degraded_mode", "Token estimate was too low for this model; margin raised", model=model, ratio=round(ratio, 3))
 
     def _post_with_retry(self, url: str, *, headers: dict[str, str], payload: dict[str, Any], timeout: float) -> requests.Response:
         """POST to a cloud API, retrying rate limits, overloads and dropped connections."""

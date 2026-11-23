@@ -13,6 +13,7 @@ from typing import Any
 from modules.data_stores import DATA_ROOT
 from modules.file_lock import locked, read_json
 from modules.file_utils import atomic_write_text
+from modules.token_estimate import estimate_tokens
 
 
 PREFERENCES_FILE = DATA_ROOT / "response_preferences.json"
@@ -396,12 +397,6 @@ class ResponsePlan:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-def estimate_tokens(text: str) -> int:
-    """Estimate tokens with a cheap chars/4 heuristic."""
-
-    return max(1, len(text or "") // 4)
 
 
 def _clean_mode(value: str | None) -> str:

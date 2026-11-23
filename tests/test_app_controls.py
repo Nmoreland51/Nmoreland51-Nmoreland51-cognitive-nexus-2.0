@@ -173,6 +173,26 @@ class AppControlsTests(unittest.TestCase):
         self.assertIn("wrote the last answer", app.model_check_caption({"ok": True, "seconds": None, "source": "answer"}))
         self.assertEqual(app.model_check_caption({"ok": False, "error": "refused"}), "Model check failed: refused")
 
+    def test_context_window_caption_explains_how_the_prompt_was_fitted(self):
+        self.assertEqual(app.context_window_caption({}), "")
+        line = app.context_window_caption(
+            {
+                "prompt_tokens_estimated": 883,
+                "prompt_tokens_allowed": 900,
+                "num_ctx": 2048,
+                "reply_tokens": 384,
+                "model_window": 131072,
+                "limited_by": "speed",
+                "trim_steps": ["retrieved knowledge shortened", "retrieved knowledge shortened", "4 oldest recent message(s) left out"],
+                "older_messages": 12,
+            }
+        )
+        self.assertIn("about 883 tokens of 900 allowed (limited by how fast this machine reads a prompt)", line)
+        self.assertIn("2048-token window that also holds a reply of up to 384 tokens", line)
+        self.assertIn("the model itself can read 131072 tokens", line)
+        self.assertIn("in this order: retrieved knowledge shortened, 4 oldest recent message(s) left out.", line)
+        self.assertIn("12 older message(s) were condensed", line)
+
     def test_data_locality_caption_states_where_prompts_can_go(self):
         local_first = ["ollama", "openai", "anthropic", "fallback"]
 
