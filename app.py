@@ -5,6 +5,7 @@ import html
 import json
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -221,6 +222,15 @@ def sync_core_diagnostics(core: NexusCore | None = None) -> None:
     st.session_state.last_reality_research_report = getattr(core, "last_reality_research_report", {})
     st.session_state.last_retrieval = getattr(core, "last_retrieval", {})
     st.session_state.last_memory = getattr(core, "last_memory", {})
+
+
+@st.cache_resource(show_spinner=False)
+def warm_chat_model(model: str) -> bool:
+    """Start loading the chat model in Ollama once per model, in the background, so the
+    first message doesn't wait ~7s for the model to load."""
+
+    threading.Thread(target=get_nexus_core().provider_router.warm_ollama, args=(model,), daemon=True).start()
+    return True
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -462,6 +472,7 @@ def render_sidebar(
             default_model = get_chat_model(status.models, throughput_mode)
             default_index = status.models.index(default_model) if default_model in status.models else 0
             selected_model = st.selectbox("Chat model", status.models, index=default_index)
+            warm_chat_model(selected_model)
         else:
             st.info("Fallback mode is active.")
 
@@ -948,8 +959,11 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
             - Check the Diagnostics tab for system health
             """)
 
+    # Inside a tab, st.chat_input is drawn where it is called. New messages go into this container
+    # (above the input) so the live exchange doesn't appear below the message box.
+    messages_box = st.container()
     for message in get_messages():
-        with st.chat_message(message.get("role", "assistant")):
+        with messages_box.chat_message(message.get("role", "assistant")):
             st.markdown(message.get("content", ""))
 
     show_advanced_debug = settings.get("advanced_mode") or settings["router_config"].show_debug
@@ -1022,7 +1036,7 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         return
 
     add_message("user", user_message)
-    with st.chat_message("user"):
+    with messages_box.chat_message("user"):
         st.markdown(user_message)
 
     safety = settings.get("safety_config", {"level": "balanced", "allow_nsfw": True, "allow_controversial": True, "allow_technical_dark": True})
@@ -1032,11 +1046,11 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         blocked = True
         block_reason = "Strict safety: potential illegal content"
     if blocked:
-        st.warning(f"🚫 BLOCKED: {block_reason}. Logged for audit.")
+        messages_box.warning(f"🚫 BLOCKED: {block_reason}. Logged for audit.")
         st.session_state.setdefault("safety_blocks", []).append({"message": user_message[:100], "reason": block_reason, "time": time.time()})
         return
 
-    with st.chat_message("assistant"):
+    with messages_box.chat_message("assistant"):
         started = time.perf_counter()
         provider_order = list(settings.get("provider_order") or [])
         primary_provider = next((provider for provider in provider_order if provider != "fallback"), "fallback")
@@ -1083,7 +1097,7 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
     if settings.get("show_perf_timings") and "last_provider_result" in st.session_state and not demo_safe:
         timings = st.session_state.last_provider_result.get("timings", {})
         if timings:
-            with st.expander("Performance Timings", expanded=False):
+            with messages_box.expander("Performance Timings", expanded=False):
                 st.json(timings)
 
     persist_assistant_response(response, st.session_state.get("last_provider_result"))

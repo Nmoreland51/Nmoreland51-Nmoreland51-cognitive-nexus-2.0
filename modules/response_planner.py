@@ -774,7 +774,9 @@ def apply_auto_precision_settings(
     effective["verbosity_level"] = profile["verbosity"]
     effective["reasoning_depth"] = profile["reasoning_depth"]
     effective["use_memory"] = bool(profile.get("use_memory", False))
-    effective["use_web_for_chat"] = bool(profile.get("use_web_for_chat", False))
+    # The router already decided this turn needs current information. Don't let the intent
+    # profile switch search off (e.g. "search the web for the latest Python" reads as coding_help).
+    effective["use_web_for_chat"] = bool(profile.get("use_web_for_chat", False)) or route_category == "web_research"
     effective["use_knowledge_for_chat"] = bool(profile.get("use_knowledge_for_chat", False))
     effective["show_perf_timings"] = bool(profile.get("diagnostics", False))
     effective["_minimal_context_for_turn"] = bool(profile.get("minimal_context", False) or context_policy in {"none", "immediate_turn_only"})

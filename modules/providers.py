@@ -142,7 +142,7 @@ def generate_with_ollama(
         "model": model,
         "prompt": prompt,
         "stream": True,
-        "keep_alive": "30m",
+        "keep_alive": "24h",
     }
     if options:
         payload["options"] = dict(options)

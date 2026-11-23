@@ -1,7 +1,14 @@
 import unittest
 from unittest.mock import patch
 
-from modules.provider_router import ProviderInfo, ProviderRequest, ProviderRouter
+from modules.provider_router import (
+    OLLAMA_DEFAULT_KEEP_ALIVE,
+    OLLAMA_MIN_NUM_CTX,
+    OLLAMA_MIN_READ_TIMEOUT,
+    ProviderInfo,
+    ProviderRequest,
+    ProviderRouter,
+)
 from modules.providers import rank_ollama_models
 
 
@@ -193,8 +200,10 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertEqual(captured["json"]["keep_alive"], "45m")
         self.assertTrue(captured["json"]["stream"])
         self.assertEqual(captured["json"]["options"]["num_predict"], 88)
-        self.assertEqual(captured["json"]["options"]["num_ctx"], 1024)
-        self.assertEqual(captured["timeout"], (5.0, 12.0))
+        # Raised to the shared minimum so Ollama doesn't reload the model between chat and web answers.
+        self.assertEqual(captured["json"]["options"]["num_ctx"], OLLAMA_MIN_NUM_CTX)
+        # A 12s intent cap must not cut off a slow first token on CPU-only machines.
+        self.assertEqual(captured["timeout"], (5.0, OLLAMA_MIN_READ_TIMEOUT))
         self.assertEqual(router._last_ollama_throughput["eval_count"], 120)
         self.assertEqual(router._last_ollama_throughput["tokens_per_second"], 60.0)
 
@@ -237,6 +246,27 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertEqual(text, "Yo")
         self.assertEqual(captured["json"]["model"], model)
         self.assertEqual(captured["timeout"], (5.0, 180.0))
+
+    def test_warm_ollama_loads_model_with_chat_context_size(self):
+        router = ProviderRouter({"provider_order": ["ollama"], "ollama_url": "http://localhost:11434"})
+        captured = {}
+
+        class FakeResponse:
+            ok = True
+
+        def fake_post(url, **kwargs):
+            captured["url"] = url
+            captured.update(kwargs)
+            return FakeResponse()
+
+        with patch("modules.provider_router.OLLAMA_SESSION.post", side_effect=fake_post):
+            self.assertTrue(router.warm_ollama("dolphin3:8b"))
+
+        self.assertEqual(captured["url"], "http://localhost:11434/api/generate")
+        self.assertEqual(captured["json"]["prompt"], "")
+        self.assertEqual(captured["json"]["keep_alive"], OLLAMA_DEFAULT_KEEP_ALIVE)
+        self.assertEqual(captured["json"]["options"]["num_ctx"], OLLAMA_MIN_NUM_CTX)
+        self.assertFalse(router.warm_ollama(""))
 
 
 if __name__ == "__main__":

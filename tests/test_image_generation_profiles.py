@@ -26,7 +26,7 @@ class FakeImageResponse:
 def test_local_profile_keeps_local_model():
     profile = get_image_generation_mode_profile(LOCAL_PRIVATE_MODE)
     assert profile["provider"] == "local"
-    assert profile["model"] == "runwayml/stable-diffusion-v1-5"
+    assert profile["model"] == "stable-diffusion-v1-5/stable-diffusion-v1-5"
     assert profile["supports_seed"] is True
 
 

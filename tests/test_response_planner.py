@@ -511,6 +511,15 @@ class TestResponsePlanner(unittest.TestCase):
         self.assertTrue(reality["show_perf_timings"])
         self.assertTrue(debugging["show_perf_timings"])
 
+    def test_web_research_route_keeps_search_on_for_other_intents(self):
+        # "search the web for the latest stable Python release" reads as coding_help, but the
+        # router flags it as web_research, so search must stay on.
+        for intent in ("coding_help", "simple_fact"):
+            routed = apply_auto_precision_settings({"auto_precision_mode": True}, intent, route_category="web_research")
+            plain = apply_auto_precision_settings({"auto_precision_mode": True}, intent, route_category="coding_development")
+            self.assertTrue(routed["use_web_for_chat"], intent)
+            self.assertFalse(plain["use_web_for_chat"], intent)
+
     def test_troubleshooting_prompt_uses_technical_triage_mode(self):
         plan = plan_response(
             user_message="Why is my Streamlit app slow?",

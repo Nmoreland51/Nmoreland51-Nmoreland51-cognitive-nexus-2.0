@@ -6,7 +6,7 @@ import base64
 from typing import Any, Dict
 
 
-LOCAL_IMAGE_MODEL_ID = "runwayml/stable-diffusion-v1-5"
+LOCAL_IMAGE_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 LOCAL_PRIVATE_MODE = "local_private"
 HOSTED_BUDGET_MODE = "hosted_budget"
 HOSTED_PREMIUM_MODE = "hosted_premium"

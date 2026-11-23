@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from functools import lru_cache
@@ -75,6 +76,30 @@ def get_domain(url: str) -> str:
         return ""
 
 
+MAX_TITLE_CHARS = 100
+MAX_SNIPPET_CHARS = 500
+# Where a second title was glued on without a space, e.g. "Famous BirthdaysCoryxKenshin".
+_GLUED_TITLE = re.compile(r"(?<=[a-z0-9.!?)])(?=[A-Z])")
+
+
+def _shorten(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    cut = text[:max_chars].rsplit(" ", 1)[0].rstrip(" ,;:-|")
+    return f"{cut}…"
+
+
+def _clean_title(title: str) -> str:
+    """Trim titles that some search engines return as several results run together."""
+
+    title = clean_text(title)
+    if len(title) > MAX_TITLE_CHARS:
+        glued = _GLUED_TITLE.search(title, 20)
+        if glued:
+            title = title[: glued.start()].rstrip(" .")
+    return _shorten(title, MAX_TITLE_CHARS)
+
+
 @lru_cache(maxsize=64)
 def _search_web_cached(query: str, max_results: int) -> tuple[str, ...]:
     """Search the web with DuckDuckGo/DDGS and cache repeated queries."""
@@ -89,9 +114,10 @@ def _search_web_cached(query: str, max_results: int) -> tuple[str, ...]:
             url = item.get("href") or item.get("url") or ""
             results.append(
                 {
-                    "title": clean_text(item.get("title", "")),
+                    "title": _clean_title(item.get("title", "")),
                     "url": url,
-                    "snippet": clean_text(item.get("body", "") or item.get("snippet", "")),
+                    # Some engines return several results' text as one snippet (2,000+ chars).
+                    "snippet": _shorten(clean_text(item.get("body", "") or item.get("snippet", "")), MAX_SNIPPET_CHARS),
                     "source": get_domain(url),
                     "timestamp": item.get("date") or item.get("timestamp") or "",
                 }
@@ -285,6 +311,69 @@ Write a useful answer with:
 3. Source list
 4. Uncertainty or limitations
 5. Suggested next steps if useful
+
+Base the answer on the research context above, which is newer than your training data.
+Only list sources whose URLs appear in the research context. If the context does not
+answer the question, say so instead of answering from memory.
+"""
+
+
+NO_RESULTS_SUMMARY = (
+    "Web search returned no results, so no summary was written. Search engines sometimes "
+    "block or rate-limit automated searches for a few minutes; try again shortly."
+)
+
+
+def _has_research_sources(results: list[dict[str, Any]], scraped_pages: list[dict[str, Any]]) -> bool:
+    return bool(results) or any(page.get("success") for page in scraped_pages)
+
+
+# Brief mode is for chat: a local CPU model reads ~30 tokens/s and writes ~3 tokens/s, so the
+# prompt and answer must stay small for a reply in about a minute.
+BRIEF_MAX_PAGES = 2
+BRIEF_PAGE_CHARS = 600
+BRIEF_SNIPPET_CHARS = 300
+
+
+def _relevant_excerpt(text: str, query: str, max_chars: int = BRIEF_PAGE_CHARS) -> str:
+    """Return the sentences of a page that mention the query terms, in page order."""
+
+    terms = {word for word in re.findall(r"[a-z0-9][a-z0-9.]*", query.lower()) if len(word) > 2}
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text or "") if s.strip()]
+    scored = [(sum(term in s.lower() for term in terms), i) for i, s in enumerate(sentences)]
+    chosen: list[int] = []
+    size = 0
+    for score, i in sorted(scored, key=lambda item: (-item[0], item[1])):
+        if score == 0 or size >= max_chars:
+            break
+        chosen.append(i)
+        size += len(sentences[i]) + 1
+    if not chosen:
+        return (text or "")[:max_chars]
+    return " ".join(sentences[i] for i in sorted(chosen))[:max_chars]
+
+
+def _build_brief_prompt(
+    query: str,
+    results: list[dict[str, Any]],
+    scraped_pages: list[dict[str, Any]],
+) -> str:
+    blocks = [
+        f"[{idx}] {r.get('title', '')}: {_shorten(str(r.get('snippet', '')), BRIEF_SNIPPET_CHARS)}"
+        for idx, r in enumerate(results, 1)
+    ]
+    for page in scraped_pages:
+        if page.get("success"):
+            blocks.append(f"PAGE {page.get('title') or page.get('url')}: {_relevant_excerpt(page.get('text', ''), query)}")
+    context = "\n".join(blocks)
+    return f"""Question: {query}
+
+Fresh web results (newer than your training data):
+{context}
+
+Answer in 2-3 short sentences using only these web results. Include dates or version numbers
+when relevant. Do not list sources or URLs; the app shows them. If the results do not answer
+the question, say so.
 """
 
 
@@ -293,8 +382,14 @@ def summarize_research(
     results: list[dict[str, Any]],
     scraped_pages: list[dict[str, Any]],
     ai_callback: Callable[[str], str] | None = None,
+    brief: bool = False,
 ) -> str:
     """Summarize research with the active provider callback when available."""
+
+    if not _has_research_sources(results, scraped_pages):
+        # Without sources the model would only answer from (possibly stale) memory and
+        # invent a source list, which then gets saved as if it were research.
+        return NO_RESULTS_SUMMARY
 
     if ai_callback is None:
         return (
@@ -303,7 +398,8 @@ def summarize_research(
         )
 
     try:
-        summary = ai_callback(_build_research_prompt(query, results, scraped_pages))
+        build_prompt = _build_brief_prompt if brief else _build_research_prompt
+        summary = ai_callback(build_prompt(query, results, scraped_pages))
         logger.info("Research summary generated query=%r chars=%s", query, len(summary or ""))
         return summary
     except Exception as exc:
@@ -424,8 +520,12 @@ def run_research_session(
     save_locally: bool = True,
     save_to_memory: bool = True,
     ai_callback: Callable[[str], str] | None = None,
+    brief: bool = False,
 ) -> dict[str, Any]:
-    """Run a full search/scrape/summarize/save session."""
+    """Run a full search/scrape/summarize/save session.
+
+    brief=True is the chat mode: scrape only the top pages and ask for a 2-3 sentence answer.
+    """
 
     settings = {
         "max_results": max_results,
@@ -433,7 +533,10 @@ def run_research_session(
         "summarize_with_ai": summarize_with_ai,
         "save_locally": save_locally,
         "save_to_memory": save_to_memory,
+        "brief": brief,
     }
+    started = time.perf_counter()
+    timings: dict[str, float] = {}
     errors: list[str] = []
     results: list[dict[str, Any]] = []
     scraped_pages: list[dict[str, Any]] = []
@@ -446,9 +549,12 @@ def run_research_session(
     except Exception as exc:
         errors.append(f"Search failed: {exc}")
         logger.warning("Search failed query=%r error=%s", query, exc)
+    timings["search"] = time.perf_counter() - started
 
     if scrape_pages:
         urls = [result.get("url") for result in results if result.get("url")]
+        if brief:
+            urls = urls[:BRIEF_MAX_PAGES]
         with ThreadPoolExecutor(max_workers=min(4, max(1, len(urls)))) as executor:
             future_to_url = {executor.submit(scrape_url, url): url for url in urls}
             for future in as_completed(future_to_url):
@@ -466,13 +572,24 @@ def run_research_session(
                 if not page.get("success") and page.get("error"):
                     errors.append(f"Scrape failed for {url}: {page['error']}")
 
+    timings["scrape"] = time.perf_counter() - started - sum(timings.values())
+
     if summarize_with_ai:
-        summary = summarize_research(query, results, scraped_pages, ai_callback)
+        summary = summarize_research(query, results, scraped_pages, ai_callback, brief=brief)
     else:
         summary = "AI summarization was skipped for this research session."
+    timings["summary"] = time.perf_counter() - started - sum(timings.values())
 
-    if save_to_memory:
+    if save_to_memory and _has_research_sources(results, scraped_pages):
         memory_result = add_research_to_memory(query, scraped_pages, summary)
+    timings["memory"] = time.perf_counter() - started - sum(timings.values())
+    logger.info(
+        "Research timings query=%r brief=%s %s total=%.1fs",
+        query,
+        brief,
+        " ".join(f"{name}={seconds:.1f}s" for name, seconds in timings.items()),
+        time.perf_counter() - started,
+    )
 
     if save_locally:
         saved_paths = save_research_session(

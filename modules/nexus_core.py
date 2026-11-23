@@ -1278,7 +1278,7 @@ class NexusCore:
             if plan.acknowledge:
                 yield plan.acknowledgement
             query = route_decision.search_query or user_message
-            result = self.run_web_research(query, settings, max_results=5, save_locally=True)
+            result = self.run_web_research(query, settings, max_results=5, save_locally=True, brief=True)
             answer = result.get("summary") or "No summary was generated."
             if settings.get("show_sources") and result.get("results"):
                 sources = "\n".join(
@@ -1572,9 +1572,19 @@ class NexusCore:
         summarize_with_ai: bool = True,
         save_locally: bool = True,
         save_to_memory: bool = True,
+        brief: bool = False,
     ) -> dict[str, Any]:
-        """Run web research through the central provider router for summaries."""
+        """Run web research through the central provider router for summaries.
 
+        brief=True gives a short chat answer. Its 2048 context matches normal chat, so Ollama
+        does not reload the model (~6s on CPU) when switching between chat and web answers.
+        """
+
+        options = (
+            {"temperature": 0.25, "num_predict": 160, "num_ctx": 2048}
+            if brief
+            else {"temperature": 0.25, "num_predict": 480, "num_ctx": 4096}
+        )
         ai_callback = None
         if summarize_with_ai:
             def ai_callback(prompt: str) -> str:
@@ -1582,7 +1592,7 @@ class NexusCore:
                     self._provider_request(
                         prompt,
                         settings,
-                        {"temperature": 0.25, "num_predict": 480, "num_ctx": 4096},
+                        options,
                         model=settings.get("selected_model") or "",
                     )
                 )
@@ -1596,6 +1606,7 @@ class NexusCore:
             save_locally=save_locally,
             save_to_memory=save_to_memory,
             ai_callback=ai_callback,
+            brief=brief,
         )
 
     def run_bloodhound_search(self, query: str, settings: dict[str, Any]) -> dict[str, Any]:

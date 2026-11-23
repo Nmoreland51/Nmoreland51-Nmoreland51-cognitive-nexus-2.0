@@ -78,7 +78,7 @@ def audit_answer(
 
     claims = list(extract_claims(answer or ""))
     hallucination = detect_hallucination_risk(answer or "", source_count=source_count, tool_confirmed=tool_confirmed)
-    speculation = classify_speculation(answer or "", route_category=route_category)
+    speculation = classify_speculation(answer or "", route_category=route_category, source_count=source_count)
     source_grounding = assess_source_grounding(
         source_count=source_count,
         web_used=web_used,

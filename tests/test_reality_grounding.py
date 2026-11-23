@@ -24,6 +24,20 @@ class RealityGroundingTests(unittest.TestCase):
         report = classify_speculation("A wormhole stabilizer is a science fiction device, not current engineering.")
         self.assertEqual(report.category, "science fiction")
 
+    def test_hedge_words_only_match_whole_words(self):
+        # "Mayweather", "couldron"-style substrings used to trigger the hedge rule.
+        report = classify_speculation("Floyd Mayweather retired with a 50-0 record.")
+        self.assertEqual(report.category, "established fact")
+
+    def test_hedging_without_sources_is_speculative(self):
+        report = classify_speculation("The device might work at room temperature.")
+        self.assertEqual(report.category, "speculative hypothesis")
+
+    def test_hedging_in_sourced_answer_is_not_speculative(self):
+        answer = "CoryxKenshin is an American YouTuber. The data is current as of 2026, so there may be more recent news."
+        report = classify_speculation(answer, source_count=5)
+        self.assertEqual(report.category, "established fact")
+
     def test_detects_contradiction(self):
         report = check_contradictions(
             "Faster-than-light travel is impossible under relativity. Standard engines can exceed light speed."

@@ -31,6 +31,8 @@ IMAGE_DIRS = [GENERATED_DIR, *LEGACY_IMAGE_DIRS]
 AUTOMATIC1111_URL = os.environ.get("AUTOMATIC1111_URL", "http://127.0.0.1:7860").rstrip("/")
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/")
 PROVIDER_DETECTION_TIMEOUT = 0.75
+# Current home of Stable Diffusion 1.5 on Hugging Face (the old runwayml repo only redirects here).
+DEFAULT_DIFFUSERS_MODEL = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 
 STYLE_MODIFIERS = {
     "realistic": "photorealistic, high quality, detailed",
@@ -228,7 +230,7 @@ def detect_image_providers() -> list[dict[str, Any]]:
             available=local_status.available,
             implemented=True,
             message=local_status.message,
-            model="runwayml/stable-diffusion-v1-5",
+            model=DEFAULT_DIFFUSERS_MODEL,
             device=local_status.device,
         )
     )
@@ -305,7 +307,7 @@ def generate_with_automatic1111(req: ImageGenerationRequest) -> list[Any]:
 class LocalStableDiffusionGenerator:
     """Lazy local image generator based on Diffusers."""
 
-    def __init__(self, model_id: str = "runwayml/stable-diffusion-v1-5") -> None:
+    def __init__(self, model_id: str = DEFAULT_DIFFUSERS_MODEL) -> None:
         ensure_image_dirs()
         self.model_id = model_id
         self.pipe = None
@@ -327,23 +329,26 @@ class LocalStableDiffusionGenerator:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_id = requested_model
 
-        if self.device == "cuda":
-            self.pipe = StableDiffusionPipeline.from_pretrained(
-                self.model_id,
-                torch_dtype=torch.float16,
-                safety_checker=None,
-                requires_safety_checker=False,
-            ).to(self.device)
-            self.pipe.enable_attention_slicing()
-        else:
-            self.pipe = StableDiffusionPipeline.from_pretrained(
-                self.model_id,
-                torch_dtype=torch.float32,
-                low_cpu_mem_usage=False,
-                safety_checker=None,
-                requires_safety_checker=False,
-            )
+        load_kwargs: dict[str, Any] = {
+            "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+            # Passing None also skips downloading the unused safety checker (0.6-1.1 GB).
+            "safety_checker": None,
+            "requires_safety_checker": False,
+        }
+        if self.device != "cuda":
+            load_kwargs["low_cpu_mem_usage"] = False
+        try:
+            # Fetch the half-size fp16 weights (SD 1.5: 2.0 GB instead of 4.0 GB). On CPU they are
+            # upcast to float32 while loading, so generation still runs in full precision.
+            pipe = StableDiffusionPipeline.from_pretrained(self.model_id, variant="fp16", **load_kwargs)
+        except (OSError, ValueError):
+            # Model repo or local folder without fp16 files: use its default weights.
+            pipe = StableDiffusionPipeline.from_pretrained(self.model_id, **load_kwargs)
 
+        if self.device == "cuda":
+            pipe = pipe.to(self.device)
+            pipe.enable_attention_slicing()
+        self.pipe = pipe
         self._initialized = True
 
     def generate(
@@ -394,7 +399,7 @@ def generate_with_diffusers(
 ) -> dict[str, Any]:
     import torch
 
-    generator = generator or LocalStableDiffusionGenerator(model_id=req.model or "runwayml/stable-diffusion-v1-5")
+    generator = generator or LocalStableDiffusionGenerator(model_id=req.model or DEFAULT_DIFFUSERS_MODEL)
     generator._ensure_initialized(req.model or None)
     if generator.pipe is None:
         raise RuntimeError("Diffusers pipeline did not initialize.")

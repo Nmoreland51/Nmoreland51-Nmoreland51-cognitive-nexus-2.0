@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from modules import web_research
 
@@ -59,6 +60,76 @@ class WebResearchTests(unittest.TestCase):
             self.assertIsInstance(results, list)
         except Exception as exc:
             self.assertIsInstance(str(exc), str)
+
+    def test_no_search_results_skips_ai_summary_and_memory(self) -> None:
+        prompts: list[str] = []
+
+        def fake_ai(prompt: str) -> str:
+            prompts.append(prompt)
+            return "Answer from model memory with an invented source list"
+
+        with patch.object(web_research, "search_web", side_effect=RuntimeError("No results found.")), patch.object(
+            web_research, "add_research_to_memory"
+        ) as add_memory:
+            result = web_research.run_research_session("python release", save_locally=False, ai_callback=fake_ai)
+
+        self.assertEqual(prompts, [])
+        self.assertEqual(result["summary"], web_research.NO_RESULTS_SUMMARY)
+        self.assertIn("Search failed: No results found.", result["errors"])
+        add_memory.assert_not_called()
+
+    def test_summary_still_runs_when_results_exist(self) -> None:
+        results = [{"title": "Example", "url": "https://example.com", "snippet": "s", "source": "example.com"}]
+
+        summary = web_research.summarize_research("q", results, [], lambda prompt: "grounded answer")
+
+        self.assertEqual(summary, "grounded answer")
+
+    def test_relevant_excerpt_keeps_matching_sentences(self) -> None:
+        text = "Skip to content. Menu Downloads Docs. Python 3.15.2 was released on October 25, 2026. Thanks for reading."
+
+        excerpt = web_research._relevant_excerpt(text, "latest Python release", max_chars=200)
+
+        self.assertEqual(excerpt, "Python 3.15.2 was released on October 25, 2026.")
+
+    def test_clean_title_splits_glued_titles_and_keeps_normal_ones(self) -> None:
+        glued = (
+            "CoryxKenshin - Age, Bio, Family | Famous BirthdaysCoryxKenshin - YouTubeCoryxKenshin Biography, "
+            "Age, Net Worth, Girlfriend, Height, Wiki"
+        )
+        self.assertEqual(web_research._clean_title(glued), "CoryxKenshin - Age, Bio, Family | Famous Birthdays")
+        self.assertEqual(web_research._clean_title("Best PlayStation games of 2026"), "Best PlayStation games of 2026")
+
+    def test_brief_prompt_caps_oversized_snippets(self) -> None:
+        results = [{"title": "Glued result", "url": "https://example.com", "snippet": "word " * 600}]
+
+        prompt = web_research._build_brief_prompt("q", results, [])
+
+        self.assertLess(len(prompt), 800)
+
+    def test_brief_session_scrapes_top_pages_and_asks_for_short_answer(self) -> None:
+        results = [
+            {"title": f"Result {i}", "url": f"https://example.com/{i}", "snippet": f"snippet {i}", "source": "example.com"}
+            for i in range(1, 6)
+        ]
+        scraped: list[str] = []
+        prompts: list[str] = []
+
+        def fake_scrape(url: str) -> dict:
+            scraped.append(url)
+            return {"url": url, "title": url, "text": "Python 3.15.2 is the latest release. " * 50, "success": True}
+
+        with patch.object(web_research, "search_web", return_value=results), patch.object(
+            web_research, "scrape_url", side_effect=fake_scrape
+        ), patch.object(web_research, "add_research_to_memory", return_value={}):
+            web_research.run_research_session(
+                "latest python release", save_locally=False, ai_callback=lambda p: prompts.append(p) or "ok", brief=True
+            )
+
+        self.assertEqual(sorted(scraped), ["https://example.com/1", "https://example.com/2"])
+        self.assertIn("2-3 short sentences", prompts[0])
+        self.assertNotIn("Source list", prompts[0])
+        self.assertLess(len(prompts[0]), 2500)
 
 
 if __name__ == "__main__":

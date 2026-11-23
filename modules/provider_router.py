@@ -74,6 +74,19 @@ def _needs_slow_startup_timeout(model: str) -> bool:
 
 SLOW_STARTUP_OLLAMA_READ_TIMEOUT = 180.0
 
+# Floor for Ollama's per-chunk read timeout. Intent-based caps (12s for casual chat) are
+# too short for the first token on CPU-only machines, where loading the model and reading
+# the prompt can take far longer. The read timeout applies between streamed chunks, so this
+# floor only changes how long a stalled request waits, not how fast a healthy one answers.
+OLLAMA_MIN_READ_TIMEOUT = float(os.environ.get("OLLAMA_MIN_READ_TIMEOUT", "120"))
+
+# Ollama reloads the model whenever num_ctx changes (~6s on CPU). Using one minimum size for
+# everyday chat and web answers keeps a single loaded copy; only long research prompts go larger.
+OLLAMA_MIN_NUM_CTX = 2048
+# How long Ollama keeps the model in memory after the last request (was 30m, which meant a
+# reload after a short break). Override with ollama_keep_alive in config/nexus_config.json.
+OLLAMA_DEFAULT_KEEP_ALIVE = "24h"
+
 
 class ProviderRouter:
     """Detect and call configured providers with graceful fallback."""
@@ -88,6 +101,30 @@ class ProviderRouter:
 
     def invalidate_status_cache(self) -> None:
         self._status_cache.clear()
+
+    def warm_ollama(self, model: str, base_url: str = "") -> bool:
+        """Load the chat model into Ollama before the first message (an empty prompt only loads it).
+
+        Uses the same num_ctx and keep_alive as chat requests so the loaded copy gets reused.
+        """
+
+        if not model:
+            return False
+        url = (base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/")
+        try:
+            response = OLLAMA_SESSION.post(
+                f"{url}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "",
+                    "keep_alive": str(self.config.get("ollama_keep_alive", OLLAMA_DEFAULT_KEEP_ALIVE)),
+                    "options": {"num_ctx": OLLAMA_MIN_NUM_CTX},
+                },
+                timeout=(5.0, 180.0),
+            )
+            return response.ok
+        except requests.RequestException:
+            return False
 
     def detect_provider(self, name: str, ttl: Optional[float] = None) -> ProviderInfo:
         ttl = float(ttl if ttl is not None else self.config.get("provider_status_ttl_seconds", 45))
@@ -361,16 +398,16 @@ class ProviderRouter:
             "model": model,
             "prompt": request.prompt,
             "stream": True,
-            "keep_alive": str(self.config.get("ollama_keep_alive", "30m")),
+            "keep_alive": str(self.config.get("ollama_keep_alive", OLLAMA_DEFAULT_KEEP_ALIVE)),
         }
         options = dict(request.options or {})
         if options.get("keep_alive"):
             payload["keep_alive"] = str(options.pop("keep_alive"))
         options.setdefault("num_predict", int(request.max_tokens or 512))
-        options.setdefault("num_ctx", 2048)
+        options["num_ctx"] = max(int(options.get("num_ctx") or OLLAMA_MIN_NUM_CTX), OLLAMA_MIN_NUM_CTX)
         payload["options"] = options
 
-        read_timeout = max(float(request.timeout or 0), 10.0)
+        read_timeout = max(float(request.timeout or 0), OLLAMA_MIN_READ_TIMEOUT)
         if _needs_slow_startup_timeout(model):
             read_timeout = max(read_timeout, SLOW_STARTUP_OLLAMA_READ_TIMEOUT)
         response = OLLAMA_SESSION.post(
