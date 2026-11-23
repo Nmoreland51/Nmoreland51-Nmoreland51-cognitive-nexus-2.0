@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import hashlib
+import math
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -56,15 +57,335 @@ TRUSTED_DOMAIN_HINTS = {
 }
 
 VERDICT_OPTIONS = [
-    "TRUE",
     "LIKELY TRUE",
-    "FALSE",
+    "WEAKLY SUPPORTED",
     "LIKELY FALSE",
-    "UNSUPPORTED",
+    "WEAKLY CONTRADICTED",
     "MIXED / CONFLICTING",
+    "UNSUPPORTED",
+    # Older saved reports may contain these. The checker no longer produces them: keyword-level
+    # passage matching cannot prove a claim, rule one out, or judge what is physically possible.
+    "TRUE",
+    "FALSE",
     "SPECULATIVE",
     "FICTIONAL / IMPOSSIBLE UNDER CURRENT EVIDENCE",
 ]
+
+# --- Claim checking ------------------------------------------------------------------------------
+# A verdict depends on whether retrieved passages address the claim, never on how many trusted
+# sites came back. Matching is keyword-level (no language understanding), so the report quotes the
+# passages it relied on and the strongest labels are "LIKELY ...".
+
+_VERIFICATION_RE = re.compile(
+    r"\b(?:verify|verified|fact[- ]?check(?:ed|ing)?|debunk(?:ed)?|true or false)\b"
+    r"|\bis (?:it|this|that) (?:true|real|correct|accurate)\b"
+    r"|^\s*(?:did|was|were|is|are|does|has|have|had)\b"
+    # "do vaccines cause autism" is a question; "do a deep dive on X" is an instruction.
+    r"|^\s*do\s+(?!a\b|an\b|the\b|some\b|my\b|me\b|this\b|that\b|it\b)",
+    re.IGNORECASE,
+)
+_CLAIM_PREFIX_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:(?:can|could|would) you\s+)?"
+    r"(?:(?:verify|fact[- ]?check|confirm|check|debunk)[\s:,-]+(?:(?:(?:this|the|that)\s+)?claim[\s:,-]+)?(?:(?:whether|if|that)\s+)?"
+    r"|is\s+(?:it|this|that)\s+(?:true|real|correct|accurate)\s*(?:that\s+|[:,-]\s*)?"
+    r"|true or false\s*[:,-]?\s*)",
+    re.IGNORECASE,
+)
+_CLAIM_STOPWORDS = frozenset(
+    """a about after all also an and any are as at be because been before being but by can could did do does
+    doing during each for from had has have having he her here hers him his how i if in into is it its itself
+    just may me might more most my of on only or other our out over own really same she should so some such
+    than that the their them then there these they this those through to too under until up very was we were
+    what when where which while who whom why will with would you your""".split()
+)
+_NEGATOR_RE = re.compile(r"\b\w+n't\b|\b(?:no|not|never|none|neither|nor|cannot|without)\b", re.IGNORECASE)
+_REFUTATION_CUES = [
+    (label, re.compile(pattern, re.IGNORECASE))
+    for label, pattern in [
+        ("false", r"\b(?:false|falsely|untrue|incorrect|inaccurate|wrong)\b"),
+        ("myth", r"\bmyths?\b"),
+        ("hoax", r"\bhoax\w*\b"),
+        ("debunk", r"\b(?:debunk\w*|disprov\w*|refut\w*|discredit\w*)\b"),
+        ("fake", r"\b(?:fak(?:e|ed|es|ing)|fabricat\w*|bogus)\b"),
+        ("baseless", r"\b(?:baseless|unfounded|no evidence)\b"),
+        ("misinformation", r"\b(?:mis|dis)information\b"),
+        ("conspiracy", r"\bconspirac\w+\b"),
+        ("pseudoscience", r"\bpseudoscien\w+\b"),
+    ]
+]
+# Sentences that report what others say ("some people believe ...") don't count as support.
+_ATTRIBUTION_RE = re.compile(
+    r"\b(?:believ\w+|claims?|claimed|claiming|alleg\w+|suppos\w+|rumou?r\w*|purported\w*|so-called|proponents?|said to)\b",
+    re.IGNORECASE,
+)
+_INFLECTIONS = frozenset({"", "s", "es", "e", "ed", "d", "ing", "ies", "y", "n", "en"})
+_PHYSICS_DEFYING_TOPICS = ("time machine", "perpetual motion", "telepathy", "faster than light")
+MAX_PASSAGE_CHARS = 320
+CLAIM_CHECK_CAVEAT = (
+    "Passages are matched to the claim by keywords, not by understanding them. "
+    "Read the quoted passages before relying on this."
+)
+
+
+def is_verification_request(text: str) -> bool:
+    """True when the text asks to check a claim ("verify ...", "is it true that ...", "did ...?").
+
+    Whole words only: the old substring test fired on "did" inside "candidate" and "was" in "wasp".
+    """
+
+    return bool(_VERIFICATION_RE.search(text or ""))
+
+
+def extract_claim_text(query: str) -> str:
+    """Strip "verify that ..." / "is it true that ..." scaffolding and return the claim itself."""
+
+    text = clean_text(query)
+    previous = None
+    while previous != text:
+        previous = text
+        text = _CLAIM_PREFIX_RE.sub("", text, count=1).strip()
+    return text.strip(" \t\"'?.!:")
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+(?:[.'-][a-z0-9]+)*", (text or "").lower().replace("’", "'"))
+
+
+def _same_word(first: str, second: str) -> bool:
+    """Equal words, or the same word with different endings (land / landed / landing)."""
+
+    if first == second:
+        return True
+    shared = 0
+    for a, b in zip(first, second):
+        if a != b:
+            break
+        shared += 1
+    rest = {first[shared:], second[shared:]}
+    if shared < 4 and not (shared >= 3 and rest <= {"", "s"}):
+        return False
+    return rest <= _INFLECTIONS
+
+
+def _claim_terms(claim: str) -> list[str]:
+    terms = [word for word in _words(claim) if word not in _CLAIM_STOPWORDS and not _NEGATOR_RE.fullmatch(word)]
+    return list(dict.fromkeys(term for term in terms if len(term) > 1))
+
+
+def _polarity_cues(text: str) -> set[str]:
+    """Negation and refutation signals in a text ("not", "debunked", "myth", ...)."""
+
+    normalized = (text or "").replace("’", "'")
+    cues = {label for label, pattern in _REFUTATION_CUES if pattern.search(normalized)}
+    if _NEGATOR_RE.search(re.sub(r"\bno evidence\b", " ", normalized, flags=re.IGNORECASE)):
+        cues.add("negation")
+    return cues
+
+
+def _sentences(text: str) -> list[str]:
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(\[])", clean_text(text)) if part.strip()]
+
+
+@dataclass
+class ClaimEvidence:
+    """One source's best passage about the claim being checked, and what it says about it."""
+
+    stance: str  # "supports", "contradicts" or "mentions"
+    passage: str
+    url: str
+    title: str
+    source: str
+    trust_label: str = "Low"
+    coverage: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _passage_stance(sentence: str, claim_cues: set[str], claim_words: set[str]) -> str:
+    if sentence.rstrip().endswith("?"):
+        return "mentions"
+    sentence_cues = _polarity_cues(sentence)
+    # Signals the claim and the passage share cancel out: for the claim "the landing was a hoax",
+    # "hoax" in a passage is the claim's own wording, while an extra "debunked" refutes it.
+    claim_side = bool(claim_cues - sentence_cues)
+    passage_side = bool(sentence_cues - claim_cues)
+    if claim_side != passage_side:
+        return "contradicts"
+    attributions = {word.lower() for word in _ATTRIBUTION_RE.findall(sentence)}
+    if any(not any(_same_word(word, claim_word) for claim_word in claim_words) for word in attributions):
+        return "mentions"
+    return "supports"
+
+
+def assess_claim_evidence(claim: str, sources: list[SourceRecord]) -> list[ClaimEvidence]:
+    """Find, per independent source, the passage that best addresses the claim.
+
+    A passage addresses the claim when one sentence contains its key terms (all of them for claims
+    with up to three terms, 70% otherwise). Sources on the same domain count once, and the same
+    passage syndicated across sites counts once.
+    """
+
+    terms = _claim_terms(claim)
+    if len(terms) < 2:
+        return []
+    needed = len(terms) if len(terms) <= 3 else math.ceil(0.7 * len(terms))
+    claim_cues = _polarity_cues(claim)
+    claim_words = set(_words(claim))
+    trust_rank = {"High": 2, "Medium": 1}
+
+    def rank(item: ClaimEvidence) -> tuple[bool, float, int]:
+        return (item.stance != "mentions", item.coverage, trust_rank.get(item.trust_label, 0))
+
+    best_by_domain: dict[str, ClaimEvidence] = {}
+    for source in sources:
+        best: ClaimEvidence | None = None
+        for sentence in _sentences(f"{source.excerpt} {source.snippet}"):
+            sentence_words = _words(sentence)
+            matched = sum(1 for term in terms if any(_same_word(term, word) for word in sentence_words))
+            if matched < needed:
+                continue
+            candidate = ClaimEvidence(
+                stance=_passage_stance(sentence, claim_cues, claim_words),
+                passage=sentence if len(sentence) <= MAX_PASSAGE_CHARS else sentence[: MAX_PASSAGE_CHARS - 1].rstrip() + "…",
+                url=source.url,
+                title=source.title,
+                source=source.source,
+                trust_label=source.trust_label,
+                coverage=round(matched / len(terms), 2),
+            )
+            if best is None or rank(candidate) > rank(best):
+                best = candidate
+        if best is None:
+            continue
+        domain = (source.source or get_domain(source.url) or source.url).lower()
+        current = best_by_domain.get(domain)
+        if current is None or rank(best) > rank(current):
+            best_by_domain[domain] = best
+
+    evidence: list[ClaimEvidence] = []
+    seen_passages: set[str] = set()
+    for item in sorted(best_by_domain.values(), key=rank, reverse=True):
+        key = " ".join(_words(item.passage))[:200]
+        if key in seen_passages:
+            continue
+        seen_passages.add(key)
+        evidence.append(item)
+    return evidence
+
+
+def _evidence_score(supporting: int, contradicting: int) -> float:
+    """Rough 0-1 summary of how one-sided and how plentiful the evidence is. Not a probability."""
+
+    total = supporting + contradicting
+    if not total:
+        return 0.0
+    return round((max(supporting, contradicting) / total) * min(1.0, total / 4), 2)
+
+
+def determine_verdict(
+    query: str,
+    sources: list[SourceRecord],
+    claims: list[ClaimRecord],
+    contradictions: list[ContradictionRecord],
+    verify: bool | None = None,
+) -> dict[str, Any]:
+    """Check the claim in a verification-style query against the retrieved passages.
+
+    verify=None detects a verification request from the query text; pass True when the caller
+    already stripped the "verify ..." command from it.
+    """
+
+    result: dict[str, Any] = {
+        "verdict": "",
+        "confidence": 0.0,
+        "why": "",
+        "supporting": [],
+        "contradicting": [],
+        "weak": [],
+        "uncertainty": [],
+        "claim": "",
+        "evidence_strength": "",
+        "evidence": [],
+    }
+    if not (is_verification_request(query) if verify is None else verify):
+        return result
+    claim = extract_claim_text(query)
+    if len(_claim_terms(claim)) < 2:
+        return result  # nothing specific enough to match passages against
+
+    evidence = assess_claim_evidence(claim, sources)
+    supports = [item for item in evidence if item.stance == "supports"]
+    contradicts = [item for item in evidence if item.stance == "contradicts"]
+    mentions = [item for item in evidence if item.stance == "mentions"]
+    solid_supports = [item for item in supports if item.trust_label in {"High", "Medium"}]
+    solid_contradicts = [item for item in contradicts if item.trust_label in {"High", "Medium"}]
+
+    if supports and contradicts:
+        verdict, strength = "MIXED / CONFLICTING", "Conflicting"
+        why = f"{len(supports)} source(s) contain a passage supporting the claim and {len(contradicts)} contain one contradicting it."
+    elif supports:
+        if len(solid_supports) >= 2:
+            verdict, strength = "LIKELY TRUE", "Strong" if len(solid_supports) >= 3 else "Moderate"
+            why = f"{len(supports)} independent sources contain a passage supporting the claim and none contradicts it."
+        else:
+            verdict, strength = "WEAKLY SUPPORTED", "Weak"
+            why = (
+                "Only one source contains a passage supporting the claim; it is not corroborated."
+                if len(supports) == 1
+                else "Passages support the claim, but fewer than two come from medium- or high-trust sources."
+            )
+    elif contradicts:
+        if len(solid_contradicts) >= 2:
+            verdict, strength = "LIKELY FALSE", "Strong" if len(solid_contradicts) >= 3 else "Moderate"
+            why = f"{len(contradicts)} independent sources contain a passage contradicting the claim and none supports it."
+        else:
+            verdict, strength = "WEAKLY CONTRADICTED", "Weak"
+            why = (
+                "Only one source contains a passage contradicting the claim; it is not corroborated."
+                if len(contradicts) == 1
+                else "Passages contradict the claim, but fewer than two come from medium- or high-trust sources."
+            )
+    else:
+        verdict, strength = "UNSUPPORTED", "None"
+        if not sources:
+            why = "No sources were retrieved, so the claim could not be checked."
+        elif mentions:
+            why = f"{len(mentions)} source(s) mention the claim, but none clearly affirms or denies it."
+        else:
+            why = f"None of the {len(sources)} retrieved source(s) contains a passage that addresses the claim."
+        if sources:
+            why += " That is missing evidence, not evidence that the claim is false."
+
+    uncertainty: list[str] = []
+    if len(sources) < 5:
+        uncertainty.append(f"Only {len(sources)} source(s) were retrieved.")
+    if mentions:
+        uncertainty.append(f"{len(mentions)} source(s) mention the claim without clearly affirming or denying it.")
+    if contradictions:
+        uncertainty.append(
+            f"The lightweight checker flagged {len(contradictions)} possible contradiction(s) between sources on related statements."
+        )
+    if any(topic in query.lower() for topic in _PHYSICS_DEFYING_TOPICS):
+        uncertainty.append(
+            "This topic conflicts with physics as currently understood; a supporting passage may describe fiction, speculation or theory."
+        )
+
+    result.update(
+        {
+            "verdict": verdict,
+            "confidence": _evidence_score(len(supports), len(contradicts)),
+            "why": why,
+            "supporting": [item.url for item in supports[:3]],
+            "contradicting": [item.url for item in contradicts[:3]],
+            "weak": [source.url for source in sources if source.trust_label == "Low"][:3],
+            "uncertainty": uncertainty,
+            "claim": claim,
+            "evidence_strength": strength,
+            "evidence": evidence,
+        }
+    )
+    return result
 
 
 def classify_source_category(url: str, title: str, snippet: str) -> str:
@@ -91,76 +412,6 @@ def classify_source_category(url: str, title: str, snippet: str) -> str:
     return "news"
 
 
-def determine_verdict(query: str, sources: list[SourceRecord], claims: list[ClaimRecord], contradictions: list[ContradictionRecord]) -> dict[str, Any]:
-    """Determine a clear verdict for verification-style queries with dynamic confidence profiling."""
-    is_verification = any(keyword in query.lower() for keyword in ["verify", "fact check", "is this true", "did", "was", "find contradictions"])
-
-    if not is_verification:
-        return {"verdict": "", "confidence": 0.0, "why": "", "supporting": [], "contradicting": [], "weak": [], "uncertainty": []}
-
-    # Enhanced heuristic-based verdict with dynamic confidence
-    high_trust_sources = [s for s in sources if s.trust_label in {"High", "Medium"}]
-    low_trust_sources = [s for s in sources if s.trust_label == "Low"]
-    contradictions_count = len(contradictions)
-    claims_count = len(claims)
-
-    # Dynamic confidence profiling for research momentum
-    confidence_profile = {
-        "exploration_ready": len(high_trust_sources) >= 2 and contradictions_count == 0,
-        "needs_simulation": len(high_trust_sources) >= 1 and claims_count > 0 and contradictions_count <= 1,
-        "requires_grounding": contradictions_count > 1 or len(high_trust_sources) < 1,
-        "theoretical_basis": any("theory" in str(c.text).lower() or "model" in str(c.text).lower() for c in claims),
-        "empirical_support": len(high_trust_sources) >= 3,
-        "contradiction_density": contradictions_count / max(claims_count, 1)
-    }
-
-    if contradictions_count > 0 and claims_count > 1:
-        verdict = "MIXED / CONFLICTING"
-        confidence = 0.7
-        why = f"Found {contradictions_count} contradictions among {claims_count} claims from {len(high_trust_sources)} trustworthy sources."
-        if confidence_profile["needs_simulation"]:
-            why += " Ready for theoretical simulation to resolve conflicts."
-    elif not high_trust_sources:
-        verdict = "UNSUPPORTED"
-        confidence = 0.8
-        why = "No trustworthy sources found supporting or contradicting the claim."
-        if confidence_profile["theoretical_basis"]:
-            why += " Theoretical frameworks exist but lack empirical grounding."
-    elif contradictions_count == 0 and claims_count > 0:
-        verdict = "TRUE" if len(high_trust_sources) >= 2 else "LIKELY TRUE"
-        confidence = 0.8 if len(high_trust_sources) >= 2 else 0.6
-        why = f"Consistent claims from {len(high_trust_sources)} trustworthy sources with no contradictions."
-        if confidence_profile["exploration_ready"]:
-            why += " Strong foundation for pattern exploration and theory chaining."
-    else:
-        verdict = "LIKELY FALSE"
-        confidence = 0.6
-        why = f"Contradictions found or weak supporting evidence from {len(high_trust_sources)} sources."
-
-    # For impossible topics - maintain high confidence
-    impossible_keywords = ["time machine", "perpetual motion", "telepathy", "faster than light"]
-    if any(kw in query.lower() for kw in impossible_keywords):
-        verdict = "FICTIONAL / IMPOSSIBLE UNDER CURRENT EVIDENCE"
-        confidence = 0.9
-        why = "The query involves concepts that are impossible under current scientific understanding."
-        confidence_profile["requires_grounding"] = True
-
-    supporting = [s.url for s in high_trust_sources[:3]]
-    contradicting = [c.source_a for c in contradictions[:3]]
-    weak = [s.url for s in low_trust_sources[:3]]
-    uncertainty = ["Limited sources", "Outdated information"] if len(sources) < 5 else []
-
-    return {
-        "verdict": verdict,
-        "confidence": confidence,
-        "why": why,
-        "supporting": supporting,
-        "contradicting": contradicting,
-        "weak": weak,
-        "uncertainty": uncertainty,
-        "confidence_profile": confidence_profile,  # Add dynamic profile
-    }
-
 NEGATION_RE = re.compile(r"\b(no|not|never|without|lacks|lack|unsupported|unverified|unknown|false)\b", re.I)
 AFFIRMATION_RE = re.compile(r"\b(proven|confirmed|verified|established|shows|demonstrates|is|are|was|were)\b", re.I)
 
@@ -177,6 +428,8 @@ class ResearchRequest:
     show_weak_matches: bool = True
     use_ai_summary: bool = True
     save_report: bool = True
+    # True/False forces the claim check on or off; None detects a "verify ..." style query.
+    verify_claim: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -256,12 +509,16 @@ class ResearchReport:
     saved_paths: dict[str, str] = field(default_factory=dict)
     memory_saved: bool = False
     verdict: str = ""
+    # Rough 0-1 evidence score (how one-sided and plentiful the passages are), not a probability.
     verdict_confidence: float = 0.0
     verdict_why: str = ""
     strongest_supporting_sources: list[str] = field(default_factory=list)
     strongest_contradicting_sources: list[str] = field(default_factory=list)
     weak_irrelevant_sources: list[str] = field(default_factory=list)
     uncertainty_notes: list[str] = field(default_factory=list)
+    verdict_claim: str = ""
+    verdict_evidence: str = ""  # Strong / Moderate / Weak / Conflicting / None
+    claim_evidence: list[ClaimEvidence] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -286,50 +543,30 @@ class ResearchReport:
             "",
         ]
         if self.verdict:
-            lines.extend([
-                "## Verdict",
-                "",
-                f"**{self.verdict}** (Confidence: {self.verdict_confidence:.1f})",
-                "",
-                self.verdict_why,
-                "",
-                "### Strongest Supporting Sources",
-                "",
-            ])
-            if self.strongest_supporting_sources:
-                for url in self.strongest_supporting_sources:
-                    lines.append(f"- {url}")
-            else:
-                lines.append("None identified.")
-            lines.extend([
-                "",
-                "### Strongest Contradicting Sources",
-                "",
-            ])
-            if self.strongest_contradicting_sources:
-                for url in self.strongest_contradicting_sources:
-                    lines.append(f"- {url}")
-            else:
-                lines.append("None identified.")
-            lines.extend([
-                "",
-                "### Weak/Irrelevant Sources",
-                "",
-            ])
-            if self.weak_irrelevant_sources:
-                for url in self.weak_irrelevant_sources:
-                    lines.append(f"- {url}")
-            else:
-                lines.append("None identified.")
+            lines.extend(["## Claim Check", "", f"**{self.verdict}** (evidence: {self.verdict_evidence or 'not rated'})", ""])
+            if self.verdict_claim:
+                lines.extend([f'Claim checked: "{self.verdict_claim}"', ""])
+            lines.extend([self.verdict_why, "", f"_{CLAIM_CHECK_CAVEAT}_", ""])
+            for heading, stance in (
+                ("Supporting passages", "supports"),
+                ("Contradicting passages", "contradicts"),
+                ("Mentions without a clear stance", "mentions"),
+            ):
+                items = [item for item in self.claim_evidence if item.stance == stance]
+                if stance == "mentions" and not items:
+                    continue
+                lines.extend([f"### {heading}", ""])
+                if not items:
+                    lines.append("None found.")
+                for item in items[:5]:
+                    label = item.title or item.source or item.url
+                    lines.append(f'- "{item.passage}" - [{label}]({item.url}) (trust: {item.trust_label})')
+                lines.append("")
             if self.uncertainty_notes:
-                lines.extend([
-                    "",
-                    "### Uncertainty Notes",
-                    "",
-                ])
+                lines.extend(["### Uncertainty Notes", ""])
                 for note in self.uncertainty_notes:
                     lines.append(f"- {note}")
-            lines.append("")
+                lines.append("")
         lines.extend([
             "## Best Sources",
             "",
@@ -749,7 +986,10 @@ def run_reality_research(
     progress("Checking contradictions")
     contradictions = detect_claim_contradictions(claims)
 
-    verdict_data = determine_verdict(query, sources, claims, contradictions)
+    verdict_data = determine_verdict(query, sources, claims, contradictions, verify=request.verify_claim)
+    if verdict_data["verdict"] and errors:
+        # Don't imply the search was exhaustive when parts of it failed.
+        verdict_data["uncertainty"].append(f"{len(errors)} search or page-fetch step(s) failed, so coverage is incomplete.")
 
     summary = _local_summary(query, sources, claims, contradictions)
     report = ResearchReport(
@@ -770,6 +1010,9 @@ def run_reality_research(
         strongest_contradicting_sources=verdict_data["contradicting"],
         weak_irrelevant_sources=verdict_data["weak"],
         uncertainty_notes=verdict_data["uncertainty"],
+        verdict_claim=verdict_data["claim"],
+        verdict_evidence=verdict_data["evidence_strength"],
+        claim_evidence=verdict_data["evidence"],
     )
 
     if request.use_ai_summary and ai_callback and sources:
@@ -777,14 +1020,14 @@ def run_reality_research(
         try:
             ai_answer = clean_text(ai_callback(_build_ai_prompt(report)))
             if ai_answer:
-                if report.verdict:
-                    report.final_answer = f"Verdict: {report.verdict}. {ai_answer}"
-                else:
-                    report.final_answer = ai_answer
+                report.final_answer = ai_answer
         except Exception as exc:
             report.errors.append(f"AI synthesis failed: {exc}")
-    elif report.verdict:
-        report.final_answer = f"Verdict: {report.verdict}. {report.final_answer}"
+    if report.verdict:
+        # Also applies when synthesis fails or returns nothing, which used to drop the verdict.
+        report.final_answer = (
+            f"Claim check: {report.verdict} (evidence: {report.verdict_evidence.lower()}). {report.final_answer}"
+        )
 
     if request.save_to_memory:
         progress("Saving to memory")

@@ -27,6 +27,7 @@ from modules.reality_research_agent import (
     ResearchReport,
     ResearchRequest,
     detect_reality_research_query,
+    is_verification_request,
     run_reality_research,
 )
 from modules.research import get_research_module, query_knowledge
@@ -1211,6 +1212,9 @@ class NexusCore:
                 show_weak_matches=bool(settings.get("reality_research_show_weak", True)),
                 use_ai_summary=bool(settings.get("reality_research_use_ai", True)),
                 save_report=True,
+                # The command word ("verify ...", "fact check ...") was stripped from the query, so
+                # tell the agent this is a claim check; otherwise let it decide from the query.
+                verify_claim=True if is_verification_request(user_message) else None,
             )
             report = self.run_reality_research(request, settings)
             self.last_reality_research_report = report.to_dict()

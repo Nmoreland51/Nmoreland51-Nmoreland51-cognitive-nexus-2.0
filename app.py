@@ -61,7 +61,7 @@ from modules.research import (
 from modules.nexus_config import save_runtime_config
 from modules.nexus_core import NexusCore
 from modules.web_research import search_sources_status
-from modules.reality_research_agent import ResearchRequest
+from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
 from nexus_router import (
     CATEGORY_LABELS,
@@ -1119,6 +1119,19 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
         st.session_state.last_reality_research_report = report.to_dict()
         st.markdown("### Final Answer")
         st.markdown(report.final_answer or report.summary)
+
+        if report.verdict:
+            st.markdown("### Claim check")
+            st.info(f"**{report.verdict}** (evidence: {report.verdict_evidence or 'not rated'}). {report.verdict_why}")
+            st.caption(f'Claim checked: "{report.verdict_claim}". {CLAIM_CHECK_CAVEAT}')
+            for heading, stance in (("Supporting passages", "supports"), ("Contradicting passages", "contradicts")):
+                passages = [item for item in report.claim_evidence if item.stance == stance]
+                if passages:
+                    st.markdown(f"**{heading}**")
+                for item in passages[:5]:
+                    st.markdown(f'- "{item.passage}" - [{item.title or item.source or item.url}]({item.url}) (trust: {item.trust_label})')
+            for note in report.uncertainty_notes:
+                st.caption(f"Note: {note}")
 
         metric_cols = st.columns(5)
         metric_cols[0].metric("Sources", len(report.sources))
