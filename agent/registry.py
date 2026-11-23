@@ -85,8 +85,10 @@ class Tool:
     effect: str
     run: Callable[..., ToolResult]  # run(context, **arguments)
     adapter: str = "core"  # which group of tools it belongs to: files, shell, git, github, web, ...
-    # Running it again with the same arguments is harmless (reads, test runs). Other tools are not
-    # repeated once they have succeeded with the same arguments in the same step of the same task.
+    # Running it again with the same arguments is harmless (reads, test runs): a call that is not
+    # part of a named step simply runs. Other tools are never repeated once they have succeeded
+    # with the same arguments for the same task. Inside a named step no tool is repeated: a task
+    # that continues after a pause picks up its finished steps from the record.
     repeatable: bool = False
     # verify(context, arguments, result) -> (true?, what was checked). Looks at the world, not at the result text.
     verify: Callable[[ToolContext, dict[str, Any], ToolResult], tuple[bool, str]] | None = None
@@ -115,7 +117,8 @@ def bounded(text: str, limit: int = MAX_OUTPUT_CHARS) -> str:
 def action_key(tool: str, arguments: dict[str, Any], *, task_id: str = "", session: str = "", step: str = "") -> str:
     """Identifies one intended action: the same tool, arguments, task and step give the same key.
 
-    `step` separates intended repetitions (the patch of attempt 2 from the same patch in attempt 1).
+    `step` separates intended repetitions (the patch of attempt 2 from the same patch in attempt 1),
+    and marks a call as one step of a recorded plan: such a step is done once.
     """
 
     canonical = json.dumps([task_id or session, step, tool, arguments], sort_keys=True, ensure_ascii=False, default=str)
@@ -180,7 +183,7 @@ class ToolRegistry:
         if context.cancel.is_set():
             return ToolResult(ok=False, error="Cancelled before the action started.", status="cancelled")
 
-        if not tool.repeatable:
+        if step or not tool.repeatable:
             done = context.store.completed_action(key)
             if done is not None:
                 return ToolResult(
