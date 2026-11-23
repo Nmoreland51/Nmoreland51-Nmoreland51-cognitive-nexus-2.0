@@ -12,3 +12,5 @@ numpy>=1.26
 # Reading uploaded PDF and Word files (modules/ingest.py).
 pypdf>=5
 python-docx>=1.1
+# Checking tool arguments against their schemas (agent/registry.py).
+jsonschema>=4.20

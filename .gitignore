@@ -29,6 +29,7 @@ data/web_research/
 data/research_reports/
 data/images/
 data/knowledge_notes/
+data/agent/
 
 # Generated knowledge indexes
 ai_system/knowledge_bank/web_research/embeddings.json
