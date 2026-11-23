@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
@@ -183,8 +184,22 @@ def store_self_critic_observation(
     path: Path = PREFERENCES_FILE,
     recent_limit: int = 12,
 ) -> dict[str, Any]:
-    """Store only abstract critic observations and rolling scores."""
+    """Store only abstract critic observations and rolling scores.
 
+    The file is shared with the response planner's weights and, when the phone backend runs, with
+    another process, so the read-change-write happens under the file's lock.
+    """
+
+    with locked(path):
+        return _store_self_critic_observation(result, path=path, recent_limit=recent_limit)
+
+
+def _store_self_critic_observation(
+    result: ResponseSelfCriticResult,
+    *,
+    path: Path,
+    recent_limit: int,
+) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = _load_payload(path)
     critic = dict(payload.get("critic") or {})

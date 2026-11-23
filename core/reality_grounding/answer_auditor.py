@@ -15,6 +15,7 @@ from core.reality_grounding.hallucination_detector import HallucinationReport, d
 from core.reality_grounding.source_grounder import SourceGroundingReport, assess_source_grounding
 from core.reality_grounding.speculation_classifier import SpeculationReport, classify_speculation
 from core.reality_grounding.uncertainty_handler import apply_grounding_note
+from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
@@ -49,17 +50,20 @@ class RealityAudit:
 
 def _remember_patterns(audit: RealityAudit) -> None:
     try:
+        if not audit.hallucination.signals:
+            return  # nothing to count: do not rewrite the file on every answer
         PATTERN_MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        payload: dict[str, Any] = {"patterns": {}, "updated_at": datetime.now().isoformat()}
-        if PATTERN_MEMORY_FILE.exists():
-            loaded = json.loads(PATTERN_MEMORY_FILE.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                payload["patterns"] = loaded.get("patterns", {}) if isinstance(loaded.get("patterns"), dict) else {}
-        patterns = payload["patterns"]
-        for signal in audit.hallucination.signals:
-            key = f"{signal.signal_type}:{signal.text}"[:160]
-            patterns[key] = int(patterns.get(key, 0)) + 1
-        atomic_write_text(PATTERN_MEMORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
+        with locked(PATTERN_MEMORY_FILE, timeout=3.0):
+            payload: dict[str, Any] = {"patterns": {}, "updated_at": datetime.now().isoformat()}
+            if PATTERN_MEMORY_FILE.exists():
+                loaded = json.loads(PATTERN_MEMORY_FILE.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    payload["patterns"] = loaded.get("patterns", {}) if isinstance(loaded.get("patterns"), dict) else {}
+            patterns = payload["patterns"]
+            for signal in audit.hallucination.signals:
+                key = f"{signal.signal_type}:{signal.text}"[:160]
+                patterns[key] = int(patterns.get(key, 0)) + 1
+            atomic_write_text(PATTERN_MEMORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
     except Exception:
         pass
 

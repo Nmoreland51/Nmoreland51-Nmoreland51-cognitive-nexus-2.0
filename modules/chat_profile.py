@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict
 
+from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 CHAT_PROFILE_FILE = Path("data/chat_profile.json")
@@ -183,7 +184,8 @@ def save_chat_profile(profile: ChatProfile, path: Path = CHAT_PROFILE_FILE) -> C
     """Persist the chat persona and return the normalized saved value."""
     normalized = normalize_chat_profile(profile)
     path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, json.dumps(normalized.to_dict(), indent=2, ensure_ascii=False))
+    with locked(path):
+        atomic_write_text(path, json.dumps(normalized.to_dict(), indent=2, ensure_ascii=False))
     return normalized
 
 

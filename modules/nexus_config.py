@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
@@ -198,4 +199,5 @@ def save_runtime_config(config: dict[str, Any], path: Path = DEFAULT_CONFIG_FILE
 
     ensure_runtime_dirs()
     serializable = {key: value for key, value in config.items() if "key" not in key.lower() and key != "model_id_notes"}
-    atomic_write_text(path, json.dumps(serializable, indent=2, ensure_ascii=False))
+    with locked(path):
+        atomic_write_text(path, json.dumps(serializable, indent=2, ensure_ascii=False))

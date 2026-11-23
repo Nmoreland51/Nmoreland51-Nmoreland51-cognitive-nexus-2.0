@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from modules.file_lock import locked, read_json
 from modules.file_utils import atomic_write_text
 
 
@@ -747,8 +748,19 @@ def load_response_preferences(path: Path = PREFERENCES_FILE) -> ResponsePreferen
 
 
 def save_response_preferences(preferences: ResponsePreferences, path: Path = PREFERENCES_FILE) -> None:
+    """Save the weights. The "critic" section of the same file belongs to the self-critic and is
+    kept as it is on disk, so neither writer discards the other's work."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, json.dumps(preferences.to_dict(), indent=2))
+    with locked(path):
+        payload = preferences.to_dict()
+        try:
+            saved = read_json(path, {})
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            saved = {}
+        if isinstance(saved, dict) and isinstance(saved.get("critic"), dict):
+            payload["critic"] = saved["critic"]
+        atomic_write_text(path, json.dumps(payload, indent=2))
 
 
 def update_response_preferences(message: str, current: ResponsePreferences | None = None, path: Path = PREFERENCES_FILE) -> ResponsePreferences:

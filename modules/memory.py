@@ -9,6 +9,7 @@ from typing import Dict, List
 
 import streamlit as st
 
+from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
 
 
@@ -72,7 +73,8 @@ def save_session_history() -> None:
         "updated_at": datetime.now().isoformat(),
         "messages": get_messages(),
     }
-    atomic_write_text(SESSION_HISTORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
+    with locked(SESSION_HISTORY_FILE):
+        atomic_write_text(SESSION_HISTORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def clear_session_history_file() -> None:
@@ -83,7 +85,8 @@ def clear_session_history_file() -> None:
         "updated_at": datetime.now().isoformat(),
         "messages": [],
     }
-    atomic_write_text(SESSION_HISTORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
+    with locked(SESSION_HISTORY_FILE):
+        atomic_write_text(SESSION_HISTORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def load_session_history_file() -> List[dict]:

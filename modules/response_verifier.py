@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
+from modules.file_lock import append_line
 from modules.nexus_config import LOG_DIR, ensure_runtime_dirs
 
 
@@ -87,5 +88,7 @@ def log_verification(result: VerificationResult, label: str = "chat") -> None:
         "label": label,
         **result.to_dict(),
     }
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    try:
+        append_line(path, json.dumps(payload, ensure_ascii=False), timeout=3.0)
+    except Exception:
+        pass  # a log line is never worth failing an answer for

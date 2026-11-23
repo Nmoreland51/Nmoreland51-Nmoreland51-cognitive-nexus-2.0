@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from core.reality_grounding.claim_validator import extract_claims
+from modules.file_lock import append_line
 from modules.web_research import clean_text, get_domain, slugify_query
 from search.bloodhound_search import (
     default_bloodhound_config,
@@ -878,8 +879,8 @@ def add_report_to_memory(report: ResearchReport, research_module: Any | None = N
 
     ensure_report_dir()
     try:
-        MEMORY_INDEX_FILE.parent.mkdir(parents=True, exist_ok=True)
-        MEMORY_INDEX_FILE.open("a", encoding="utf-8").write(
+        append_line(
+            MEMORY_INDEX_FILE,
             json.dumps(
                 {
                     "timestamp": report.timestamp,
@@ -888,8 +889,7 @@ def add_report_to_memory(report: ResearchReport, research_module: Any | None = N
                     "sources": [source.url for source in report.sources[:12]],
                 },
                 ensure_ascii=False,
-            )
-            + "\n"
+            ),
         )
         if research_module is not None:
             source_id = f"reality_research:{report.query}:{report.timestamp}"
