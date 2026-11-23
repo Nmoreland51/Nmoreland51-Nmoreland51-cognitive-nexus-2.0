@@ -17,7 +17,7 @@ from modules.context_manager import (
     build_context_bundle,
     estimate_tokens as estimate_context_tokens,
     handle_local_memory_command,
-    load_user_facts,
+    load_user_fact_records,
 )
 from modules.image_gen import ImageGenerationRequest, generate_images
 from modules.internal_prompts import build_locked_system_prompt
@@ -666,7 +666,7 @@ class NexusCore:
             self.last_trust_audit = {}
             return context.prompt, context
         context_messages = [] if minimal_context else messages
-        user_facts = [] if minimal_context else load_user_facts()
+        user_facts = [] if minimal_context else load_user_fact_records()
         recent_message_limit = 0 if minimal_context else int(settings.get("recent_message_limit") or self.config.get("recent_message_limit", 8))
         context = build_context_bundle(
             user_message=user_message,

@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
 from core.reality_grounding.prompt_firewall import build_firewall_instruction, sandbox_content
-from modules.file_utils import atomic_write_text
+from modules import profile_store
+from modules.profile_store import KIND_LABELS
 
-
-USER_PROFILE_FILE = Path("data/user_profile.json")
-MAX_USER_FACTS = 60
+# The saved profile is read and written only through modules/profile_store.py.
+USER_PROFILE_FILE = profile_store.PROFILE_FILE
 
 
 @dataclass
@@ -96,200 +94,129 @@ def summarize_older_messages(messages: Iterable[dict[str, Any]], max_chars: int 
     return trim_text("Older conversation summary:\n" + "\n".join(parts), max_chars)
 
 
-def load_user_facts(path: Path | None = None) -> list[str]:
-    """Load persisted user/project facts for context preservation."""
+def load_user_fact_records(path: Path | None = None) -> list[dict[str, Any]]:
+    """Saved facts that are in use (not replaced, not expired), oldest first."""
 
-    resolved = path or USER_PROFILE_FILE
     try:
-        if not resolved.exists():
-            return []
-        payload = json.loads(resolved.read_text(encoding="utf-8"))
-        facts = payload.get("facts", []) if isinstance(payload, dict) else []
-        if isinstance(facts, list):
-            cleaned_facts = []
-            for fact in facts:
-                text = _fact_text(fact)
-                if text:
-                    cleaned_facts.append(text)
-            return cleaned_facts
+        return profile_store.active_facts(profile_store.load_profile(path or USER_PROFILE_FILE))
     except Exception:
         return []
-    return []
 
 
-def _timestamp() -> str:
-    return datetime.now().isoformat()
+def load_user_facts(path: Path | None = None) -> list[str]:
+    """Text of the saved facts that are in use."""
 
-
-def _normalize_memory_text(text: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", str(text).lower())).strip()
-
-
-def _fact_text(fact: Any) -> str:
-    if isinstance(fact, dict):
-        return str(fact.get("text") or fact.get("value") or "").strip()
-    return str(fact or "").strip()
+    return [str(fact.get("text") or "") for fact in load_user_fact_records(path) if fact.get("text")]
 
 
 def load_user_profile(path: Path | None = None) -> dict[str, Any]:
-    """Load the persistent local profile, preserving unknown keys."""
+    """Load the saved profile (migrated to the current schema), preserving unknown keys."""
 
-    resolved = path or USER_PROFILE_FILE
-    try:
-        if resolved.exists():
-            payload = json.loads(resolved.read_text(encoding="utf-8"))
-            if isinstance(payload, dict):
-                payload.setdefault("facts", [])
-                payload.setdefault("preferences", {})
-                payload.setdefault("patterns", {})
-                payload.setdefault("recurring_topics", {})
-                payload.setdefault("recent_feedback", [])
-                return payload
-    except Exception:
-        pass
-    return {
-        "facts": [],
-        "preferences": {},
-        "patterns": {},
-        "recurring_topics": {},
-        "recent_feedback": [],
-        "updated_at": _timestamp(),
-    }
+    return profile_store.load_profile(path or USER_PROFILE_FILE)
 
 
-def save_user_profile(profile: dict[str, Any], path: Path | None = None) -> None:
-    resolved = path or USER_PROFILE_FILE
-    resolved.parent.mkdir(parents=True, exist_ok=True)
-    profile["updated_at"] = _timestamp()
-    atomic_write_text(resolved, json.dumps(profile, indent=2, ensure_ascii=False))
+def remember_user_fact(
+    text: str,
+    path: Path | None = None,
+    source: str = "user_statement",
+    *,
+    expires_at: str | None = None,
+    replace: bool = True,
+) -> dict[str, Any]:
+    """Save something the user asked to have remembered."""
 
-
-def remember_user_fact(text: str, path: Path | None = None, source: str = "explicit_chat_memory") -> dict[str, Any]:
-    """Persist a user-approved fact to local JSON memory."""
-
-    content = " ".join(str(text or "").strip().split())
-    if not content:
-        return {"success": False, "action": "remember", "message": "Tell me what you want me to remember."}
-
-    profile = load_user_profile(path)
-    facts = profile.get("facts", [])
-    if not isinstance(facts, list):
-        facts = []
-    normalized = _normalize_memory_text(content)
-    existing = [fact for fact in facts if _normalize_memory_text(_fact_text(fact)) != normalized]
-    entry = {
-        # Content hash: the same fact gets the same id in every run and on every device.
-        # (Python's hash() is salted per process, so the old ids changed on each launch.)
-        "id": f"fact_{hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:12]}",
-        "text": content,
-        "kind": "explicit",
-        "source": source,
-        "updated_at": _timestamp(),
-    }
-    existing.append(entry)
-    profile["facts"] = existing[-MAX_USER_FACTS:]
-    save_user_profile(profile, path)
-    return {
-        "success": True,
-        "action": "remember",
-        "message": f"I'll remember that: {content}",
-        "fact": entry,
-        "fact_count": len(profile["facts"]),
-    }
-
-
-# Words that don't say which memory is meant. "forget it" or "forget a" used to match letters
-# inside other words ("favorITe") and could delete every saved fact.
-_FORGET_FILLER = frozenset(
-    """a about all am an and any anything are as at be been but by can did do does everything for from had has
-    have i if in is it its me my of on or our please so some something stuff that the their them then these they
-    thing things this those to up us was we were what when which who with you your""".split()
-)
+    if source.startswith("explicit"):
+        source = "user_statement"  # names used before schema version 2
+    return profile_store.remember(text, path=path or USER_PROFILE_FILE, source=source, expires_at=expires_at, replace=replace)
 
 
 def forget_user_fact(query: str, path: Path | None = None) -> dict[str, Any]:
     """Remove saved facts that contain every distinctive word of the request, as whole words."""
 
-    needle = _normalize_memory_text(query)
-    terms = [term for term in dict.fromkeys(needle.split()) if len(term) > 1 and term not in _FORGET_FILLER]
-    if not terms:
-        return {
-            "success": False,
-            "action": "forget",
-            "message": "Tell me which saved memory to forget: give a word or phrase from it.",
-            "removed": 0,
-        }
-    profile = load_user_profile(path)
-    facts = profile.get("facts", [])
-    if not isinstance(facts, list):
-        facts = []
-
-    def matches(fact: Any) -> bool:
-        words = set(_normalize_memory_text(_fact_text(fact)).split())
-        return all(term in words for term in terms)
-
-    kept = [fact for fact in facts if not matches(fact)]
-    removed = len(facts) - len(kept)
-    if removed:
-        profile["facts"] = kept
-        save_user_profile(profile, path)
-        return {
-            "success": True,
-            "action": "forget",
-            "message": f"I forgot {removed} matching saved memory item(s).",
-            "removed": removed,
-            "fact_count": len(kept),
-        }
-    return {
-        "success": False,
-        "action": "forget",
-        "message": "I couldn't find a matching saved memory to forget.",
-        "removed": 0,
-        "fact_count": len(kept),
-    }
+    return profile_store.forget(query, path=path or USER_PROFILE_FILE)
 
 
 def load_user_profile_summary(path: Path | None = None, limit: int = 12) -> dict[str, Any]:
     """Return dashboard-ready memory rows from the local profile."""
 
     profile = load_user_profile(path)
-    facts = profile.get("facts", [])
-    facts = facts if isinstance(facts, list) else []
-    fact_rows = []
-    for fact in facts[-limit:]:
-        if isinstance(fact, dict):
-            fact_rows.append(
-                {
-                    "text": _fact_text(fact),
-                    "kind": fact.get("kind", ""),
-                    "source": fact.get("source", ""),
-                    "updated_at": fact.get("updated_at", ""),
-                }
-            )
-        else:
-            fact_rows.append({"text": _fact_text(fact), "kind": "legacy", "source": "", "updated_at": ""})
+    active = profile_store.active_facts(profile)
+    fact_rows = [
+        {
+            "text": str(fact.get("text") or ""),
+            "kind": fact.get("kind", ""),
+            "source": fact.get("source", ""),
+            "confidence": fact.get("confidence", ""),
+            "created_at": fact.get("created_at", ""),
+            "last_confirmed": fact.get("last_verified_at") or "",
+            "expires_at": fact.get("expires_at") or "",
+            "updated_at": fact.get("updated_at", ""),
+        }
+        for fact in active[-limit:]
+    ]
     preferences = profile.get("preferences", {})
     patterns = profile.get("patterns", {})
+    facts = profile.get("facts", [])
     return {
-        "fact_count": len([fact for fact in facts if _fact_text(fact)]),
+        "fact_count": len(active),
         "facts": fact_rows,
+        "replaced_count": sum(1 for fact in facts if fact.get("status") == "superseded"),
+        "expired_count": sum(1 for fact in facts if fact.get("status") == "active" and profile_store.is_expired(fact)),
         "preference_count": len(preferences) if isinstance(preferences, dict) else 0,
         "pattern_count": len(patterns) if isinstance(patterns, dict) else 0,
+        "schema_version": profile.get("schema_version"),
         "updated_at": profile.get("updated_at", ""),
     }
 
 
+_EXPIRY_FOR = re.compile(
+    r"^for\s+(?:the\s+next\s+)?(?P<count>\d{1,4}|an?|one)\s+(?P<unit>minute|hour|day|week|month)s?[,:]?\s+(?:that\s+)?(?P<text>.+)$",
+    re.IGNORECASE,
+)
+_EXPIRY_UNTIL = re.compile(r"^until\s+(?P<date>\d{4}-\d{2}-\d{2})[,:]?\s+(?:that\s+)?(?P<text>.+)$", re.IGNORECASE)
+_UNIT_HOURS = {"minute": 1 / 60, "hour": 1, "day": 24, "week": 24 * 7, "month": 24 * 30}
+
+
+def split_expiry(text: str, now: datetime | None = None) -> tuple[str, str | None]:
+    """Split "for 3 days that the office is closed" into the fact and when it stops applying."""
+
+    current = now or datetime.now(timezone.utc)
+    match = _EXPIRY_FOR.match(text.strip())
+    if match:
+        count_text = match.group("count").lower()
+        count = 1 if count_text in {"a", "an", "one"} else int(count_text)
+        expires = current + timedelta(hours=count * _UNIT_HOURS[match.group("unit").lower()])
+        return match.group("text").strip(), expires.isoformat(timespec="seconds")
+    match = _EXPIRY_UNTIL.match(text.strip())
+    if match:
+        try:
+            day = datetime.fromisoformat(match.group("date")).replace(hour=23, minute=59, second=59, tzinfo=current.tzinfo)
+        except ValueError:
+            return text, None
+        return match.group("text").strip(), day.isoformat(timespec="seconds")
+    return text, None
+
+
 def handle_local_memory_command(message: str, path: Path | None = None) -> dict[str, Any] | None:
-    """Handle explicit local memory commands without requiring a model provider."""
+    """Handle explicit local memory commands without requiring a model provider.
+
+    remember ...                         save it; a new value for the same thing replaces the old one
+    remember also: ...                   save it and keep the earlier value too
+    remember for 3 days that ...         save it with an end date (also: remember until 2026-12-01 ...)
+    forget ...                           remove it, its history and related records
+    what do you remember                 list what is saved, with how each item is known
+    """
 
     text = str(message or "").strip()
     remember_match = re.match(
-        r"^\s*(?:please\s+)?remember(?:\s+(?:this|that))?(?:\s*:\s*|\s+)(.+)$",
+        r"^\s*(?:please\s+)?(?:also\s+)?remember(?P<also>\s+also)?(?:\s+(?:this|that))?(?:\s*:\s*|\s+)(?P<rest>.+)$",
         text,
         flags=re.IGNORECASE,
     )
     if remember_match:
-        return remember_user_fact(remember_match.group(1), path=path)
+        keep_both = bool(remember_match.group("also")) or bool(re.match(r"^\s*(?:please\s+)?also\s+remember", text, flags=re.IGNORECASE))
+        content, expires_at = split_expiry(remember_match.group("rest"))
+        return remember_user_fact(content, path=path, expires_at=expires_at, replace=not keep_both)
 
     forget_match = re.match(
         r"^\s*(?:please\s+)?forget(?:\s+(?:this|that))?(?:\s*:\s*|\s+)(.+)$",
@@ -300,23 +227,36 @@ def handle_local_memory_command(message: str, path: Path | None = None) -> dict[
         return forget_user_fact(forget_match.group(1), path=path)
 
     if re.search(r"\bwhat do you remember\b|\bshow saved memor(?:y|ies)\b|\blist saved memor(?:y|ies)\b", text, flags=re.IGNORECASE):
-        facts = load_user_facts(path or USER_PROFILE_FILE)
-        if not facts:
+        records = load_user_fact_records(path or USER_PROFILE_FILE)
+        if not records:
             return {
                 "success": True,
                 "action": "recall",
                 "message": "I do not have any saved local facts yet.",
                 "fact_count": 0,
             }
-        shown = facts[-12:]
+        shown = records[-12:]
+        lines = []
+        for fact in shown:
+            label = KIND_LABELS.get(str(fact.get("kind")), "saved")
+            until = f", until {str(fact['expires_at'])[:10]}" if fact.get("expires_at") else ""
+            lines.append(f"- {fact.get('text')} ({label}{until})")
         return {
             "success": True,
             "action": "recall",
-            "message": "Saved local facts:\n" + "\n".join(f"- {fact}" for fact in shown),
-            "fact_count": len(facts),
+            "message": "Saved local facts:\n" + "\n".join(lines),
+            "fact_count": len(records),
         }
 
     return None
+
+
+def _fact_parts(fact: Any) -> tuple[str, str]:
+    """(text, kind) of a saved fact given as a record or as plain text."""
+
+    if isinstance(fact, dict):
+        return str(fact.get("text") or "").strip(), str(fact.get("kind") or "fact")
+    return str(fact or "").strip(), ""
 
 
 def build_context_bundle(
@@ -328,14 +268,16 @@ def build_context_bundle(
     route_reason: str = "",
     memory_context: str = "",
     retrieved_context: str = "",
-    user_facts: list[str] | None = None,
+    user_facts: list[Any] | None = None,
     max_context_chars: int = 12000,
     recent_message_limit: int = 8,
     summary_message_limit: int = 18,
 ) -> ContextBundle:
     """Pack recent chat, older summary, memory, and retrieved context into one prompt."""
 
-    user_facts = user_facts if user_facts is not None else load_user_facts()
+    # Records carry how each fact is known; plain strings (older callers) are accepted too.
+    user_facts = user_facts if user_facts is not None else load_user_fact_records()
+    fact_parts = [parts for parts in (_fact_parts(fact) for fact in user_facts) if parts[0]]
     prior_messages = list(messages[:-1]) if messages and messages[-1].get("content") == user_message else list(messages)
     recent_history = prior_messages[-recent_message_limit:] if recent_message_limit > 0 else []
     older_window = prior_messages[-(summary_message_limit + recent_message_limit) : -recent_message_limit]
@@ -343,18 +285,23 @@ def build_context_bundle(
 
     trust_audit: dict[str, Any] = {}
     facts_text = ""
-    if user_facts:
-        relevant_facts = []
+    if fact_parts:
+        # Standing instructions ("call me Sam") apply to every turn. Other facts are included
+        # when they relate to the message; outside casual chat the most recent ones are included.
+        instructions = [parts for parts in fact_parts if parts[1] == "instruction"][-4:]
+        others = [parts for parts in fact_parts if parts[1] != "instruction"][-20:]
         if route_label.lower().startswith("standard conversation"):
-            relevant_facts = [fact for fact in user_facts[-20:] if _is_relevant_fact(user_message, fact)]
-        else:
-            relevant_facts = list(user_facts[-20:])
+            others = [parts for parts in others if _is_relevant_fact(user_message, parts[0])]
+        relevant_facts = instructions + others[-6:]
 
         if relevant_facts:
             sandboxed_facts = []
             fact_audits = []
-            for fact in relevant_facts[-6:]:
-                wrapped, audit = sandbox_content(f"- {fact}", "memory", "persistent fact")
+            for text, kind in relevant_facts:
+                # Saying how a fact is known lets the model treat a guess differently from
+                # something the user stated.
+                label = f"[{KIND_LABELS[kind]}] " if kind in KIND_LABELS else ""
+                wrapped, audit = sandbox_content(f"- {label}{text}", "memory", "persistent fact")
                 sandboxed_facts.append(wrapped)
                 fact_audits.append(audit.to_dict())
             facts_text = "Persistent facts:\n" + "\n".join(sandboxed_facts)
@@ -414,7 +361,7 @@ def build_context_bundle(
         older_summary=older_summary,
         memory_context=memory_text,
         retrieved_context=retrieved_text,
-        user_facts=user_facts,
+        user_facts=[text for text, _kind in fact_parts],
         estimated_tokens=estimate_tokens(prompt),
         trimmed=trimmed,
         trust_audit=trust_audit,

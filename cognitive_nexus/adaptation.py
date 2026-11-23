@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import uuid
@@ -10,7 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from modules.file_utils import atomic_write_text
+from modules import profile_store
+from modules.file_lock import append_line, locked, read_json
+from modules.file_utils import atomic_write_json
 
 
 PROMOTION_THRESHOLD = 3
@@ -239,6 +242,15 @@ class UserProfile:
 
 
 class AdaptiveMemoryManager:
+    """Preferences, patterns and feedback learned from use.
+
+    The profile file is shared with the chat memory commands and, when the phone backend runs,
+    with another process. This class therefore keeps no private copy across calls: it reloads the
+    profile before each operation and writes back only the sections it owns (preferences,
+    patterns, topics, feedback) under the store's lock. Facts are changed only through
+    modules/profile_store.py.
+    """
+
     def __init__(self, data_dir: Path):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -251,6 +263,8 @@ class AdaptiveMemoryManager:
         self.memory_candidates = self._load_candidates()
 
     def reload(self) -> None:
+        """Pick up what the chat commands or another process saved since the last call."""
+
         self.profile = self._load_profile()
         self.memory_candidates = self._load_candidates()
 
@@ -258,52 +272,83 @@ class AdaptiveMemoryManager:
         return f"turn_{uuid.uuid4().hex[:12]}"
 
     def _load_profile(self) -> UserProfile:
-        if not self.profile_file.exists():
-            return UserProfile()
         try:
-            return UserProfile.from_dict(json.loads(self.profile_file.read_text(encoding="utf-8")))
+            saved = profile_store.load_profile(self.profile_file)
         except Exception:
             return UserProfile()
+        view = dict(saved)
+        view["facts"] = profile_store.active_facts(saved)
+        return UserProfile.from_dict(view)
 
     def _load_candidates(self) -> Dict[str, MemoryCandidate]:
-        if not self.memory_candidates_file.exists():
-            return {}
         try:
-            payload = json.loads(self.memory_candidates_file.read_text(encoding="utf-8"))
+            payload = read_json(self.memory_candidates_file, {})
         except Exception:
+            return {}
+        if not isinstance(payload, dict):
             return {}
         candidates: Dict[str, MemoryCandidate] = {}
         for key, value in payload.items():
-            candidates[key] = MemoryCandidate.from_dict(value)
+            if isinstance(value, dict):
+                candidates[key] = MemoryCandidate.from_dict(value)
         return candidates
 
     def _save_profile(self) -> None:
+        """Write the sections this class owns. Facts on disk are left exactly as they are."""
+
         self.profile.updated_at = _timestamp()
-        atomic_write_text(self.profile_file, json.dumps(self.profile.to_dict(), indent=2, ensure_ascii=False))
+        profile_store.update_sections(
+            {
+                "preferences": dict(self.profile.preferences),
+                "patterns": dict(self.profile.patterns),
+                "recurring_topics": dict(self.profile.recurring_topics),
+                "recent_feedback": list(self.profile.recent_feedback),
+            },
+            self.profile_file,
+        )
 
     def _save_candidates(self) -> None:
         payload = {key: candidate.to_dict() for key, candidate in self.memory_candidates.items()}
-        atomic_write_text(self.memory_candidates_file, json.dumps(payload, indent=2, ensure_ascii=False))
+        with locked(self.memory_candidates_file):
+            atomic_write_json(self.memory_candidates_file, payload)
+
+    @contextlib.contextmanager
+    def _changing(self):
+        """Reload, let the caller change preferences, patterns or candidates, then save: one
+        locked step, so a change made by another process in between is not lost."""
+
+        with locked(self.profile_file):
+            self.reload()
+            yield
+            self._save_profile()
+            self._save_candidates()
 
     def clear_all(self) -> None:
+        profile_store.wipe_profile(self.profile_file)
         self.profile = UserProfile()
         self.memory_candidates = {}
-        self._save_profile()
         self._save_candidates()
         if self.feedback_log_file.exists():
             self.feedback_log_file.unlink()
 
-    def _store_preference(self, key: str, value: str, source: str) -> None:
+    def _store_preference(self, key: str, value: str, source: str, statement: str = "") -> None:
+        """A preference the user expressed. `statement` is what they actually said, kept so the
+        record shows where it came from and so "forget ..." can find it by their own words."""
+
         self.profile.preferences[key] = {
             "value": value,
             "source": source,
+            "statement": clip_text(statement, 200),
             "updated_at": _timestamp(),
         }
 
     def _store_pattern(self, key: str, value: str, count: int) -> None:
+        """A habit the app noticed after repeated turns. Never stated by the user."""
+
         self.profile.patterns[key] = {
             "value": value,
             "count": count,
+            "source": "inferred_from_chat",
             "updated_at": _timestamp(),
         }
 
@@ -336,65 +381,29 @@ class AdaptiveMemoryManager:
             return "Tell me what you want me to remember."
 
         signals = self.extract_turn_signals(content)
-        stored_preference = False
-        for key, value in signals.explicit_preferences.items():
-            self._store_preference(key, value, "explicit_memory")
-            stored_preference = True
+        stored_preference = bool(signals.explicit_preferences)
+        with self._changing():
+            for key, value in signals.explicit_preferences.items():
+                self._store_preference(key, value, "explicit_memory", content)
 
         if not stored_preference or self._extract_fact_kind(content) != "preference":
-            fact_entry = {
-                "id": f"fact_{uuid.uuid4().hex[:8]}",
-                "text": content,
-                "kind": self._extract_fact_kind(content),
-                "source": "explicit_memory",
-                "updated_at": _timestamp(),
-            }
-            self.profile.facts = [item for item in self.profile.facts if normalize_text(item.get("text", "")) != normalize_text(content)]
-            self.profile.facts.append(fact_entry)
-            self.profile.facts = self.profile.facts[-MAX_FACTS:]
-
-        self._save_profile()
-        self._save_candidates()
+            # One fact store for the whole app: same ids, same replacement and expiry rules.
+            result = profile_store.remember(content, path=self.profile_file, source="user_statement")
+            self.reload()
+            if not result.get("success"):
+                return str(result.get("message"))
         return f"I'll remember that: {clip_text(content, 100)}"
 
     def forget_text(self, text: str) -> str:
-        query = normalize_text(text)
-        query_terms = [term for term in query.split() if term]
-        removed_facts = 0
-        removed_preferences = 0
-        removed_patterns = 0
+        """Forget by whole distinctive words. (This used to match parts of words, so "forget it"
+        could erase every memory containing the letters "it".)"""
 
-        def matches(candidate_text: str) -> bool:
-            normalized_candidate = normalize_text(candidate_text)
-            if query in normalized_candidate:
-                return True
-            return any(term in normalized_candidate for term in query_terms)
-
-        original_facts = list(self.profile.facts)
-        self.profile.facts = [item for item in original_facts if not matches(item.get("text", ""))]
-        removed_facts = len(original_facts) - len(self.profile.facts)
-
-        for key in list(self.profile.preferences.keys()):
-            value = normalize_text(str(self.profile.preferences[key].get("value", "")))
-            if matches(key) or matches(value):
-                del self.profile.preferences[key]
-                removed_preferences += 1
-
-        for key in list(self.profile.patterns.keys()):
-            value = normalize_text(str(self.profile.patterns[key].get("value", "")))
-            if matches(key) or matches(value):
-                del self.profile.patterns[key]
-                removed_patterns += 1
-
-        for candidate_key, candidate in list(self.memory_candidates.items()):
-            if matches(candidate.key) or matches(candidate.value):
-                del self.memory_candidates[candidate_key]
-
-        self._save_profile()
-        self._save_candidates()
-
-        if removed_facts or removed_preferences or removed_patterns:
+        result = profile_store.forget(text, path=self.profile_file)
+        self.reload()
+        if result.get("success"):
             return "I forgot the matching memory."
+        if not profile_store.forget_terms(text):
+            return str(result.get("message"))
         return "I couldn't find a matching saved memory to forget."
 
     def handle_memory_command(self, message: str) -> Optional[str]:
@@ -514,17 +523,15 @@ class AdaptiveMemoryManager:
         return signals
 
     def observe_turn(self, message: str, signals: TurnSignals) -> None:
-        for key, value in signals.explicit_preferences.items():
-            self._store_preference(key, value, "explicit_signal")
+        with self._changing():
+            for key, value in signals.explicit_preferences.items():
+                self._store_preference(key, value, "explicit_signal", message)
 
-        for key, value in signals.implicit_preferences.items():
-            self._observe_candidate(key, value)
+            for key, value in signals.implicit_preferences.items():
+                self._observe_candidate(key, value)
 
-        for keyword in signals.topic_keywords:
-            self.profile.recurring_topics[keyword] = self.profile.recurring_topics.get(keyword, 0) + 1
-
-        self._save_profile()
-        self._save_candidates()
+            for keyword in signals.topic_keywords:
+                self.profile.recurring_topics[keyword] = self.profile.recurring_topics.get(keyword, 0) + 1
 
     def resolve_policy(self, signals: Optional[TurnSignals] = None) -> AdaptivePolicy:
         policy = AdaptivePolicy()
@@ -684,23 +691,21 @@ class AdaptiveMemoryManager:
         correction = correction.strip()
         event = FeedbackEvent(turn_id=turn_id, rating=rating, correction=correction)
 
-        if correction:
-            correction_signals = self.extract_turn_signals(correction)
-            for key, value in correction_signals.explicit_preferences.items():
-                event.inferred_preferences[key] = value
-                self._store_preference(key, value, "correction")
+        with self._changing():
+            if correction:
+                correction_signals = self.extract_turn_signals(correction)
+                for key, value in correction_signals.explicit_preferences.items():
+                    event.inferred_preferences[key] = value
+                    self._store_preference(key, value, "correction", correction)
 
-        self.feedback_log_file.parent.mkdir(parents=True, exist_ok=True)
-        with self.feedback_log_file.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
+            append_line(self.feedback_log_file, json.dumps(event.to_dict(), ensure_ascii=False))
 
-        self.profile.recent_feedback.append(event.to_dict())
-        self.profile.recent_feedback = self.profile.recent_feedback[-MAX_FEEDBACK_EVENTS:]
-        self._save_profile()
-        self._save_candidates()
+            self.profile.recent_feedback.append(event.to_dict())
+            self.profile.recent_feedback = self.profile.recent_feedback[-MAX_FEEDBACK_EVENTS:]
         return event
 
     def get_memory_overview(self) -> Dict[str, Any]:
+        self.reload()
         return {
             "facts": list(self.profile.facts),
             "preferences": dict(self.profile.preferences),
