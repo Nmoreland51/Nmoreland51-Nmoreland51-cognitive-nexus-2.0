@@ -1,0 +1,664 @@
+{
+ "001": {
+  "commits": "dc1662f",
+  "evidence": "docs/STATUS.md 'Repositories' states that this repository is the active engine, the older repository is a March 2026 snapshot, and the Android repository is the client. The other two repositories do not yet say so in their READMEs.",
+  "needs": "Owner to confirm which repository is canonical; then the other two READMEs can point here.",
+  "status": "PARTIAL"
+ },
+ "002": {
+  "evidence": "No desktop build is distributed from this repository (QUICK_START.md described an .exe whose build scripts are not in the repo). The Android release workflow builds APKs but nothing records which engine commit a build was tested against.",
+  "status": "MISSING"
+ },
+ "003": {
+  "evidence": "Not reconciled. The Android repository still has open work on side branches per its ANDROID_PORT_STATUS.md.",
+  "needs": "Owner decision on which Android pull requests and branches to merge or close.",
+  "status": "MISSING"
+ },
+ "004": {
+  "commits": "dc1662f",
+  "evidence": "This repository has a single work branch (fix/chat-speed-web-search-images) ahead of main and no other experimental branches. QUICK_START.md's obsolete .exe install path is marked out of date.",
+  "needs": "Owner to merge the work branch into main (pull request not opened yet).",
+  "status": "PARTIAL"
+ },
+ "005": {
+  "commits": "dc1662f",
+  "evidence": "FINAL_PROJECT_AUDIT.md, COGNITIVE_NEXUS_UPGRADE_SUMMARY.md and QUICK_START.md carry a note that their readiness claims are historical and point to docs/STATUS.md, which lists dated, per-feature evidence.",
+  "status": "COMPLETE",
+  "tests": "Reviewed the rendered documents; docs/STATUS.md lists what was tested and what was run live on 2026-11-23."
+ },
+ "006": {
+  "commits": "dc1662f",
+  "evidence": "docs/STATUS.md has a per-feature table with 'Tests' (automated) and 'Live' (run for real) columns plus known limits, including features never run live and the Android client.",
+  "status": "COMPLETE",
+  "tests": "Table entries match what was actually run on 2026-11-23 (see the session notes in the commit messages)."
+ },
+ "007": {
+  "commits": "9899eb8, 6c62c28",
+  "evidence": ".github/workflows/tests.yml installs requirements/dev.txt on fresh Ubuntu and Windows runners (Python 3.11 and 3.13) and runs the suite. The first run exposed a hidden dependency (psutil), which is now listed.",
+  "status": "COMPLETE",
+  "tests": "CI green on all four jobs for commit f5d234d; also reproduced in a fresh local virtualenv."
+ },
+ "008": {
+  "evidence": "README.md has Install, Run, Validate and Ollama sections and verify_setup.py checks the environment. There is no single documented flow covering model setup, mobile pairing and shutdown.",
+  "status": "PARTIAL"
+ },
+ "009": {
+  "evidence": "load_user_facts reads both structured and legacy fact entries (tests/test_context_manager.py). There are no versioned schemas or migration steps for memory, settings or knowledge indexes.",
+  "status": "PARTIAL"
+ },
+ "010": {
+  "evidence": "Demo Safe Mode and a demo launcher exist, and docs/STATUS.md separates tested from untested features. The interface itself does not label features that have never been verified.",
+  "status": "PARTIAL"
+ },
+ "011": {
+  "evidence": "answer_quality_eval.py, conversation_regression_eval.py and response_speed_eval.py exist and can run against a live model. Results are not recorded anywhere; only a handful of live chats were checked by hand on 2026-11-23.",
+  "status": "PARTIAL"
+ },
+ "012": {
+  "commits": "f5d234d",
+  "evidence": "The streamed chat fallback reply starts with 'Fallback:' and now names the provider that failed and why. The non-streaming ProviderRouter.generate path (used for research summaries) still returns the bare fallback text, which callers can mistake for a model answer.",
+  "status": "PARTIAL",
+  "tests": "tests/test_provider_router.py (fallback reply tests)."
+ },
+ "013": {
+  "commits": "58e902f",
+  "evidence": "Providers are marked available from configuration alone (Ollama /api/tags, presence of an API key). The app warms the selected Ollama model on start, but no inference result is required before a provider is shown as working.",
+  "status": "PARTIAL"
+ },
+ "014": {
+  "evidence": "Defaults are still openai_model='gpt-4.1-mini' and anthropic_model='claude-sonnet-4-20250514' (modules/nexus_config.py). Neither was checked against the current APIs.",
+  "needs": "OPENAI_API_KEY and ANTHROPIC_API_KEY to validate requests against the live APIs.",
+  "status": "MISSING"
+ },
+ "015": {
+  "evidence": "Routing uses a static provider order, a throughput profile and a model preference list (modules/providers.py rank_ollama_models). Nothing uses measured latency, cost or past success.",
+  "status": "PARTIAL"
+ },
+ "016": {
+  "evidence": "ProviderRouter.stream walks the provider order; if Ollama fails and a cloud key is set, the prompt goes to OpenAI or Anthropic without the user choosing that.",
+  "status": "MISSING"
+ },
+ "017": {
+  "evidence": "No model capability records (vision, tools, structured output, context length, streaming) exist.",
+  "status": "MISSING"
+ },
+ "018": {
+  "evidence": "No tool-calling schemas or argument validation exist in the engine.",
+  "status": "MISSING"
+ },
+ "019": {
+  "commits": "58e902f, 5453611",
+  "evidence": "core/reality_grounding classifies speculation and confidence heuristically and appends a 'Reality check' note; web answers flag version numbers and years missing from their sources. Answers are not otherwise split into facts, assumptions and unknowns.",
+  "status": "PARTIAL"
+ },
+ "020": {
+  "evidence": "The response planner and self-critic have unit tests but no measurement of whether they improve answers.",
+  "status": "MISSING"
+ },
+ "021": {
+  "commits": "1e83af2",
+  "evidence": "modules/response_planner.py handles follow-ups, corrections and backchannels with tests; conversation_regression_eval.py passes 50 of 55 dry-run scenarios. No live multi-turn evaluation is recorded.",
+  "status": "PARTIAL"
+ },
+ "022": {
+  "commits": "58e902f, f5d234d",
+  "evidence": "Ollama waits at least 120 s for the first token instead of failing at 12 s, and the fallback reply states the failure. There is no retry policy.",
+  "status": "PARTIAL",
+  "tests": "tests/test_provider_router.py."
+ },
+ "023": {
+  "evidence": "Each turn records tokens/s and timings for Diagnostics and response_speed_eval.py exists. No reproducible benchmark results are stored.",
+  "status": "PARTIAL"
+ },
+ "024": {
+  "commits": "1eb0e4a",
+  "evidence": "determine_verdict no longer returns TRUE from source counts. A verdict needs passages that contain the claim's key terms; LIKELY TRUE/FALSE need two independent medium- or high-trust sources on one side and none on the other.",
+  "status": "COMPLETE",
+  "tests": "tests/test_reality_research_agent.py::ClaimCheckTests (11 tests) plus live runs on 2026-11-23: 'the moon landing was faked' -> LIKELY FALSE with three quoted sources."
+ },
+ "025": {
+  "commits": "1eb0e4a",
+  "evidence": "The hard-coded 0.6-0.9 confidences are removed. Reports show an evidence rating with counts; verdict_confidence is a documented heuristic score, not a probability.",
+  "status": "COMPLETE",
+  "tests": "tests/test_reality_research_agent.py (report contains no 'Confidence:' line; score is 0.0 without evidence)."
+ },
+ "026": {
+  "commits": "1eb0e4a",
+  "evidence": "assess_claim_evidence classes each source's best passage as supporting, contradicting or merely mentioning the claim. The judgement is keyword-level; its accuracy has not been measured on a labelled set.",
+  "status": "PARTIAL",
+  "tests": "tests/test_reality_research_agent.py::ClaimCheckTests."
+ },
+ "027": {
+  "commits": "1eb0e4a",
+  "evidence": "Trusted domains alone produce no verdict: two high-trust sources that do not address the claim give UNSUPPORTED. Trust only separates LIKELY from WEAKLY.",
+  "status": "COMPLETE",
+  "tests": "test_trusted_sources_that_do_not_address_the_claim_prove_nothing."
+ },
+ "028": {
+  "commits": "1eb0e4a",
+  "evidence": "The claim check records the quoted passage, source URL and title for each piece of evidence. Retrieval timestamps are not stored per passage.",
+  "status": "PARTIAL"
+ },
+ "029": {
+  "commits": "1eb0e4a",
+  "evidence": "Reports list supporting, contradicting and 'mentions' passages. They do not explain which words drove the classification or list the sources that did not address the claim.",
+  "status": "PARTIAL"
+ },
+ "030": {
+  "commits": "1eb0e4a",
+  "evidence": "Sources on the same domain count once and an identical passage copied across sites counts once. Paraphrased copies of one underlying claim are not detected.",
+  "status": "PARTIAL",
+  "tests": "test_same_site_and_copied_passages_count_once."
+ },
+ "031": {
+  "commits": "1eb0e4a",
+  "evidence": "No addressing passage gives UNSUPPORTED worded as 'missing evidence, not evidence that the claim is false'. LIKELY FALSE requires contradicting passages.",
+  "status": "COMPLETE",
+  "tests": "test_trusted_sources_...prove_nothing, test_reported_beliefs_and_questions_are_not_support."
+ },
+ "032": {
+  "commits": "1eb0e4a",
+  "evidence": "Failed searches and fetches add an 'incomplete coverage' note. Publication dates and page staleness are not considered.",
+  "status": "PARTIAL"
+ },
+ "033": {
+  "commits": "58e902f, 853820e, 1eb0e4a",
+  "evidence": "Verdicts carry an incomplete-coverage note when any search or fetch failed; chat web search reports 'no results' instead of answering; Bloodhound coverage lists the search sources actually used.",
+  "status": "COMPLETE",
+  "tests": "test_report_quotes_the_passages_and_admits_incomplete_coverage; tests/test_web_research.py no-results tests."
+ },
+ "034": {
+  "evidence": "detect_claim_contradictions still compares shared keywords plus negation words; it does not compare the same proposition or timeframe.",
+  "status": "MISSING"
+ },
+ "035": {
+  "commits": "58e902f, 5453611, 853820e",
+  "evidence": "Extraction keeps headings, glued search titles are trimmed, search switches source on errors with a cool-down, and URLs are normalised and de-duplicated. There are no fetch retries or back-off.",
+  "status": "PARTIAL",
+  "tests": "tests/test_web_research.py."
+ },
+ "036": {
+  "evidence": "No fixed benchmark for search relevance or citation faithfulness exists.",
+  "status": "MISSING"
+ },
+ "037": {
+  "evidence": "core/reality_grounding/prompt_firewall.py sandboxes retrieved content for chat context, with unit tests. Research summary prompts insert scraped text without that sandboxing.",
+  "status": "PARTIAL"
+ },
+ "038": {
+  "commits": "1eb0e4a",
+  "evidence": "The keyword override that forced FICTIONAL / IMPOSSIBLE for queries containing 'faster than light', 'telepathy' etc. is gone; such queries get a caution note and an evidence-based verdict.",
+  "status": "COMPLETE",
+  "tests": "test_physics_defying_topic_adds_a_note_instead_of_overriding_the_evidence."
+ },
+ "039": {
+  "evidence": "Desktop chat history (data/chat_history.json), user facts (data/user_profile.json), adaptive memory (cognitive_nexus/adaptation.py), knowledge chunks (ai_system/knowledge_bank) and Android SQLite sessions are separate stores with no document describing them or how they relate.",
+  "status": "MISSING"
+ },
+ "040": {
+  "evidence": "web_research_module.py defaults to hash-vector embeddings (embedding_backend='hash'); sentence-transformers is optional and not installed.",
+  "status": "MISSING"
+ },
+ "041": {
+  "evidence": "WebResearchModule.semantic_search returns vector and lexical scores (tests/test_web_research_module.py). There are no metadata filters or source-based ranking.",
+  "status": "PARTIAL"
+ },
+ "042": {
+  "commits": "0de33c3",
+  "evidence": "Fact ids are sha1 content hashes instead of Python hash().",
+  "status": "COMPLETE",
+  "tests": "test_fact_ids_are_stable_content_hashes (asserts a fixed id)."
+ },
+ "043": {
+  "commits": "0de33c3, b50c373",
+  "evidence": "Memory, profile, settings and index saves are atomic (modules/file_utils.py). Two processes can still overwrite each other because there is no lock.",
+  "status": "PARTIAL",
+  "tests": "tests/test_file_utils.py."
+ },
+ "044": {
+  "evidence": "Stored memory and knowledge files have no schema version and there are no migration tests.",
+  "status": "MISSING"
+ },
+ "045": {
+  "evidence": "Facts store source, kind and updated_at. Creation time, last verification and confidence are not recorded.",
+  "status": "PARTIAL"
+ },
+ "046": {
+  "evidence": "Explicit 'remember' facts are marked kind='explicit'; adaptive memory keeps inferred candidates separately. Retrieved or unverified content is not distinguished inside one store.",
+  "status": "PARTIAL"
+ },
+ "047": {
+  "commits": "0de33c3",
+  "evidence": "Facts are de-duplicated by normalised text and 'forget' removes whole-word matches safely. There is no correction, conflict detection or expiry.",
+  "status": "PARTIAL",
+  "tests": "test_forget_needs_a_distinctive_whole_word."
+ },
+ "048": {
+  "evidence": "No project-specific memory (repository state, objectives, bugs, decisions) exists.",
+  "status": "MISSING"
+ },
+ "049": {
+  "evidence": "Context packing keeps recent turns and clips older ones (modules/context_manager.py); there is no real summarisation of long conversations.",
+  "status": "PARTIAL"
+ },
+ "050": {
+  "evidence": "Context is budgeted as 12,000 characters (max_context_chars) regardless of the model's token window, while chat requests use a 2,048-token context.",
+  "status": "MISSING"
+ },
+ "051": {
+  "evidence": "Knowledge ingestion handles text, markdown, JSON and CSV only; no PDF, DOCX or code-aware extraction.",
+  "status": "MISSING"
+ },
+ "052": {
+  "evidence": "No export, backup, restore or selective wipe exists for any memory store.",
+  "status": "MISSING"
+ },
+ "053": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. There is no task, planning or execution loop.",
+  "status": "MISSING"
+ },
+ "054": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No repository checkout or worktree manager.",
+  "status": "MISSING"
+ },
+ "055": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No file read or search tools.",
+  "status": "MISSING"
+ },
+ "056": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No write or patch tools.",
+  "status": "MISSING"
+ },
+ "057": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No shell or test execution environment.",
+  "status": "MISSING"
+ },
+ "058": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No environment setup or package policy for agent work.",
+  "status": "MISSING"
+ },
+ "059": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. Nothing reproduces a reported failure.",
+  "status": "MISSING"
+ },
+ "060": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No detect, plan, patch, test, inspect, retry loop.",
+  "status": "MISSING"
+ },
+ "061": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. Nothing gates a 'done' report on test evidence.",
+  "status": "MISSING"
+ },
+ "062": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No pull request automation.",
+  "status": "MISSING"
+ },
+ "063": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No task tracker with dependencies or acceptance tests.",
+  "status": "MISSING"
+ },
+ "064": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No persisted agent state to resume from.",
+  "status": "MISSING"
+ },
+ "065": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No GitHub, CI, issue or release integration.",
+  "status": "MISSING"
+ },
+ "066": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No escalation path.",
+  "status": "MISSING"
+ },
+ "067": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No budgets for attempts, spending or compute time.",
+  "status": "MISSING"
+ },
+ "068": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No independent review step.",
+  "status": "MISSING"
+ },
+ "069": {
+  "evidence": "The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No measured, versioned self-improvement process.",
+  "status": "MISSING"
+ },
+ "070": {
+  "evidence": "No capability registry or per-tool schemas.",
+  "status": "MISSING"
+ },
+ "071": {
+  "evidence": "No separation of read-only and state-changing operations.",
+  "status": "MISSING"
+ },
+ "072": {
+  "evidence": "No file-management, browser-automation or computer-use adapters.",
+  "status": "MISSING"
+ },
+ "073": {
+  "evidence": "No scheduling, reminders, recurring tasks or change monitoring.",
+  "status": "MISSING"
+ },
+ "074": {
+  "evidence": "No idempotency keys or recovery logs.",
+  "status": "MISSING"
+ },
+ "075": {
+  "evidence": "No task progress, cancellation, retry or timeout handling beyond per-request timeouts.",
+  "status": "MISSING"
+ },
+ "076": {
+  "evidence": "No tool outcome verification.",
+  "status": "MISSING"
+ },
+ "077": {
+  "evidence": "Research fetching refuses private addresses (modules/url_safety.py), but there is no separate filesystem or network policy for software execution because nothing executes.",
+  "status": "MISSING"
+ },
+ "078": {
+  "evidence": "No user-visible action history.",
+  "status": "MISSING"
+ },
+ "079": {
+  "evidence": "No connector authentication.",
+  "status": "MISSING"
+ },
+ "080": {
+  "evidence": "No capacity limits or prioritisation for simultaneous workflows.",
+  "status": "MISSING"
+ },
+ "081": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). ANDROID_PORT_STATUS.md states that phone interaction and physical-device execution are untested.",
+  "needs": "A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.",
+  "status": "MISSING"
+ },
+ "082": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). Chat, sessions, gallery, ingestion and research jobs exist; the status file lists advanced router tuning, raw logs, token streaming and custom workflow upload as outstanding.",
+  "status": "PARTIAL"
+ },
+ "083": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). backend/engine.py StrictRouter.stream collects all chunks with list(...) before returning, and the API is job-based, so the phone never sees tokens as they are produced.",
+  "status": "MISSING"
+ },
+ "084": {
+  "evidence": "Desktop and the Android backend both write the same JSON files through the engine; saves are atomic now but nothing locks across processes.",
+  "status": "MISSING"
+ },
+ "085": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). REMOTE_ACCESS.md describes a private-network setup and the backend requires a bearer token. The status file says no Tailscale install, public exposure or phone pairing was performed.",
+  "needs": "A phone and a private network (for example Tailscale) to test from home and cellular connections.",
+  "status": "PARTIAL"
+ },
+ "086": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). No handling for computer sleep, network switching or reconnect without repeating actions was found.",
+  "needs": "A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.",
+  "status": "MISSING"
+ },
+ "087": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). backend/server.py exposes POST /api/jobs and GET /api/jobs/{key} for job status. There is no progress detail, cancellation, queue position or expiry.",
+  "status": "PARTIAL"
+ },
+ "088": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). backend/server.py uses ThreadPoolExecutor(max_workers=1) for every job, so a long generation blocks quick metadata requests.",
+  "status": "MISSING"
+ },
+ "089": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). Requests are limited to 16,000 characters and uploads to about 1 MB (backend/server.py).",
+  "status": "MISSING"
+ },
+ "090": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). The status file says the app needs a running backend; whether the app's own screens say so has not been checked.",
+  "needs": "A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.",
+  "status": "PARTIAL"
+ },
+ "091": {
+  "evidence": "The audit asks for on-device offline inference 'only if that is a product requirement'. It has not been requested.",
+  "needs": "Owner decision if phone-only inference is wanted.",
+  "status": "NOT APPLICABLE"
+ },
+ "092": {
+  "evidence": "Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). Not tested.",
+  "needs": "A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.",
+  "status": "MISSING"
+ },
+ "093": {
+  "evidence": "ComfyUI and Automatic1111 are not installed on the development machine and no phone is available.",
+  "needs": "ComfyUI or Automatic1111 running, plus a phone.",
+  "status": "MISSING"
+ },
+ "094": {
+  "evidence": "The 'Live / Files' pull request is still open on the Android repository.",
+  "needs": "Owner decision to merge or reject it.",
+  "status": "MISSING"
+ },
+ "095": {
+  "evidence": "Not examined: the live-bank feature exists only on the unmerged pull request.",
+  "needs": "Depends on item 094.",
+  "status": "MISSING"
+ },
+ "096": {
+  "evidence": "Measured by hand on 2026-11-23 with dolphin3:8b on CPU: about 30 tokens/s reading a prompt, 3 tokens/s writing, 6-15 s model load. Nothing is recorded in the repository and RAM was not measured.",
+  "status": "PARTIAL"
+ },
+ "097": {
+  "evidence": "No model presets for the hardware; only one model is installed.",
+  "status": "MISSING"
+ },
+ "098": {
+  "evidence": "Image generation loads Stable Diffusion without unloading the chat model first.",
+  "status": "MISSING"
+ },
+ "099": {
+  "evidence": "Context size is fixed per request type (2,048 for chat) and not derived from the model's window (same gap as item 050).",
+  "status": "MISSING"
+ },
+ "100": {
+  "evidence": "Searches and scraped pages are cached in memory (lru_cache), Bloodhound has a disk cache, and embeddings are stored with their chunks. Document parsing is not cached and nothing invalidates stale entries.",
+  "status": "PARTIAL"
+ },
+ "101": {
+  "evidence": "Provider and core status are cached with st.cache_data (15-45 s); the chat model is warmed once per model. Duplicate calls on reruns were not measured.",
+  "status": "PARTIAL"
+ },
+ "102": {
+  "evidence": "Chat web answers use a brief mode and casual turns use a fast path; long research still runs inside the chat request instead of a separate job.",
+  "status": "PARTIAL"
+ },
+ "103": {
+  "commits": "e7d690b",
+  "evidence": "Chat web answers stream as they are written and the Research tab shows step progress. Bloodhound and report synthesis show no intermediate output.",
+  "status": "PARTIAL"
+ },
+ "104": {
+  "evidence": "No profiling has been done.",
+  "status": "MISSING"
+ },
+ "105": {
+  "evidence": "No bounded concurrency, queue limits or cancellation for heavy jobs.",
+  "status": "MISSING"
+ },
+ "106": {
+  "evidence": "No performance regression tracking.",
+  "status": "MISSING"
+ },
+ "107": {
+  "commits": "b50c373",
+  "evidence": "modules/url_safety.safe_get allows only http(s) to public addresses and re-checks every redirect hop. It guards web_research.scrape_url and WebResearchModule URL ingestion.",
+  "status": "COMPLETE",
+  "tests": "tests/test_url_safety.py (10 tests) plus a live redirect to 127.0.0.1 that was refused."
+ },
+ "108": {
+  "evidence": "The Android backend validates the resolved address and each redirect itself (backend/engine.py public_url); the desktop engine does the same in url_safety. Neither pins the resolved address for the connection, so DNS rebinding is not covered.",
+  "status": "PARTIAL"
+ },
+ "109": {
+  "evidence": "The engine has no tool execution yet, so there is nothing sandboxed.",
+  "status": "MISSING"
+ },
+ "110": {
+  "commits": "351c51d",
+  "evidence": ".env is ignored by git so API keys cannot be committed by accident. There is no automated secret scan of the repository, logs or image metadata.",
+  "status": "PARTIAL"
+ },
+ "111": {
+  "evidence": "The Android backend requires a bearer token of at least 32 characters compared in constant time (backend/server.py). There is no rotation, rate limiting, revocation or per-device access.",
+  "status": "PARTIAL"
+ },
+ "112": {
+  "evidence": "Memory files and chat history are stored as plain JSON; nothing is encrypted.",
+  "status": "MISSING"
+ },
+ "113": {
+  "commits": "351c51d",
+  "evidence": "New local secrets are ignored (.env). The public repository still tracks personal runtime data: ai_system/knowledge_bank/chat_history.json (32 chat messages), data/chat_profile.json, data/feedback_log.jsonl and six generated images with prompts.",
+  "needs": "Owner approval to remove those files from tracking and purge them from history (a history rewrite with force-push). Untracking also deletes the files from other clones when they pull.",
+  "status": "PARTIAL"
+ },
+ "114": {
+  "evidence": "No written access model. The desktop app is single-user by design and the Android backend uses one shared token.",
+  "status": "MISSING"
+ },
+ "115": {
+  "evidence": "tests/test_prompt_firewall.py unit-tests the firewall; there is no hostile-content benchmark across web pages, documents and tools.",
+  "status": "MISSING"
+ },
+ "116": {
+  "commits": "0de33c3",
+  "evidence": "Saves are atomic. There are no migrations, checksums, snapshots or tested restoration.",
+  "status": "PARTIAL",
+  "tests": "tests/test_file_utils.py."
+ },
+ "117": {
+  "evidence": "No dependency vulnerability scanning; dependencies are not pinned.",
+  "status": "MISSING"
+ },
+ "118": {
+  "evidence": "No consent or approval flow exists because the engine performs no risky operations yet.",
+  "status": "MISSING"
+ },
+ "119": {
+  "evidence": "If Ollama fails and a cloud key is configured, prompts containing local knowledge and memory are sent to the cloud provider automatically (same code path as item 016).",
+  "status": "MISSING"
+ },
+ "120": {
+  "evidence": "app.py is about 2,300 lines with every tab renderer in one file.",
+  "status": "MISSING"
+ },
+ "121": {
+  "evidence": "modules/nexus_core.py is about 1,750 lines in one class.",
+  "status": "MISSING"
+ },
+ "122": {
+  "commits": "9899eb8, 6c62c28",
+  "evidence": ".github/workflows/tests.yml runs on every push.",
+  "status": "COMPLETE",
+  "tests": "CI green on Ubuntu and Windows, Python 3.11 and 3.13, for commit f5d234d."
+ },
+ "123": {
+  "commits": "9899eb8",
+  "evidence": "CI runs pytest with testpaths=tests (pytest.ini), which also collects the four plain test functions that 'unittest discover' skipped. run_tests.py uses the same command.",
+  "status": "COMPLETE",
+  "tests": "276 tests collected and passing in CI."
+ },
+ "124": {
+  "evidence": "CI has no linting, formatting, type checking or security scanning.",
+  "status": "MISSING"
+ },
+ "125": {
+  "evidence": "requirements use lower bounds only; no lock or constraints file. Compatible Python versions are not documented outside the CI matrix.",
+  "status": "MISSING"
+ },
+ "126": {
+  "evidence": "All automated tests mock the model. Live checks against Ollama were done by hand on 2026-11-23 and are not repeatable as a test.",
+  "status": "MISSING"
+ },
+ "127": {
+  "evidence": "No release gates on citation accuracy, hallucination resistance, fallback behaviour or verdict quality.",
+  "status": "MISSING"
+ },
+ "128": {
+  "evidence": "Not tested as a complete system.",
+  "needs": "A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.",
+  "status": "MISSING"
+ },
+ "129": {
+  "commits": "9899eb8",
+  "evidence": "CI runs on every push so pull requests show a result. Branch protection is not configured and release builds are not tied to commit SHAs.",
+  "needs": "Owner approval to change the repository's branch protection settings.",
+  "status": "PARTIAL"
+ },
+ "130": {
+  "evidence": "No architectural decision record, code owners file, milestones or definition of done.",
+  "status": "MISSING"
+ },
+ "131": {
+  "commits": "dc1662f",
+  "evidence": "The reports that claim '2/2 tests' and release readiness are marked historical and point to docs/STATUS.md.",
+  "status": "COMPLETE",
+  "tests": "Reviewed the three documents after the change."
+ },
+ "132": {
+  "evidence": "Logging uses plain module loggers; errors, model failures, tool failures and fallbacks are not separated or counted.",
+  "status": "MISSING"
+ },
+ "133": {
+  "commits": "0de33c3",
+  "evidence": "Atomic saves protect files from a crash mid-write. There are no backups, no graceful shutdown handling and no update recovery.",
+  "status": "PARTIAL"
+ },
+ "134": {
+  "evidence": "No signed desktop or mobile builds.",
+  "needs": "Code-signing certificates and the Android signing keys (repository secrets).",
+  "status": "MISSING"
+ },
+ "135": {
+  "evidence": "No versioned releases, changelog or rollback procedure.",
+  "status": "MISSING"
+ },
+ "136": {
+  "evidence": "Not decided.",
+  "needs": "Owner decision: is the default product an everyday assistant, a research workbench, a software agent, or selectable modes?",
+  "status": "MISSING"
+ },
+ "137": {
+  "evidence": "An 'Advanced mode' switch hides developer controls and a Demo Safe Mode exists, but the app still shows 11 tabs.",
+  "status": "PARTIAL"
+ },
+ "138": {
+  "evidence": "Chat shows the provider and model while generating, and Diagnostics shows the last turn's provider, model, timing and attempts. Data locality, cost and whether tools ran are not shown on the answer.",
+  "status": "PARTIAL"
+ },
+ "139": {
+  "commits": "1eb0e4a",
+  "evidence": "The Research tab and the markdown report list supporting and contradicting passages with links.",
+  "status": "PARTIAL"
+ },
+ "140": {
+  "evidence": "No project dashboard.",
+  "status": "MISSING"
+ },
+ "141": {
+  "evidence": "No hardware-based model recommendations.",
+  "status": "MISSING"
+ },
+ "142": {
+  "evidence": "Feedback is saved (data/feedback_log.jsonl) and adaptive memory proposes preferences; nothing tests whether a correction changed later answers.",
+  "status": "PARTIAL"
+ },
+ "143": {
+  "evidence": "A welcome panel and verify_setup.py exist. There is no import/export and no diagnostics bundle.",
+  "status": "PARTIAL"
+ },
+ "144": {
+  "evidence": "Accessibility and error recovery have not been evaluated.",
+  "status": "MISSING"
+ },
+ "145": {
+  "evidence": "No voice, image understanding, OCR or screen understanding.",
+  "needs": "Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.",
+  "status": "MISSING"
+ },
+ "146": {
+  "evidence": "No multi-agent delegation, comparison benchmarks or shared workspaces.",
+  "needs": "Owner decision (the audit marks this 'if desired').",
+  "status": "MISSING"
+ }
+}
