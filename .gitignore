@@ -40,3 +40,8 @@ audit/
 progress/
 build/
 dist/
+
+# Local secrets (API keys). Keep .env.example tracked as the template.
+.env
+.env.*
+!.env.example
