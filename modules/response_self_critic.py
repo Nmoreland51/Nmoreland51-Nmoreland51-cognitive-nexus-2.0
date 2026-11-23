@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from modules.file_utils import atomic_write_text
+
 
 PREFERENCES_FILE = Path("data/response_preferences.json")
 CRITIC_SCHEMA_VERSION = 1
@@ -219,7 +221,7 @@ def store_self_critic_observation(
         "stores_response_text": False,
     }
     payload["critic"] = critic
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(payload, indent=2))
     return critic
 
 

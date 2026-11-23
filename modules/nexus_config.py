@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from modules.file_utils import atomic_write_text
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = PROJECT_ROOT / "config"
@@ -122,4 +124,4 @@ def save_runtime_config(config: dict[str, Any], path: Path = DEFAULT_CONFIG_FILE
 
     ensure_runtime_dirs()
     serializable = {key: value for key, value in config.items() if "key" not in key.lower()}
-    path.write_text(json.dumps(serializable, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(path, json.dumps(serializable, indent=2, ensure_ascii=False))

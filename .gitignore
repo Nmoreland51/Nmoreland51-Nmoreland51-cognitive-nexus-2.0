@@ -45,3 +45,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Leftover temp files from an interrupted atomic save (modules/file_utils.py)
+.*.tmp

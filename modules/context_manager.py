@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from core.reality_grounding.prompt_firewall import build_firewall_instruction, sandbox_content
+from modules.file_utils import atomic_write_text
 
 
 USER_PROFILE_FILE = Path("data/user_profile.json")
@@ -159,7 +161,7 @@ def save_user_profile(profile: dict[str, Any], path: Path | None = None) -> None
     resolved = path or USER_PROFILE_FILE
     resolved.parent.mkdir(parents=True, exist_ok=True)
     profile["updated_at"] = _timestamp()
-    resolved.write_text(json.dumps(profile, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(resolved, json.dumps(profile, indent=2, ensure_ascii=False))
 
 
 def remember_user_fact(text: str, path: Path | None = None, source: str = "explicit_chat_memory") -> dict[str, Any]:
@@ -176,7 +178,9 @@ def remember_user_fact(text: str, path: Path | None = None, source: str = "expli
     normalized = _normalize_memory_text(content)
     existing = [fact for fact in facts if _normalize_memory_text(_fact_text(fact)) != normalized]
     entry = {
-        "id": f"fact_{abs(hash(normalized)) % 10_000_000:07d}",
+        # Content hash: the same fact gets the same id in every run and on every device.
+        # (Python's hash() is salted per process, so the old ids changed on each launch.)
+        "id": f"fact_{hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:12]}",
         "text": content,
         "kind": "explicit",
         "source": source,
@@ -194,27 +198,41 @@ def remember_user_fact(text: str, path: Path | None = None, source: str = "expli
     }
 
 
+# Words that don't say which memory is meant. "forget it" or "forget a" used to match letters
+# inside other words ("favorITe") and could delete every saved fact.
+_FORGET_FILLER = frozenset(
+    """a about all am an and any anything are as at be been but by can did do does everything for from had has
+    have i if in is it its me my of on or our please so some something stuff that the their them then these they
+    thing things this those to up us was we were what when which who with you your""".split()
+)
+
+
 def forget_user_fact(query: str, path: Path | None = None) -> dict[str, Any]:
-    """Remove matching local profile facts."""
+    """Remove saved facts that contain every distinctive word of the request, as whole words."""
 
     needle = _normalize_memory_text(query)
-    if not needle:
-        return {"success": False, "action": "forget", "message": "Tell me which saved memory to forget."}
-    terms = [term for term in needle.split() if term]
+    terms = [term for term in dict.fromkeys(needle.split()) if len(term) > 1 and term not in _FORGET_FILLER]
+    if not terms:
+        return {
+            "success": False,
+            "action": "forget",
+            "message": "Tell me which saved memory to forget: give a word or phrase from it.",
+            "removed": 0,
+        }
     profile = load_user_profile(path)
     facts = profile.get("facts", [])
     if not isinstance(facts, list):
         facts = []
 
     def matches(fact: Any) -> bool:
-        text = _normalize_memory_text(_fact_text(fact))
-        return needle in text or all(term in text for term in terms)
+        words = set(_normalize_memory_text(_fact_text(fact)).split())
+        return all(term in words for term in terms)
 
     kept = [fact for fact in facts if not matches(fact)]
     removed = len(facts) - len(kept)
-    profile["facts"] = kept
-    save_user_profile(profile, path)
     if removed:
+        profile["facts"] = kept
+        save_user_profile(profile, path)
         return {
             "success": True,
             "action": "forget",

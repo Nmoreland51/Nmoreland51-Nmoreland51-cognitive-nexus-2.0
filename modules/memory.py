@@ -9,6 +9,8 @@ from typing import Dict, List
 
 import streamlit as st
 
+from modules.file_utils import atomic_write_text
+
 
 Message = Dict[str, str]
 SESSION_HISTORY_FILE = Path("data/chat_history.json")
@@ -63,7 +65,7 @@ def save_session_history() -> None:
         "updated_at": datetime.now().isoformat(),
         "messages": get_messages(),
     }
-    SESSION_HISTORY_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(SESSION_HISTORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def clear_session_history_file() -> None:
@@ -74,7 +76,7 @@ def clear_session_history_file() -> None:
         "updated_at": datetime.now().isoformat(),
         "messages": [],
     }
-    SESSION_HISTORY_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(SESSION_HISTORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def load_session_history_file() -> List[dict]:

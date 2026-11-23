@@ -15,6 +15,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from modules.web_research import clean_text, get_domain, scrape_url, search_web, slugify_query
 from search.onion_search import run_onion_search
+from modules.file_utils import atomic_write_text
 
 
 logger = logging.getLogger(__name__)
@@ -344,7 +345,7 @@ def _write_cache(query: str, config: BloodhoundConfig, payload: dict[str, Any]) 
         path = _cache_key(query, config)
         cache_payload = dict(payload)
         cache_payload["created_at"] = datetime.now().isoformat()
-        path.write_text(json.dumps(cache_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_text(path, json.dumps(cache_payload, indent=2, ensure_ascii=False))
     except Exception as exc:
         logger.info("Bloodhound cache write failed: %s", exc)
 
@@ -622,7 +623,7 @@ def save_bloodhound_session(payload: dict[str, Any]) -> dict[str, str]:
     md_path = base.with_suffix(".md")
     serializable = dict(payload)
     serializable.pop("saved_paths", None)
-    json_path.write_text(json.dumps(serializable, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(json_path, json.dumps(serializable, indent=2, ensure_ascii=False))
     md_path.write_text(format_bloodhound_markdown(serializable), encoding="utf-8")
     return {"json": str(json_path), "markdown": str(md_path)}
 

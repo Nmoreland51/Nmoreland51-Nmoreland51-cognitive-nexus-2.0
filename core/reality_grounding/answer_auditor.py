@@ -15,6 +15,7 @@ from core.reality_grounding.hallucination_detector import HallucinationReport, d
 from core.reality_grounding.source_grounder import SourceGroundingReport, assess_source_grounding
 from core.reality_grounding.speculation_classifier import SpeculationReport, classify_speculation
 from core.reality_grounding.uncertainty_handler import apply_grounding_note
+from modules.file_utils import atomic_write_text
 
 
 PATTERN_MEMORY_FILE = Path("data/reality_grounding_patterns.json")
@@ -58,7 +59,7 @@ def _remember_patterns(audit: RealityAudit) -> None:
         for signal in audit.hallucination.signals:
             key = f"{signal.signal_type}:{signal.text}"[:160]
             patterns[key] = int(patterns.get(key, 0)) + 1
-        PATTERN_MEMORY_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_text(PATTERN_MEMORY_FILE, json.dumps(payload, indent=2, ensure_ascii=False))
     except Exception:
         pass
 

@@ -10,6 +10,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from modules.file_utils import atomic_write_text
+
 
 PREFERENCES_FILE = Path("data/response_preferences.json")
 
@@ -746,7 +748,7 @@ def load_response_preferences(path: Path = PREFERENCES_FILE) -> ResponsePreferen
 
 def save_response_preferences(preferences: ResponsePreferences, path: Path = PREFERENCES_FILE) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(preferences.to_dict(), indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(preferences.to_dict(), indent=2))
 
 
 def update_response_preferences(message: str, current: ResponsePreferences | None = None, path: Path = PREFERENCES_FILE) -> ResponsePreferences:

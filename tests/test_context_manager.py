@@ -1,3 +1,4 @@
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +69,35 @@ class ContextManagerTests(unittest.TestCase):
             )
 
             self.assertEqual(load_user_facts(profile_path), ["Structured fact", "Legacy fact"])
+
+    def test_fact_ids_are_stable_content_hashes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = remember_user_fact("My cat is named Pixel", path=Path(tmp) / "a.json")["fact"]["id"]
+            second = remember_user_fact("  my CAT is named pixel! ", path=Path(tmp) / "b.json")["fact"]["id"]
+
+        # Fixed value: Python's hash() gave a different id in every process.
+        self.assertEqual(first, "fact_" + hashlib.sha1(b"my cat is named pixel").hexdigest()[:12])
+        self.assertEqual(first, second)
+
+    def test_forget_needs_a_distinctive_whole_word(self):
+        facts = ["My favorite color is teal", "I work as an electrician", "My sister lives in Seattle", "My cat is named Pixel"]
+        with tempfile.TemporaryDirectory() as tmp:
+            profile_path = Path(tmp) / "user_profile.json"
+            for fact in facts:
+                remember_user_fact(fact, path=profile_path)
+
+            # "it" is inside "favorite" and "a" is inside every fact: neither may delete anything.
+            for vague in ("it", "a", "that thing", ""):
+                result = forget_user_fact(vague, path=profile_path)
+                self.assertFalse(result["success"], vague)
+                self.assertEqual(result["removed"], 0, vague)
+            self.assertEqual(load_user_facts(profile_path), facts)
+
+            self.assertEqual(forget_user_fact("elect", path=profile_path)["removed"], 0)  # part of a word
+            result = forget_user_fact("that thing about my cat", path=profile_path)
+
+            self.assertEqual(result["removed"], 1)
+            self.assertEqual(load_user_facts(profile_path), facts[:3])
 
 
 if __name__ == "__main__":

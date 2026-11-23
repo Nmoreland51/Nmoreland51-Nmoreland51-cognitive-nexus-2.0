@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from modules.file_utils import atomic_write_text
+
 
 PROMOTION_THRESHOLD = 3
 MAX_FACTS = 25
@@ -277,11 +279,11 @@ class AdaptiveMemoryManager:
 
     def _save_profile(self) -> None:
         self.profile.updated_at = _timestamp()
-        self.profile_file.write_text(json.dumps(self.profile.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_text(self.profile_file, json.dumps(self.profile.to_dict(), indent=2, ensure_ascii=False))
 
     def _save_candidates(self) -> None:
         payload = {key: candidate.to_dict() for key, candidate in self.memory_candidates.items()}
-        self.memory_candidates_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_write_text(self.memory_candidates_file, json.dumps(payload, indent=2, ensure_ascii=False))
 
     def clear_all(self) -> None:
         self.profile = UserProfile()
