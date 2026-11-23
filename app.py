@@ -25,7 +25,6 @@ from modules.image_gen import (
     ImageGenerationRequest,
     detect_image_provider,
     detect_image_providers,
-    generate_images,
     list_generated_images,
     summarize_image_gallery,
 )
@@ -35,7 +34,6 @@ from modules.memory import (
     clear_session_history_file,
     get_messages,
     initialize_chat_state,
-    load_legacy_history,
     load_session_history_file,
     save_session_history,
 )
@@ -48,7 +46,6 @@ from modules.project_status import (
 )
 from modules.providers import (
     check_ollama_status,
-    fallback_response,
     get_provider_inventory,
 )
 from modules.research import (
@@ -64,7 +61,6 @@ from modules.web_research import search_sources_status
 from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
 from nexus_router import (
-    CATEGORY_LABELS,
     RouterConfig,
     get_prompt_template_examples,
 )

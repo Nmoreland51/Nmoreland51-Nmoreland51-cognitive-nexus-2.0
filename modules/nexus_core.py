@@ -37,7 +37,6 @@ from modules.response_planner import (
     analyze_intent_cached,
     apply_auto_precision_settings,
     is_casual_chat_message,
-    is_short_followup_reply,
     plan_response,
     validate_response_against_plan,
 )
@@ -47,7 +46,7 @@ from modules.response_self_critic import (
     evaluate_response_self_critic,
     store_self_critic_observation,
 )
-from modules.response_verifier import VerificationResult, log_verification, verify_response
+from modules.response_verifier import log_verification, verify_response
 from modules.web_research import (
     NO_RESULTS_SUMMARY,
     build_summary_prompt,
@@ -57,7 +56,6 @@ from modules.web_research import (
     unsourced_numbers_note,
 )
 from search.bloodhound_search import (
-    BloodhoundConfig,
     default_bloodhound_config,
     detect_bloodhound_query,
     format_bloodhound_markdown,

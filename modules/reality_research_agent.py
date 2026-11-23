@@ -19,7 +19,6 @@ from typing import Any, Callable
 from core.reality_grounding.claim_validator import extract_claims
 from modules.web_research import clean_text, get_domain, slugify_query
 from search.bloodhound_search import (
-    BloodhoundConfig,
     default_bloodhound_config,
     detect_bloodhound_query,
     run_bloodhound_search,

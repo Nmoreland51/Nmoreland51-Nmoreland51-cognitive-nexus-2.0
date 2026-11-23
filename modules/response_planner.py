@@ -849,6 +849,10 @@ def _budget_for_mode(mode: str, intent: str, function: str = "") -> tuple[int, i
         return 40, 180, 720, 1536
     if intent in {"research", "reality_check"}:
         return 120, 900, 2400, 8192
+    if mode == "deep":
+        # This branch had been left unreachable after a return in validate_response_against_plan,
+        # so deep answers silently got the default 420-token budget.
+        return 120, 780, 2200, 4096
     if mode == "short":
         return 0, 140, 420, 1536
     return 60, 420, 1200, 4096
@@ -1005,5 +1009,3 @@ def validate_response_against_plan(answer: str, plan: ResponsePlan) -> dict[str,
         "unanswered_markers": unanswered,
         "formatting_style": plan.formatting_style,
     }
-    if mode == "deep":
-        return 120, 780, 2200, 4096

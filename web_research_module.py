@@ -19,17 +19,15 @@ Version: 1.0
 """
 
 import streamlit as st
-import requests
 from bs4 import BeautifulSoup
 import re
 import json
-import time
 import hashlib
 import importlib.util
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Any
 import logging
 
 from modules.file_utils import atomic_write_json
@@ -717,7 +715,7 @@ def render_web_research_tab():
                 for i, chunk in enumerate(relevant_chunks, 1):
                     with st.expander(f"Source {i}: {chunk['title']} (Similarity: {chunk['similarity']:.3f})"):
                         st.markdown(f"**URL:** {chunk['url']}")
-                        st.markdown(f"**Relevant text:**")
+                        st.markdown("**Relevant text:**")
                         st.text(chunk['text'][:500] + "..." if len(chunk['text']) > 500 else chunk['text'])
             else:
                 st.warning("⚠️ No relevant information found. Try processing more URLs or rephrasing your question.")

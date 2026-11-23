@@ -5,8 +5,6 @@ Checks if all required components are properly configured
 """
 
 import os
-import sys
-from pathlib import Path
 
 def check_file_exists(filepath, description):
     """Check if a file exists and report status"""

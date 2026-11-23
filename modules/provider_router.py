@@ -6,8 +6,7 @@ import json
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from functools import lru_cache
-from typing import Any, Generator, Iterable, Optional
+from typing import Any, Generator, Optional
 
 import requests
 

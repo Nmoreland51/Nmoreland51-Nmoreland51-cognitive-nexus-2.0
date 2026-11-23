@@ -51,7 +51,7 @@ class CognitiveNexusIdentityEnforcer:
         
         # Check if response contains wrong identity
         if self._contains_wrong_identity(response):
-            logger.warning(f"Detected wrong identity in response, enforcing Cognitive Nexus AI identity")
+            logger.warning("Detected wrong identity in response, enforcing Cognitive Nexus AI identity")
             return self._replace_wrong_identity(response, user_input)
         
         # Check if user is asking about identity
@@ -144,7 +144,7 @@ class CognitiveNexusIdentityEnforcer:
     
     def get_system_prompt(self) -> str:
         """Get the identity-enforced system prompt."""
-        return f"""You are Cognitive Nexus AI, a privacy-focused AI assistant developed for local, secure processing.
+        return """You are Cognitive Nexus AI, a privacy-focused AI assistant developed for local, secure processing.
 
 CRITICAL IDENTITY RULES:
 1. You are ONLY Cognitive Nexus AI - never identify as Qwen, ChatGPT, Claude, or any other AI

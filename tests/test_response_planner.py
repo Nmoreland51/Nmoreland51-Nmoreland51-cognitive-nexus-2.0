@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from modules import response_planner
 from modules.response_planner import (
     ResponsePreferences,
     SOCIAL_PRESENCE_BLOCKED_PHRASES,
@@ -510,6 +511,11 @@ class TestResponsePlanner(unittest.TestCase):
         self.assertTrue(reality["enable_bloodhound_search"])
         self.assertTrue(reality["show_perf_timings"])
         self.assertTrue(debugging["show_perf_timings"])
+
+    def test_deep_mode_gets_its_larger_token_budget(self):
+        # The deep branch used to sit unreachable after a return, leaving deep answers at 420 tokens.
+        self.assertEqual(response_planner._budget_for_mode("deep", "creative"), (120, 780, 2200, 4096))
+        self.assertEqual(response_planner._budget_for_mode("standard", "unknown"), (60, 420, 1200, 4096))
 
     def test_memory_commands_are_classified_without_catching_ordinary_remember(self):
         for message in ("remember that ollama is my default provider.", "what did i tell you to remember?", "forget my old address"):
