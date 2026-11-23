@@ -511,38 +511,34 @@ def add_research_to_memory(
     return {"stored": True, "chunks": stored}
 
 
-def run_research_session(
+def build_summary_prompt(
+    query: str,
+    results: list[dict[str, Any]],
+    scraped_pages: list[dict[str, Any]],
+    brief: bool = False,
+) -> str:
+    """Prompt for summarizing research: brief chat answer or full report."""
+
+    return (_build_brief_prompt if brief else _build_research_prompt)(query, results, scraped_pages)
+
+
+def gather_research(
     query: str,
     *,
     max_results: int = 5,
     scrape_pages: bool = True,
-    summarize_with_ai: bool = True,
-    save_locally: bool = True,
-    save_to_memory: bool = True,
-    ai_callback: Callable[[str], str] | None = None,
     brief: bool = False,
 ) -> dict[str, Any]:
-    """Run a full search/scrape/summarize/save session.
+    """Search and scrape. Returns results, scraped pages, errors and stage timings.
 
-    brief=True is the chat mode: scrape only the top pages and ask for a 2-3 sentence answer.
+    brief=True (chat mode) scrapes only the top pages.
     """
 
-    settings = {
-        "max_results": max_results,
-        "scrape_pages": scrape_pages,
-        "summarize_with_ai": summarize_with_ai,
-        "save_locally": save_locally,
-        "save_to_memory": save_to_memory,
-        "brief": brief,
-    }
     started = time.perf_counter()
     timings: dict[str, float] = {}
     errors: list[str] = []
     results: list[dict[str, Any]] = []
     scraped_pages: list[dict[str, Any]] = []
-    summary = ""
-    saved_paths: dict[str, str] = {}
-    memory_result: dict[str, Any] = {}
 
     try:
         results = search_web(query, max_results=max_results)
@@ -571,22 +567,47 @@ def run_research_session(
                 scraped_pages.append(page)
                 if not page.get("success") and page.get("error"):
                     errors.append(f"Scrape failed for {url}: {page['error']}")
+    timings["scrape"] = time.perf_counter() - started - timings["search"]
 
-    timings["scrape"] = time.perf_counter() - started - sum(timings.values())
+    return {
+        "query": query,
+        "brief": brief,
+        "results": results,
+        "scraped_pages": scraped_pages,
+        "errors": errors,
+        "timings": timings,
+        "started": started,
+        "has_sources": _has_research_sources(results, scraped_pages),
+    }
 
-    if summarize_with_ai:
-        summary = summarize_research(query, results, scraped_pages, ai_callback, brief=brief)
-    else:
-        summary = "AI summarization was skipped for this research session."
-    timings["summary"] = time.perf_counter() - started - sum(timings.values())
 
-    if save_to_memory and _has_research_sources(results, scraped_pages):
+def finish_research_session(
+    gathered: dict[str, Any],
+    summary: str,
+    *,
+    settings: dict[str, Any],
+    save_locally: bool = True,
+    save_to_memory: bool = True,
+) -> dict[str, Any]:
+    """Store the summary in memory, log stage timings and save the session to disk."""
+
+    query = gathered["query"]
+    results = gathered["results"]
+    scraped_pages = gathered["scraped_pages"]
+    errors = gathered["errors"]
+    timings = dict(gathered["timings"])
+    started = gathered["started"]
+    saved_paths: dict[str, str] = {}
+    memory_result: dict[str, Any] = {}
+    timings.setdefault("summary", time.perf_counter() - started - sum(timings.values()))
+
+    if save_to_memory and gathered["has_sources"]:
         memory_result = add_research_to_memory(query, scraped_pages, summary)
     timings["memory"] = time.perf_counter() - started - sum(timings.values())
     logger.info(
         "Research timings query=%r brief=%s %s total=%.1fs",
         query,
-        brief,
+        gathered["brief"],
         " ".join(f"{name}={seconds:.1f}s" for name, seconds in timings.items()),
         time.perf_counter() - started,
     )
@@ -611,3 +632,44 @@ def run_research_session(
         "saved_paths": saved_paths,
         "memory_result": memory_result,
     }
+
+
+def run_research_session(
+    query: str,
+    *,
+    max_results: int = 5,
+    scrape_pages: bool = True,
+    summarize_with_ai: bool = True,
+    save_locally: bool = True,
+    save_to_memory: bool = True,
+    ai_callback: Callable[[str], str] | None = None,
+    brief: bool = False,
+) -> dict[str, Any]:
+    """Run a full search/scrape/summarize/save session.
+
+    brief=True is the chat mode: scrape only the top pages and ask for a 2-3 sentence answer.
+    """
+
+    settings = {
+        "max_results": max_results,
+        "scrape_pages": scrape_pages,
+        "summarize_with_ai": summarize_with_ai,
+        "save_locally": save_locally,
+        "save_to_memory": save_to_memory,
+        "brief": brief,
+    }
+    gathered = gather_research(query, max_results=max_results, scrape_pages=scrape_pages, brief=brief)
+    summary_started = time.perf_counter()
+    if summarize_with_ai:
+        summary = summarize_research(query, gathered["results"], gathered["scraped_pages"], ai_callback, brief=brief)
+    else:
+        summary = "AI summarization was skipped for this research session."
+    gathered["timings"]["summary"] = time.perf_counter() - summary_started
+
+    return finish_research_session(
+        gathered,
+        summary,
+        settings=settings,
+        save_locally=save_locally,
+        save_to_memory=save_to_memory,
+    )

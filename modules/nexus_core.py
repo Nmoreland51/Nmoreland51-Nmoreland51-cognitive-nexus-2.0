@@ -47,7 +47,13 @@ from modules.response_self_critic import (
     store_self_critic_observation,
 )
 from modules.response_verifier import VerificationResult, log_verification, verify_response
-from modules.web_research import run_research_session
+from modules.web_research import (
+    NO_RESULTS_SUMMARY,
+    build_summary_prompt,
+    finish_research_session,
+    gather_research,
+    run_research_session,
+)
 from search.bloodhound_search import (
     BloodhoundConfig,
     default_bloodhound_config,
@@ -59,6 +65,11 @@ from nexus_router import CATEGORY_LABELS, RouteDecision, RouterConfig, build_rou
 
 
 logger = logging.getLogger(__name__)
+
+# Model options for web research summaries. The brief (chat) answer uses the same 2048 context
+# as normal chat, so Ollama keeps one loaded copy of the model (~6s reload otherwise on CPU).
+BRIEF_WEB_SUMMARY_OPTIONS = {"temperature": 0.25, "num_predict": 160, "num_ctx": 2048}
+FULL_WEB_SUMMARY_OPTIONS = {"temperature": 0.25, "num_predict": 480, "num_ctx": 4096}
 
 
 def _elapsed_ms(started: float, ended: float | None = None) -> float:
@@ -1278,25 +1289,62 @@ class NexusCore:
             if plan.acknowledge:
                 yield plan.acknowledgement
             query = route_decision.search_query or user_message
-            result = self.run_web_research(query, settings, max_results=5, save_locally=True, brief=True)
-            answer = result.get("summary") or "No summary was generated."
-            if settings.get("show_sources") and result.get("results"):
+            # Search and read pages first, then stream the brief answer so words appear while the
+            # model writes them (~45s on CPU) instead of all at once at the end.
+            gathered = gather_research(query, max_results=5, brief=True)
+            results = gathered["results"]
+            summary_started = time.perf_counter()
+            if gathered["has_sources"]:
+                request = self._provider_request(
+                    build_summary_prompt(query, results, gathered["scraped_pages"], brief=True),
+                    settings,
+                    BRIEF_WEB_SUMMARY_OPTIONS,
+                    model=settings.get("selected_model") or "",
+                )
+                chunks: list[str] = []
+                for chunk in self.provider_router.stream(request):
+                    chunks.append(chunk)
+                    yield chunk
+                summary = "".join(chunks).strip()
+                if not summary:
+                    summary = "No summary was generated."
+                    yield summary
+            else:
+                # Without sources the model would answer from stale memory; say so instead.
+                summary = NO_RESULTS_SUMMARY
+                yield summary
+            gathered["timings"]["summary"] = time.perf_counter() - summary_started
+
+            answer = summary
+            if settings.get("show_sources") and results:
                 sources = "\n".join(
                     f"- [{item.get('title') or item.get('url')}]({item.get('url')}) ({item.get('source')})"
-                    for item in result["results"]
+                    for item in results
                     if item.get("url")
                 )
-                answer = f"{answer}\n\nSources:\n{sources}" if sources else answer
-            answer = self._audit_answer(
+                if sources:
+                    suffix = f"\n\nSources:\n{sources}"
+                    answer += suffix
+                    yield suffix
+            finish_research_session(
+                gathered,
+                summary,
+                settings={"max_results": 5, "scrape_pages": True, "summarize_with_ai": True, "brief": True},
+            )
+            audited = self._audit_answer(
                 answer,
                 label="chat_web",
                 route_category="web_research",
-                source_count=len(result.get("results", [])),
+                source_count=len(results),
                 web_used=True,
-                tool_confirmed=True,
+                # A "no results" reply isn't confirmed by any tool output.
+                tool_confirmed=bool(results),
                 settings=settings,
             )
-            verification = verify_response(answer, source_count=len(result.get("results", [])), web_used=True)
+            if audited.startswith(answer) and len(audited) > len(answer):
+                yield audited[len(answer):]  # grounding note appended by the audit
+            answer = audited
+            verification = verify_response(answer, source_count=len(results), web_used=True)
             completion = validate_response_against_plan(answer, plan)
             self.last_verification = verification.to_dict()
             log_verification(verification, "chat_web")
@@ -1306,7 +1354,6 @@ class NexusCore:
                 "response_completion": completion,
             }
             self._record_response_self_critic(user_message, answer, plan, settings)
-            yield answer
             return
 
         prompt_settings = dict(settings)
@@ -1576,15 +1623,11 @@ class NexusCore:
     ) -> dict[str, Any]:
         """Run web research through the central provider router for summaries.
 
-        brief=True gives a short chat answer. Its 2048 context matches normal chat, so Ollama
-        does not reload the model (~6s on CPU) when switching between chat and web answers.
+        brief=True gives a short answer (see BRIEF_WEB_SUMMARY_OPTIONS). Chat streams its brief
+        answer instead; see _stream_web_answer.
         """
 
-        options = (
-            {"temperature": 0.25, "num_predict": 160, "num_ctx": 2048}
-            if brief
-            else {"temperature": 0.25, "num_predict": 480, "num_ctx": 4096}
-        )
+        options = BRIEF_WEB_SUMMARY_OPTIONS if brief else FULL_WEB_SUMMARY_OPTIONS
         ai_callback = None
         if summarize_with_ai:
             def ai_callback(prompt: str) -> str:

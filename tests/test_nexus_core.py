@@ -1063,6 +1063,53 @@ class NexusCoreTests(unittest.TestCase):
         self.assertIn("Grounded answer", answer)
         self.assertEqual(core.last_provider_result.get("provider"), "reality_research_agent")
 
+    def _web_gathered(self, results):
+        return {
+            "query": "the latest stable Python release",
+            "brief": True,
+            "results": results,
+            "scraped_pages": [],
+            "errors": [],
+            "timings": {"search": 0.1, "scrape": 0.0},
+            "started": 0.0,
+            "has_sources": bool(results),
+        }
+
+    def test_chat_web_search_streams_answer_then_sources(self):
+        core = NexusCore()
+        settings = self.base_chat_settings()
+        settings["use_web_for_chat"] = True
+        results = [
+            {
+                "title": "Python Release Python 3.15.2",
+                "url": "https://www.python.org/downloads/release/python-3152/",
+                "snippet": "Python 3.15.2 was released.",
+                "source": "python.org",
+            }
+        ]
+        with patch("modules.nexus_core.gather_research", return_value=self._web_gathered(results)), patch(
+            "modules.nexus_core.finish_research_session"
+        ) as finish, patch.object(core.provider_router, "stream", return_value=iter(["Python 3.15.2 ", "is the latest."])):
+            chunks = list(core.stream_chat_response("search the web for the latest stable Python release", [], settings))
+
+        text = "".join(chunks)
+        self.assertIn("Python 3.15.2 ", chunks)  # model chunks reach the chat as they arrive
+        self.assertLess(text.index("is the latest."), text.index("Sources:"))
+        self.assertIn("https://www.python.org/downloads/release/python-3152/", text)
+        finish.assert_called_once()
+
+    def test_chat_web_search_without_results_skips_model(self):
+        core = NexusCore()
+        settings = self.base_chat_settings()
+        settings["use_web_for_chat"] = True
+        with patch("modules.nexus_core.gather_research", return_value=self._web_gathered([])), patch(
+            "modules.nexus_core.finish_research_session"
+        ), patch.object(core.provider_router, "stream") as stream:
+            text = "".join(core.stream_chat_response("search the web for the latest stable Python release", [], settings))
+
+        stream.assert_not_called()
+        self.assertIn("Web search returned no results", text)
+
 
 if __name__ == "__main__":
     unittest.main()
