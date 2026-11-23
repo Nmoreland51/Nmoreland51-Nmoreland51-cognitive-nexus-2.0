@@ -157,7 +157,9 @@ def test_policy_from_settings_falls_back_to_asking():
     assert ApprovalPolicy.from_settings({"agent_approval_mode": "nonsense"}).mode == "ask"
     policy = ApprovalPolicy.from_settings({"agent_approval_mode": "trusted", "agent_always_allow": "publish, put", "agent_never_allow": ["explode"]})
     assert (policy.mode, policy.always_allow, policy.never_allow) == ("trusted", ("publish", "put"), ("explode",))
-    assert ApprovalPolicy.from_settings(None).mode == "workspace"
+    # The owner's default (agent_autonomy = publishing_asks): works on its own, asks before publishing.
+    assert ApprovalPolicy.from_settings(None).mode == "trusted"
+    assert ApprovalPolicy.from_settings(None).decide("push_branch", "external") == "ask"
 
 
 def test_an_outside_action_waits_for_a_person_and_runs_once_per_approval(store):

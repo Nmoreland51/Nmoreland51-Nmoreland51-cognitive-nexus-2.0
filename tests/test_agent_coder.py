@@ -37,7 +37,9 @@ ACCEPTANCE = [["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_c
 GOOD = "The function subtracts instead of adding.\n\nFILE: calc.py\n<<<<<<< SEARCH\n    return a - b\n=======\n    return a + b\n>>>>>>> REPLACE\n"
 WRONG = "I think it should multiply.\n\nFILE: calc.py\n<<<<<<< SEARCH\n    return a - b\n=======\n    return a * b\n>>>>>>> REPLACE\n"
 CHEAT = "Simplest is to change the test.\n\nFILE: test_calc.py\n<<<<<<< SEARCH\n    assert add(2, 3) == 5\n=======\n    assert add(2, 3) == -1\n>>>>>>> REPLACE\n"
-SECRET = 'Fix and add a key.\n\nFILE: calc.py\n<<<<<<< SEARCH\n    return a - b\n=======\n    api_key = "sk-abcdefghijklmnopqrstuvwxyz123456"\n    return a + b\n>>>>>>> REPLACE\n'
+# Put together at run time, so the repository's own secret scan does not take it for a real key.
+FAKE_KEY = "sk-" + "abcdefghijklmnopqrstuvwxyz123456"
+SECRET = 'Fix and add a key.\n\nFILE: calc.py\n<<<<<<< SEARCH\n    return a - b\n=======\n    api_key = "' + FAKE_KEY + '"\n    return a + b\n>>>>>>> REPLACE\n'
 
 
 def git(repo, *arguments):

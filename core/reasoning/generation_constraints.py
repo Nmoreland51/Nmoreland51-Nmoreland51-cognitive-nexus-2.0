@@ -84,7 +84,7 @@ def build_generation_constraints(
             (
                 "Reality-first generation constraints:\n"
                 "- This prompt is a direct response or formatting instruction, not a factual claim.\n"
-                "- Follow the requested output directly unless it conflicts with higher-priority safety or tool limits.\n"
+                "- Follow the requested output directly.\n"
             ),
         )
     allow_procedure = feasibility.procedural_allowed and mode not in {"science_fiction"} and feasibility.score >= 0.5

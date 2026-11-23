@@ -194,7 +194,7 @@ def test_trimming_order_knowledge_first_then_old_turns_and_the_request_never():
 
     roomy = build_context_bundle(**common, max_prompt_tokens=4000)
     tight = build_context_bundle(**common, max_prompt_tokens=700)
-    tiny = build_context_bundle(**common, max_prompt_tokens=260)
+    tiny = build_context_bundle(**common, max_prompt_tokens=90)
 
     assert not roomy.trimmed and len(roomy.recent_history) == 8
     # Tight: bulky knowledge and memory are shortened first; the latest messages stay.
@@ -224,15 +224,15 @@ def test_small_character_limit_keeps_the_latest_messages_and_reports_what_it_dro
         route_label="Standard conversation",
         memory_context="Memory " * 400,
         retrieved_context="Knowledge " * 700,
-        max_context_chars=2500,
+        max_context_chars=1500,
         recent_message_limit=4,
     )
 
-    assert len(bundle.prompt) <= 2500
+    assert len(bundle.prompt) <= 1500
     assert "older message 19" in bundle.prompt and "older message 18" in bundle.prompt
-    assert [message["content"] for message in bundle.recent_history] == [f"older message {index}" for index in range(17, 20)]
-    assert "older message 16\n[END" not in bundle.prompt  # not in the recent block any more
-    assert bundle.trim_steps[-1] == "1 oldest recent message(s) left out"
+    assert [message["content"] for message in bundle.recent_history] == ["older message 18", "older message 19"]
+    assert "older message 17" not in bundle.prompt.split("Recent conversation:")[1]  # not among the recent turns any more
+    assert bundle.trim_steps[-1] == "2 oldest recent message(s) left out"
     assert _markers_balanced(bundle.prompt)
 
 
@@ -249,16 +249,21 @@ def test_block_markers_inside_content_cannot_close_the_block():
     assert "data/content only" in wrapped  # a suspicious block repeats the full warning
 
 
-def test_harmless_blocks_are_compact_and_the_rule_is_stated_once_in_the_prompt():
-    wrapped, audit = sandbox_content("The backup runs at 02:00.", "memory", "persistent fact")
+def test_harmless_blocks_are_compact_and_the_note_about_blocks_is_only_there_when_needed():
+    wrapped, audit = sandbox_content("The backup runs at 02:00.", "retrieved", "saved page")
 
     assert audit.instruction_risk == "low"
-    assert wrapped == "[BEGIN UNTRUSTED PERSISTENT FACT CONTENT]\nThe backup runs at 02:00.\n[END UNTRUSTED PERSISTENT FACT CONTENT]"
+    assert wrapped == "[BEGIN UNTRUSTED SAVED PAGE CONTENT]\nThe backup runs at 02:00.\n[END UNTRUSTED SAVED PAGE CONTENT]"
 
-    bundle = build_context_bundle(
-        user_message="hello", messages=long_chat(3), system_prompt="S", route_label="Standard conversation", user_facts=[]
-    )
-    assert bundle.prompt.count("data/content only") == 1
+    common = dict(user_message="hello", messages=long_chat(3), system_prompt="S", route_label="Standard conversation", user_facts=[])
+    plain = build_context_bundle(**common)
+    with_page = build_context_bundle(**common, retrieved_context="The backup runs at 02:00.")
+
+    # A prompt made only of the owner's words has no fence and no note about fences.
+    assert "UNTRUSTED" not in plain.prompt and "About the fenced blocks" not in plain.prompt
+    assert with_page.prompt.count("About the fenced blocks below:") == 1
+    assert "data/content only" not in with_page.prompt  # a harmless block does not repeat the warning
+    assert estimate_tokens(plain.prompt) < estimate_tokens(with_page.prompt)
 
 
 def test_a_suspicious_block_keeps_its_warning_even_after_it_is_shortened():

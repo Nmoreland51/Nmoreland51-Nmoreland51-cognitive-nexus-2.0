@@ -34,3 +34,14 @@ def isolated_event_log(tmp_path, monkeypatch):
     event_log.reset_events()
     yield
     event_log.reset_events()
+
+
+@pytest.fixture(autouse=True)
+def default_handling_of_outside_text():
+    """How outside text is handled is a process-wide setting; every test starts from the default."""
+
+    from core.reality_grounding.prompt_firewall import set_untrusted_mode
+
+    set_untrusted_mode("remove_and_fence")
+    yield
+    set_untrusted_mode("remove_and_fence")

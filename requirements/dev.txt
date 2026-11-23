@@ -3,6 +3,8 @@
 #   python -m pytest
 -r full.txt
 pytest>=8.0
+# Runs the tests on several cores: python -m pytest -n auto (about half the time of a plain run).
+pytest-xdist>=3.6
 # Imported by legacy/old_apps/cognitive_nexus_ai.py, which two test files still exercise.
 psutil>=5.9
 # Checks run by CI (see .github/workflows/tests.yml).

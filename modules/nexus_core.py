@@ -125,6 +125,8 @@ class NexusCore:
         self.last_trust_audit: dict[str, Any] = {}
         # What the app's one content rule made of the last request (for Diagnostics).
         self.last_content_rule: dict[str, Any] = {}
+        # The last chat prompt exactly as it was sent, so the owner can read all of it.
+        self.last_prompt: dict[str, str] = {}
         self.last_epistemic_assessment: dict[str, Any] = {}
         self.last_reality_research_report: dict[str, Any] = {}
         self.last_retrieval: dict[str, Any] = {}
@@ -1546,6 +1548,7 @@ class NexusCore:
             model=route_decision.model or settings.get("selected_model") or "",
             system_prompt=chat_system_prompt(profile, {**self.config, **settings}),
         )
+        self.last_prompt = {"system": request.system_prompt, "prompt": prompt, "model": request.model}
         if context.retrieved_context and not self._has_ready_model_provider(request.provider_order):
             if plan.acknowledge:
                 yield plan.acknowledgement

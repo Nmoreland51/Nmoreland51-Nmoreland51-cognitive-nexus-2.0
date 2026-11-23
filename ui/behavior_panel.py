@@ -152,6 +152,16 @@ def render_behavior_panel(
         st.markdown("**Texts the app can show instead of an answer:**")
         for text in application["refusal_templates"]:
             st.write(f"- {text}")
+        st.markdown("**Added to each message, besides the system prompt:**")
+        for text in application["per_turn_additions"]:
+            st.write(f"- {text}")
+
+    last_prompt = getattr(core, "last_prompt", None) or {}
+    if last_prompt.get("prompt") and not read_only:
+        with st.expander("The last chat prompt, exactly as it was sent", expanded=False):
+            st.caption(f"Model: {last_prompt.get('model') or 'not recorded'}. First the system prompt, then the message with everything the app put around it.")
+            st.code(last_prompt.get("system", ""), language=None)
+            st.code(last_prompt["prompt"], language=None)
 
     with st.expander("What the model or its provider may do", expanded=False):
         provider = effective["provider"]
