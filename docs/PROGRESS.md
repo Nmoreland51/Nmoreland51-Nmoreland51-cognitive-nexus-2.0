@@ -31,6 +31,8 @@ The only difference is the seven tests listed in `docs/MANIFEST.md`. The agent f
 
 `python -m ruff check` on the touched modules passed. `python -m mypy` on `modules/xai_provider.py` and the other typed modules it sits with passed. `python tools/audit_ledger.py check` passed after the owner rows were recorded.
 
+GitHub Actions on `8c1f8a3`: Ubuntu and the ledger job passed. Windows failed the same nine `tests/test_agent_benchmark.py` cases that already failed on `561101d`. Those tasks reach review, then the independent clone check disagrees. `tools/agent_benchmark.py` now clones with `core.autocrlf=false` and compares the committed blob, so a Windows working tree cannot turn LF into CRLF and fail the "test files unchanged" check. This VM cannot reproduce the passing Ubuntu path (the same test escalates here before review), so the Windows result is only known after the next Actions run.
+
 GitHub Actions on `561101d`: run 45272983617, conclusion failure. https://github.com/Nmoreland51/Nmoreland51-Nmoreland51-cognitive-nexus-2.0/actions/runs/45272983617
 
 ## Next

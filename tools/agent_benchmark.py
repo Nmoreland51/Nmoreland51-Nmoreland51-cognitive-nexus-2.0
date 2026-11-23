@@ -68,12 +68,31 @@ def make_repository(task: dict[str, Any], folder: Path) -> Path:
     return folder
 
 
+def _committed_bytes(clone: Path, name: str) -> bytes:
+    """The blob in the commit, not the working-tree file. Working trees can be rewritten by autocrlf."""
+
+    done = subprocess.run(["git", "-C", str(clone), "cat-file", "blob", f"HEAD:{name}"], check=True, capture_output=True)
+    return done.stdout
+
+
 def verify_independently(task: dict[str, Any], repository: Path, branch: str, scratch: Path) -> dict[str, Any]:
     """Check a finished task without trusting the agent: a fresh clone of its branch, the tests run again."""
 
     clone = scratch / "verify"
-    subprocess.run(["git", "clone", "-q", "--branch", branch, str(repository), str(clone)], check=True, capture_output=True)
-    tests_untouched = all((clone / name).read_bytes() == content.encode("utf-8") for name, content in task["files"].items() if is_protected(name))
+    # Windows runners set core.autocrlf=true globally. A normal clone would turn the committed
+    # LF bytes into CRLF in the working tree, and the test files would no longer match the fixture.
+    subprocess.run(
+        ["git", "-c", "core.autocrlf=false", "clone", "-q", "--branch", branch, str(repository), str(clone)],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "-C", str(clone), "config", "core.autocrlf", "false"], check=True, capture_output=True)
+    subprocess.run(["git", "-c", "core.autocrlf=false", "-C", str(clone), "checkout", "-f", "HEAD"], check=True, capture_output=True)
+    tests_untouched = all(
+        _committed_bytes(clone, name) == content.encode("utf-8")
+        for name, content in task["files"].items()
+        if is_protected(name)
+    )
     passed = True
     for command in task["acceptance"]:
         argv = [sys.executable, *command[1:]] if command[0] == "python" else command
