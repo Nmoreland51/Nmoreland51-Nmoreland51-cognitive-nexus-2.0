@@ -36,6 +36,8 @@ try:
 except Exception:
     trafilatura = None
 
+from modules.url_safety import safe_get
+
 try:
     from modules.research import get_research_module, ingest_text
 except Exception:
@@ -430,7 +432,9 @@ def _scrape_url_cached(url: str, timeout: int = 8) -> str:
     }
 
     try:
-        response = _http_session().get(url, timeout=timeout)
+        # URLs come from search results and links on other pages: refuse local/private addresses,
+        # including ones reached through redirects.
+        response = safe_get(url, session=_http_session(), timeout=timeout)
         response.raise_for_status()
         html = response.text
 

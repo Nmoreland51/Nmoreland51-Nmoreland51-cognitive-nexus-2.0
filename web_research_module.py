@@ -32,6 +32,9 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 import logging
 
+from modules.file_utils import atomic_write_json
+from modules.url_safety import safe_get
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -145,10 +148,9 @@ class WebResearchModule:
         return default or {}
     
     def _save_json_file(self, file_path: Path, data: Any) -> bool:
-        """Save JSON file with error handling"""
+        """Save JSON file with error handling (atomic: a crash can't leave a half-written index)"""
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+            atomic_write_json(file_path, data)
             return True
         except Exception as e:
             logger.error(f"Error saving {file_path}: {e}")
@@ -170,9 +172,10 @@ class WebResearchModule:
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
             
-            response = requests.get(url, headers=headers, timeout=30)
+            # safe_get refuses local/private addresses, including ones reached through redirects.
+            response = safe_get(url, headers=headers, timeout=30)
             response.raise_for_status()
-            
+
             # Parse HTML
             soup = BeautifulSoup(response.content, 'html.parser')
             
