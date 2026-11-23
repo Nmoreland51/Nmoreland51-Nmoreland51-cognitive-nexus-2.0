@@ -8,23 +8,23 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 29 |
-| PARTIAL | 49 |
-| MISSING | 67 |
+| COMPLETE | 34 |
+| PARTIAL | 47 |
+| MISSING | 64 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
 | Section | Complete | Partial | Missing | N/A |
 |---|---|---|---|---|
-| 1. Fix the foundations and release confusion (P0) | 3 | 6 | 1 | 0 |
+| 1. Fix the foundations and release confusion (P0) | 4 | 5 | 1 | 0 |
 | 2. Make core AI chat genuinely reliable (P1) | 4 | 6 | 3 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 6 | 7 | 2 | 0 |
-| 4. Give memory and knowledge real durability and accuracy (P1) | 9 | 2 | 3 | 0 |
+| 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 0 | 0 | 17 | 0 |
 | 6. Make external actions and automation useful (P1) | 0 | 0 | 11 | 0 |
-| 7. Make Android and desktop work together (P1) | 0 | 5 | 9 | 1 |
+| 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 1 | 5 | 5 | 0 |
-| 9. Security, privacy and data integrity (P0) | 2 | 7 | 4 | 0 |
+| 9. Security, privacy and data integrity (P0) | 3 | 6 | 4 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 4 | 6 | 6 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
 
@@ -61,6 +61,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23: ledger created from the code at commit `f5d234d`. Next: Phase 1 (dependency lock, lint and security scans in CI; cloud-failover privacy; memory locking and provenance; token-aware context; semantic retrieval; research prompt-injection defence).
 - 2026-11-23, after Phase 1a and 1b: CI now runs lint, type checks, the secret scan and a dependency audit against pinned versions (Phase 1a). Providers: cloud fallback is off unless chosen, the fallback notice is never treated as a model answer, providers are proven with a real test prompt, the Anthropic default model and request are current, failures are logged by kind, and every answer is labelled with who wrote it (Phase 1b, commits de2332c, 725edd5, 4963836). Next: Phase 1c (cross-process locking for the JSON stores; fact records with provenance, conflicts and schema migrations; a token-aware context budget; export, encrypted backup, restore and selective wipe), then 1d (semantic embeddings; PDF and DOCX ingestion), then 1e (prompt-injection defence for research and the research benchmarks).
 - 2026-11-23, after Phase 1c: saved data is changed under cross-process locks; one fact store with provenance, replacement, expiry, migrations and forget that reaches history and snapshots; every store is listed in modules/data_stores.py (docs/DATA_STORES.md is generated); export, encrypted backup, verified restore, snapshots, repair and wipe (modules/backup.py, tools/data_tool.py, ui/data_panel.py); the prompt is sized in tokens against the model's real window (modules/token_estimate.py, modules/context_budget.py) after measuring that long prompts were being cut by the model server. Tests run in a throwaway home (tests/conftest.py). Still open from this phase: the knowledge index has no lock, version or migration (do it with the index rewrite in 1d); live files are not encrypted (item 112, security phase); project memory (048). Next: Phase 1d (knowledge store in SQLite with semantic embeddings from Ollama, hybrid keyword search, PDF and DOCX ingestion, a measured retrieval benchmark), then 1e (research prompts fence page text; hostile-content and stance benchmarks).
+- 2026-11-23, after Phase 1d: the knowledge index is one SQLite database (modules/knowledge_store.py) with a keyword index and vectors from an Ollama embedding model (all-minilm was installed on the test machine; the app never downloads a model itself). Search is scored on evidence and measured by tools/retrieval_benchmark.py (results in docs/benchmarks). PDF, Word, HTML, notebooks and source code can be uploaded (modules/ingest.py); images need OCR, which is not installed. To run the live search test: set CN_LIVE_OLLAMA_URL=http://localhost:11434. Next: Phase 1e (fence web page text in research prompts; hostile-content and stance benchmarks; cache web search results; evidence dates), then Phase 2 (the coding agent).
 
 ## Items that need the owner
 
@@ -70,6 +71,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **003** (MISSING): Owner decision on which Android pull requests and branches to merge or close.
 - **004** (PARTIAL): Owner to merge the work branch into main (pull request not opened yet).
 - **014** (PARTIAL): An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
+- **051** (PARTIAL): An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
 - **081** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **085** (PARTIAL): A phone and a private network (for example Tailscale) to test from home and cellular connections.
 - **086** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
@@ -152,13 +154,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** README.md has Install, Run, Validate and Ollama sections and verify_setup.py checks the environment. There is no single documented flow covering model setup, mobile pairing and shutdown.
 
-### 009 · P0 · recommended · PARTIAL
+### 009 · P0 · recommended · COMPLETE
 
 > Add a tested migration path from older memory, settings, and user data versions.
 
-- **Evidence:** Saved facts have a schema version and a tested migration from the old unversioned file (plain strings, random or process-dependent ids); the file as it was is kept beside it as a backup, a profile written by a newer app version is refused and left untouched, and a damaged one is set aside instead of overwritten. Saved settings that name a retired model are corrected on load. The knowledge index and chat history have no version or migration yet.
-- **Tests:** tests/test_profile_store.py::test_a_version_1_profile_is_migrated_with_a_backup, test_migration_runs_once_and_never_overwrites_its_backup, test_a_profile_from_a_newer_app_is_left_untouched, test_a_damaged_profile_is_set_aside_not_overwritten; tests/test_provider_truth.py::test_a_saved_retired_model_id_is_replaced_when_config_loads.
-- **Commits:** 3bbc845, de2332c
+- **Evidence:** Data saved by older versions is migrated and the original is kept: saved facts (unversioned file to schema 2, with a backup copy), the knowledge index (three JSON files to the SQLite store, with the JSON files renamed, not deleted, and their overlapping 750-word pieces joined back together), and settings that name a retired model. Data written by a newer app version is refused and left untouched. Chat history needed no migration: its format only gained an optional field.
+- **Tests:** tests/test_profile_store.py (migration tests); tests/test_knowledge_store.py::test_old_json_index_is_imported_once_and_kept, test_a_database_from_a_newer_app_is_left_untouched; tests/test_provider_truth.py::test_a_saved_retired_model_id_is_replaced_when_config_loads.
+- **Commits:** 3bbc845, de2332c, 3a1c1e5
 
 ### 010 · P0 · observed · PARTIAL
 
@@ -389,17 +391,21 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** tests/test_data_stores.py; tests/test_profile_store.py::test_adaptive_memory_no_longer_overwrites_facts_saved_by_the_chat_commands, test_adaptive_memory_and_chat_commands_share_ids_and_rules.
 - **Commits:** 1f8628f, 3bbc845
 
-### 040 · P1 · observed · MISSING
+### 040 · P1 · observed · COMPLETE
 
 > Replace default hash-vector embeddings with a tested semantic embedding backend; keep hash only as an explicit degraded fallback.
 
-- **Evidence:** web_research_module.py defaults to hash-vector embeddings (embedding_backend='hash'); sentence-transformers is optional and not installed.
+- **Evidence:** Knowledge search now uses a real embedding model: with the default setting an embedding model installed in Ollama is used (all-minilm, 45 MB, was installed on the test machine for this), sentence-transformers when chosen. Word-hash vectors remain only as a fallback that is labelled as degraded in the app and in the event log, and they can never qualify a passage on their own. Measured on 2026-11-23 with all-minilm on 36 documents and 54 questions: for paraphrased questions the right document came first 91% of the time and in the first three 96% (word matching only: 18% and 23%). The app does not download a model itself; without one it says search is matching words only and shows the command to install one.
+- **Tests:** tests/test_retrieval_benchmark.py (word-matching scores on every run; scores with a real model when CN_LIVE_OLLAMA_URL is set, run and passed on 2026-11-23); tests/test_knowledge_store.py (backend choice, degraded status, model change and re-embedding); docs/benchmarks/retrieval_all-minilm.json.
+- **Commits:** 3a1c1e5, 3b6b7aa
 
-### 041 · P1 · recommended · PARTIAL
+### 041 · P1 · recommended · COMPLETE
 
 > Add hybrid semantic and keyword retrieval with metadata filters and source-based ranking.
 
-- **Evidence:** WebResearchModule.semantic_search returns vector and lexical scores (tests/test_web_research_module.py). There are no metadata filters or source-based ranking.
+- **Evidence:** modules/knowledge_store.py combines a keyword index (SQLite FTS5 with BM25) with vector similarity into one score: how close a passage is in meaning plus the share of the question's informative words it contains, weighted by rarity. Each result carries a confidence, and chat only puts confident matches into a prompt. Filters: kind of source, part of the source name, and date. Your own files and notes rank above saved web pages with the same text, and one long document cannot fill every result. Measured: exact wording and identifier lookups 100% right-first; questions with no answer put nothing into a chat prompt in 10 of 10 cases.
+- **Tests:** tests/test_knowledge_store.py (paraphrase by meaning, exact term by keyword, both, filters, source ranking, per-document limit); tests/test_retrieval_benchmark.py.
+- **Commits:** 3a1c1e5, 3b6b7aa
 
 ### 042 · P1 · observed · COMPLETE
 
@@ -417,13 +423,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** tests/test_file_lock.py (threads and separate interpreter processes); tests/test_profile_store.py::test_two_processes_remembering_at_once_lose_nothing.
 - **Commits:** 0de33c3, b50c373, 863df6e, 3bbc845, fd363a7
 
-### 044 · P1 · recommended · PARTIAL
+### 044 · P1 · recommended · COMPLETE
 
 > Add versioned schemas and migration tests for saved memories and knowledge indexes.
 
-- **Evidence:** Saved facts and preferences carry schema_version 2 with a tested migration from version 1 (see item 009). The knowledge index (chunks, vectors, metadata) still has no version, so a change of embedding method cannot be detected or migrated.
-- **Tests:** tests/test_profile_store.py migration tests.
-- **Commits:** 3bbc845
+- **Evidence:** Saved facts carry schema_version 2 with a tested migration from the unversioned format. The knowledge database carries a SQLite user_version, is created or upgraded on open, imports the old JSON index once, and refuses a database from a newer app. Every stored vector records the embedding backend that made it, so a change of model is detected: search keeps working by keyword and the passages are re-embedded.
+- **Tests:** tests/test_profile_store.py (migration tests); tests/test_knowledge_store.py::test_old_json_index_is_imported_once_and_kept, test_a_database_from_a_newer_app_is_left_untouched, test_changing_the_embedding_model_keeps_search_working_and_reembeds.
+- **Commits:** 3bbc845, 3a1c1e5
 
 ### 045 · P1 · recommended · COMPLETE
 
@@ -471,11 +477,14 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **Tests:** tests/test_context_budget.py (estimates against tests/fixtures/token_counts.json, budget plan, packer order, chat path fits its window).
 - **Commits:** ba0708c
 
-### 051 · P1 · observed · MISSING
+### 051 · P1 · observed · PARTIAL
 
 > Allow larger formats and better extraction (PDF/DOCX/code/images) beyond current text/markdown/JSON/CSV ingestion.
 
-- **Evidence:** Knowledge ingestion handles text, markdown, JSON and CSV only; no PDF, DOCX or code-aware extraction.
+- **Evidence:** The Files / Knowledge tab now reads PDF (text layer, page by page), Word .docx (headings, lists, tables), HTML, Jupyter notebooks and source code in the common languages (split at definitions, with line numbers), up to 50 MB and two million characters per file; text is stored as it is instead of being stripped of symbols. Tested on real PDF and Word files built in the tests. Images and scanned PDFs are refused with a clear message: no OCR engine is installed, so text inside pictures cannot be read.
+- **Tests:** tests/test_ingest.py (15 tests).
+- **Commits:** a56e64e
+- **Needs:** An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
 
 ### 052 · P1 · recommended · COMPLETE
 
@@ -685,9 +694,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Fix desktop/mobile shared JSON writes with a single transactional store or cross-process locking.
 
-- **Evidence:** All shared JSON and log files except the knowledge index are now changed under a cross-process lock (see item 043), and the two in-process writers of the saved facts file were merged into one store. The knowledge index, the largest file the desktop and phone backends share, is still three JSON files written whole without a lock. Whether the Android backend calls these engine modules for every write has not been checked against its source.
-- **Tests:** tests/test_file_lock.py; tests/test_profile_store.py::test_two_processes_remembering_at_once_lose_nothing.
-- **Commits:** 863df6e, 3bbc845, fd363a7
+- **Evidence:** Engine side done: every shared JSON and log file is changed under a cross-process lock, and the knowledge index is now a SQLite database with transactions; both were tested with several separate Python processes writing at once. Not yet checked: that the Android backend (cognitive-nexus-android/backend) goes through these engine modules for every write rather than writing files itself.
+- **Tests:** tests/test_file_lock.py; tests/test_profile_store.py::test_two_processes_remembering_at_once_lose_nothing; tests/test_knowledge_store.py::test_separate_programs_can_add_and_search_at_the_same_time.
+- **Commits:** 863df6e, 3bbc845, fd363a7, 3a1c1e5
 
 ### 085 · P1 · observed · PARTIAL
 
@@ -715,11 +724,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). backend/server.py uses ThreadPoolExecutor(max_workers=1) for every job, so a long generation blocks quick metadata requests.
 
-### 089 · P1 · observed · MISSING
+### 089 · P1 · observed · PARTIAL
 
 > Revisit 16,000-character request and ~1 MB file limits if serious document/code analysis is required.
 
-- **Evidence:** Android repository (cognitive-nexus-android, main at 77e34b1, 2026-09-13). Requests are limited to 16,000 characters and uploads to about 1 MB (backend/server.py).
+- **Evidence:** Desktop: uploaded files may be up to 50 MB and two million characters, and long prompts are sized against the model's real context window instead of a fixed character count. The 16,000-character request limit and the roughly 1 MB file limit are in the Android backend, which has not been changed.
+- **Tests:** tests/test_ingest.py::test_very_long_files_are_cut_with_a_warning_and_big_ones_refused; tests/test_context_budget.py.
+- **Commits:** a56e64e, ba0708c
 
 ### 090 · P1 · observed · PARTIAL
 
@@ -798,7 +809,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Cache embeddings, document parse results and safe research requests with invalidation rules.
 
-- **Evidence:** Searches and scraped pages are cached in memory (lru_cache), Bloodhound has a disk cache, and embeddings are stored with their chunks. Document parsing is not cached and nothing invalidates stale entries.
+- **Evidence:** Embeddings are cached by backend and text (reused when a document is added again; the cache is pruned at 50,000 entries and a different model has its own entries), a document whose content has not changed is recognised by hash and not processed again, query vectors are kept in memory, and the vector matrix is reloaded only when the data changed. Bloodhound search results are cached for 24 hours. Web search results and fetched pages in the Web Research path are not cached.
+- **Tests:** tests/test_knowledge_store.py::test_adding_the_same_document_again_does_no_work, test_re_adding_text_reuses_saved_vectors; tests/test_ingest.py::test_uploading_the_same_file_again_is_recognised.
+- **Commits:** 3a1c1e5
 
 ### 101 · P1 · recommended · PARTIAL
 
@@ -904,13 +917,13 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 - **Evidence:** tests/test_prompt_firewall.py unit-tests the firewall; there is no hostile-content benchmark across web pages, documents and tools.
 
-### 116 · P0 · recommended · PARTIAL
+### 116 · P0 · recommended · COMPLETE
 
 > Use atomic writes, migrations, checksums, snapshots and tested restoration for research/memory databases.
 
-- **Evidence:** Saved data has atomic writes, cross-process locks, checksummed archives, daily and pre-restore snapshots, a start-up check that finds unreadable files and repairs one from a snapshot while keeping the damaged copy, and restore that is verified first and rolled back on failure, all tested on real files. Migrations exist for the saved facts only; the knowledge index and research files have no version.
-- **Tests:** tests/test_backup.py; tests/test_file_utils.py; tests/test_profile_store.py.
-- **Commits:** 0de33c3, 863df6e, 3701bfb
+- **Evidence:** Memory and research data have atomic writes (including research session, report and note files), cross-process locks or SQLite transactions, schema versions with tested migrations for the saved facts and the knowledge index, checksummed archives, daily and pre-restore snapshots, a start-up check that finds unreadable files and repairs one from a snapshot while keeping the damaged copy, and restore that is verified first and rolled back on failure. Backups take a consistent copy of the live knowledge database rather than the raw file.
+- **Tests:** tests/test_backup.py; tests/test_ingest.py::test_backup_takes_a_consistent_copy_of_the_live_database_and_restores_it; tests/test_profile_store.py; tests/test_knowledge_store.py; tests/test_file_utils.py.
+- **Commits:** 0de33c3, 863df6e, 3701bfb, 3a1c1e5, 3b6b7aa
 
 ### 117 · P0 · recommended · PARTIAL
 
@@ -1027,9 +1040,9 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 > Implement logging/metrics that separate actual errors, model failures, tool failures and degraded-mode fallbacks.
 
-- **Evidence:** modules/event_log.py records typed events (model_failure, provider_fallback, provider_skipped, search_source_failure, tool_failure, degraded_mode, error) with counts, kept in memory and appended to logs/events.jsonl; prompts and answers are never logged. The router and web search record their failures, and Diagnostics shows the counts separately with the recent events. Nothing records tool_failure or degraded_mode yet: those belong to the coding-agent tools and the embedding fallback, which are later items.
-- **Tests:** tests/test_event_log.py; tests/test_provider_truth.py::test_failures_and_fallbacks_are_recorded_as_separate_events.
-- **Commits:** de2332c, 725edd5
+- **Evidence:** modules/event_log.py records typed events with counts, in memory and in logs/events.jsonl, never with prompts or answers. Recorded today: model failures, fallback notices, cloud providers skipped, search-source failures, and degraded modes (word-hash search, a document saved without vectors, a prompt too long for the window, a token estimate that was too low). Diagnostics shows the counts separately. Nothing records tool_failure yet: that belongs to the coding-agent and tool work.
+- **Tests:** tests/test_event_log.py; tests/test_provider_truth.py::test_failures_and_fallbacks_are_recorded_as_separate_events; tests/test_knowledge_store.py::test_a_document_saved_while_the_model_is_down_is_still_found_by_keyword.
+- **Commits:** de2332c, 725edd5, 3a1c1e5
 
 ### 133 · P0 · recommended · PARTIAL
 
