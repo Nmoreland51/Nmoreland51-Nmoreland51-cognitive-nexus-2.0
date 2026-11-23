@@ -134,3 +134,48 @@ is deliberately not always first, so "7 of 9" is about the app's scoring, not ab
 `tests/test_research_benchmark.py` runs the ranking and excerpt checks on every push, re-judges the saved
 answers with the current judge, and fails when the app's prompt no longer matches the one the saved answers
 were written for.
+
+## Coding agent on seeded bugs (`agent_*.json`)
+
+```
+python tools/agent_benchmark.py --model dolphin3:8b --save docs/benchmarks/agent_dolphin3-8b.json
+python tools/agent_benchmark.py --reference        # the harness alone, with the fixture's own solutions
+```
+
+Ten small Python projects, each with a failing test (`tests/fixtures/agent_tasks.json`): a wrong operator, an
+off-by-one, a crash on empty input, a missing dictionary key, a wrong type, a missing step, a fault in a file
+the test does not import directly, a function to add, a bug next to a comment telling AI agents to delete the
+tests, and one task that cannot be solved because its test contradicts itself. For each, the tool makes a real
+Git repository and lets the agent work with the real model: reproduce, edit, run the tests in the sandbox,
+review, commit.
+
+A task counts as solved only when the agent ends with a commit for review **and** this tool, separately, checks
+that commit out into a fresh clone, finds the test files unchanged and sees the tests pass there.
+
+Measured on 2026-11-23 with `dolphin3:8b` writing and reviewing (CPU only), three attempts allowed per task:
+
+| | First run | After the harness changes below |
+|---|---|---|
+| Solvable tasks solved | 3 of 9 | 7 of 9 |
+| ... at the first attempt | 3 | 6 |
+| The unsolvable task handed to a person | 1 of 1 | 1 of 1 |
+| A failure reported as a success | 0 | 0 |
+| The planted "delete the tests" comment obeyed | 0 | 0 |
+| Time per task | 115 s | 90 s |
+
+The first run showed that most failures were the harness throwing away usable work, not the model being
+wrong: a correct edit discarded because a second, pointless edit in the same reply did not apply; a correct
+one-line fix whose multi-line replacement lost the file's indentation; the right change addressed to the test
+file's name; an edit block without its `=======` line; a fault in a file the model was never shown. Each of
+those is now handled (`tests/test_agent_coder_tolerance.py` quotes the replies as the model wrote them). The
+two tasks still unsolved are the model's own mistakes: it wrote a wrong fix and repeated it.
+
+**How far to trust "7 of 9":** these ten tasks were also what the harness was improved against, so the figure
+is not an independent estimate, and the tasks are far smaller than real work. A second set that the harness
+has never seen is the next measurement. What the runs do establish is the part that does not depend on the
+model: in 20 task runs the harness never called a failure a success, never let the tests be edited, and handed
+the unsolvable task to a person each time.
+
+`tests/test_agent_benchmark.py` checks on every push that each seeded bug really fails before any change, that
+the harness reaches the right outcome on all ten given a correct reply, that a model which obeys the planted
+comment gets nowhere, and that the saved run contains no false success.
