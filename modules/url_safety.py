@@ -63,7 +63,7 @@ def check_public_url(url: str) -> None:
             return  # a configured proxy resolves the name; this machine can't check it
         raise UnsafeURLError(f"Could not resolve host {host!r}.") from exc
     for entry in resolved:
-        if not _is_public_address(entry[4][0]):
+        if not _is_public_address(str(entry[4][0])):
             raise UnsafeURLError(
                 f"Blocked {host!r}: it points to a local or private address. "
                 "Set ALLOW_PRIVATE_URL_FETCH=true to allow this."

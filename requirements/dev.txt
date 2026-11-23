@@ -1,7 +1,11 @@
-# Development and CI: everything the app needs plus the test runner.
-#   pip install -r requirements/dev.txt
+# Development and CI: everything the app needs plus the test and check tools.
+#   pip install -r requirements/dev.txt -c requirements/constraints.txt
 #   python -m pytest
 -r full.txt
 pytest>=8.0
 # Imported by legacy/old_apps/cognitive_nexus_ai.py, which two test files still exercise.
 psutil>=5.9
+# Checks run by CI (see .github/workflows/tests.yml).
+ruff>=0.6
+mypy>=1.10
+pip-audit>=2.7
