@@ -84,6 +84,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "ollama_url": "http://localhost:11434",
     "openai_model": "gpt-4.1-mini",
     "anthropic_model": DEFAULT_ANTHROPIC_MODEL,
+    # Optional paid provider. Absent from provider_order until the owner adds "xai".
+    "xai_model": "grok-4.7",
+    # Off: Responses requests set store=false. On: xAI may keep the prompt and reply for 30 days.
+    "xai_store_responses": False,
+    # Latency/cost for Grok reasoning. Not a content filter. Empty omits the field (xAI's own default).
+    "xai_reasoning_effort": "low",
     # How much thinking Claude does before answering: low, medium, high, xhigh or max.
     "anthropic_effort": "low",
     # Let the API re-run a request on another Claude model when a safety classifier declines it.
@@ -167,6 +173,9 @@ def load_runtime_config(path: Path = DEFAULT_CONFIG_FILE) -> dict[str, Any]:
         if note and os.environ.get(key)
     ]
     config["anthropic_effort"] = os.environ.get("ANTHROPIC_EFFORT", str(config.get("anthropic_effort") or "low"))
+    config["xai_model"] = os.environ.get("XAI_MODEL", str(config.get("xai_model") or "grok-4.7"))
+    config["xai_store_responses"] = _env_bool("XAI_STORE_RESPONSES", bool(config.get("xai_store_responses", False)))
+    config["xai_reasoning_effort"] = os.environ.get("XAI_REASONING_EFFORT", str(config.get("xai_reasoning_effort") or "low"))
     config["allow_cloud_fallback"] = _env_bool("ALLOW_CLOUD_FALLBACK", bool(config.get("allow_cloud_fallback", False)))
     config["ollama_max_num_ctx"] = _env_int("OLLAMA_MAX_NUM_CTX", int(config.get("ollama_max_num_ctx") or 0))
     config["hf_local_model"] = os.environ.get("HF_LOCAL_MODEL", str(config["hf_local_model"]))

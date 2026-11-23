@@ -28,6 +28,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 5 | 5 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
 
+Owner-control requirement (Priority 0, cuts across the items above): 0 complete, 26 partial, 6 missing, 0 not applicable of 32. See the section after *Items that need the owner*.
+
 ## How to continue
 
 This backlog is worked in phases. Whoever continues should read this section, then the item entries below.
@@ -63,6 +65,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, after Phase 1c: saved data is changed under cross-process locks; one fact store with provenance, replacement, expiry, migrations and forget that reaches history and snapshots; every store is listed in modules/data_stores.py (docs/DATA_STORES.md is generated); export, encrypted backup, verified restore, snapshots, repair and wipe (modules/backup.py, tools/data_tool.py, ui/data_panel.py); the prompt is sized in tokens against the model's real window (modules/token_estimate.py, modules/context_budget.py) after measuring that long prompts were being cut by the model server. Tests run in a throwaway home (tests/conftest.py). Still open from this phase: the knowledge index has no lock, version or migration (do it with the index rewrite in 1d); live files are not encrypted (item 112, security phase); project memory (048). Next: Phase 1d (knowledge store in SQLite with semantic embeddings from Ollama, hybrid keyword search, PDF and DOCX ingestion, a measured retrieval benchmark), then 1e (research prompts fence page text; hostile-content and stance benchmarks).
 - 2026-11-23, after Phase 1d: the knowledge index is one SQLite database (modules/knowledge_store.py) with a keyword index and vectors from an Ollama embedding model (all-minilm was installed on the test machine; the app never downloads a model itself). Search is scored on evidence and measured by tools/retrieval_benchmark.py (results in docs/benchmarks). PDF, Word, HTML, notebooks and source code can be uploaded (modules/ingest.py); images need OCR, which is not installed. To run the live search test: set CN_LIVE_OLLAMA_URL=http://localhost:11434. Next: Phase 1e (fence web page text in research prompts; hostile-content and stance benchmarks; cache web search results; evidence dates), then Phase 2 (the coding agent).
 - 2026-11-23, after Phase 1e: research prompts fence web text and drop sentences aimed at a model (measured: 6 of 12 planted instructions obeyed before, 0 after); the claim check compares the same statement, gives a reason and dates for every passage, lists what it left out, and has the model re-read supporting passages; contradictions between sources use the same rules; caches expire; fetching retries. Three benchmark tools with saved real-model results and gates are in tools/ and docs/benchmarks (re-run them after changing a research prompt: the tests tell you when). Phase 2 has started: agent/store.py, registry.py, approvals.py, sandbox.py, workspace.py and tools.py are in and tested. Next in Phase 2: the model interface and the coding loop (reproduce, edit, test, retry, stop, escalate) in agent/coder.py, the independent review (agent/review.py), pull requests (agent/github.py, needs a token to run for real), the durable job queue and scheduler (agent/jobs.py), a command-line entry and a tab in the app, then a live run with the local model on small seeded bugs, saved under docs/benchmarks.
+- 2026-11-23, Grok backup session (branch `cursor/grok-failover-handoff-3f8b`, parent `561101d`): the seven tests still expecting removed topic redirects and withheld fiction steps were updated to the owner-control behavior already in the code. xAI was added as an optional Responses API provider. It is not in the default provider order, cloud fallback stays off, and `xai_store_responses` stays off. No `XAI_API_KEY` was available, so live Grok calls were not run. The 43-case matrix is `docs/GROK_TEST_MATRIX.csv`. The original 146 completion counts were not increased. Owner-control ledger rows that had no status on `561101d` are now recorded; most stay partial or missing. Pre-existing agent-test failures (about 36 failed and 19 errors on this machine, same set as the parent except the seven tests above) were not treated as fixed. Next: Nate supplies an xAI key for the live matrix rows, and the agent-test failures on `561101d` still need a pass.
 
 ## Items that need the owner
 
@@ -94,6 +97,303 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **136** (MISSING): Owner decision: is the default product an everyday assistant, a research workbench, a software agent, or selectable modes?
 - **145** (MISSING): Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.
 - **146** (MISSING): Owner decision (the audit marks this 'if desired').
+- **CN-GR-001** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-002** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-003** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-004** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-005** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-006** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-007** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-008** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-009** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **CN-GR-010** (MISSING): Still open. This session did not invent a completion.
+- **OC-0** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-1** (MISSING): Still open. This session did not invent a completion.
+- **OC-2** (MISSING): Still open. This session did not invent a completion.
+- **OC-3** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-4** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-5** (MISSING): Still open. This session did not invent a completion.
+- **OC-T01** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T02** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T03** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T04** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T05** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T06** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T07** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T08** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T09** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T10** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T11** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T12** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T13** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T14** (MISSING): Still open. This session did not invent a completion.
+- **OC-T15** (PARTIAL): Live model, and a second session, before this can be called complete.
+- **OC-T16** (MISSING): Still open. This session did not invent a completion.
+
+## P0. Owner control (cross-cutting requirement)
+
+The owner-control requirement (Priority 0, added by the owner on 2026-11-23). It cuts across the 146 audit items instead of replacing them. Sources, verbatim: docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/owner/OWNER_CONTROL_GUARDRAIL_AUDIT.md. Statuses are kept in docs/backlog/status.json under the same ids and set with tools/audit_ledger.py.
+
+The register of every restriction and behaviour-affecting mechanism is `docs/OWNER_CONTROL_RESTRICTIONS.md`; the specification, the owner's decisions and the map from acceptance tests to test files are in `docs/OWNER_CONTROL.md`.
+
+### Phases
+
+#### OC-0 · PARTIAL
+
+> Record the owner-control specification, decisions and test cases in the master roadmap.
+
+- **Evidence:** docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/backlog/owner_control.json are in the tree at 561101d. Status rows were empty until this session.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-1 · MISSING
+
+> Inspect all current controls and populate the restriction register (docs/OWNER_CONTROL_RESTRICTIONS.md).
+
+- **Evidence:** docs/OWNER_CONTROL_RESTRICTIONS.md does not exist. tools/restriction_register.py has no data file. The commit 561101d says the register was not populated.
+- **Needs:** Still open. This session did not invent a completion.
+
+#### OC-2 · MISSING
+
+> Give the owner a single consolidated list of material decisions, with recommended alternatives and trade-offs.
+
+- **Evidence:** No single approved owner-decision list has been signed off. docs/DECISIONS.md on this branch records only the choices made for the xAI fallback.
+- **Needs:** Still open. This session did not invent a completion.
+
+#### OC-3 · PARTIAL
+
+> Integrate the agreed design into the existing roadmap; refactor where needed while keeping working checkpoints.
+
+- **Evidence:** modules/behavior_policy.py is the behavior path added in 1e121fe. This session did not re-design it.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-4 · PARTIAL
+
+> Run automated tests and real local, cloud, backend and Android workflows where available.
+
+- **Evidence:** tests/test_owner_control.py exists and passed in this session (stand-in model). No live cloud or Android run.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-5 · MISSING
+
+> Supply implementation evidence, the restriction register, commit SHAs, test logs and remaining limitations for an independent final audit.
+
+- **Evidence:** The independent final package (full register, live logs, Android evidence) is not done.
+- **Needs:** Still open. This session did not invent a completion.
+
+
+### Findings of the owner's audit, rechecked against the current code
+
+#### CN-GR-001 · PARTIAL
+
+> Strict-mode substring filter can reject benign prompts (app.py: child, underage, cp, illegal).
+
+- **Evidence:** tests/test_owner_control.py::test_the_substring_block_and_the_dead_safety_controls_are_gone_from_the_app passed here.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-002 · PARTIAL
+
+> Locked operating prompt takes precedence over owner persona text (modules/internal_prompts.py).
+
+- **Evidence:** The locked prompt that said the persona cannot override it was removed in 1e121fe. tests/test_owner_control.py checks the shown prompt is the sent prompt.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-003 · PARTIAL
+
+> Additional behavioural instructions are generated by the saved profile (modules/chat_profile.py).
+
+- **Evidence:** Profile behavior goes through modules/behavior_policy.py. tests/test_owner_control.py covers the shown prompt and misleading flags.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-004 · PARTIAL
+
+> Topic classification directs some requests away from actionable responses (modules/response_planner.py, modules/nexus_core.py).
+
+- **Evidence:** analyze_topic_handling no longer sorts topics. This session updated the seven tests that still expected the old categories. tests/test_owner_control.py::test_messages_are_not_sorted_into_topics passed.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-005 · PARTIAL
+
+> Prompt firewall may affect the interpretation of owner input (core/reality_grounding/prompt_firewall.py).
+
+- **Evidence:** Owner text is not fenced; saved pages are. tests/test_owner_control.py covers that split. A full line inventory is still OC-1.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-006 · PARTIAL
+
+> UI options and effective runtime behaviour may differ (safety levels, controls disabled under Auto Precision).
+
+- **Evidence:** tests/test_owner_control.py::test_auto_precision_does_not_touch_the_owners_behaviour_settings passed here.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-007 · PARTIAL
+
+> Reality and feasibility checks may be mistaken for censorship.
+
+- **Evidence:** Default reality check labels and does not withhold. tests/test_owner_control.py::test_fiction_is_written_as_asked_and_facts_are_labelled and the updated tests/test_reality_first_reasoning.py passed.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-008 · PARTIAL
+
+> Outbound GitHub approval mechanism needs code inspection.
+
+- **Evidence:** Agent permission tests exist in tests/test_owner_control.py. tests/test_agent_github.py still errors on this machine the same way it did at 561101d.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-009 · PARTIAL
+
+> Provider routing is not equivalent to provider independence.
+
+- **Evidence:** provider_constraints reports OpenAI, Anthropic, and now xAI separately from app behavior. Live provider calls were not made.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### CN-GR-010 · MISSING
+
+> A complete restriction inventory is not yet verified.
+
+- **Evidence:** A complete restriction inventory has not been written. See OC-1.
+- **Needs:** Still open. This session did not invent a completion.
+
+
+### Acceptance tests
+
+#### OC-T01 · PARTIAL
+
+> Direct owner asks an ordinary technical question containing a potentially sensitive keyword: no unexplained context-blind block; answer respects the configured mode.
+
+- **Evidence:** tests/test_owner_control.py::test_an_ordinary_question_with_an_alarming_word_reaches_the_model_as_written passed with a stand-in model.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T02 · PARTIAL
+
+> Legitimate research request contains an innocent substring matching a blocking token: no accidental refusal due solely to a substring match.
+
+- **Evidence:** tests/test_owner_control.py::test_a_substring_never_blocks_a_message passed with a stand-in model.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T03 · PARTIAL
+
+> Owner switches behaviour mode, restarts, and resumes: persisted, effective settings match the UI and the logs.
+
+- **Evidence:** tests/test_owner_control.py::test_behaviour_settings_survive_a_restart passed.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T04 · PARTIAL
+
+> Owner selects a local model: actual inference uses that model; routing is observable.
+
+- **Evidence:** Local routing is covered by existing provider tests with a stand-in. No live Ollama run in this session.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T05 · PARTIAL
+
+> Owner selects a hosted model: provider limitations and fallback are truthfully reported.
+
+- **Evidence:** Hosted-provider limits are described in provider_constraints. No live OpenAI, Anthropic, or xAI call (no keys).
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T06 · PARTIAL
+
+> Retrieved webpage includes fake system/developer directives: the page is treated as evidence/data, not executable owner commands.
+
+- **Evidence:** tests/test_owner_control.py::test_a_saved_page_with_fake_system_and_owner_lines_stays_material passed.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T07 · PARTIAL
+
+> Owner provides a legitimate tool instruction: it is not silently demoted because the page or firewall also uses the word 'user'.
+
+- **Evidence:** tests/test_owner_control.py::test_a_role_play_instruction_reaches_the_model_word_for_word passed with a stand-in model.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T08 · PARTIAL
+
+> Authorized agent changes a test repository and fixes a failing case: diff, passing tests, and task completion evidence.
+
+- **Evidence:** Agent code and tests exist from 3297f44. Several agent tests still fail or error on 561101d and on this branch. Not re-run against a live model here.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T09 · PARTIAL
+
+> Same coding task requires several edit/test iterations: the agent recovers and continues without needing a fresh micro-prompt.
+
+- **Evidence:** Same as OC-T08. The coding loop is in the tree; this session did not demonstrate a multi-iteration live repair.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T10 · PARTIAL
+
+> Agent encounters an external/publication side effect: the owner-approved capability scope is followed and logged.
+
+- **Evidence:** tests/test_owner_control.py covers the agent autonomy setting. tests/test_agent_github.py still errors at setup.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T11 · PARTIAL
+
+> Scheduled job resumes after restart: durable state and no duplicate execution.
+
+- **Evidence:** Job code exists (agent/jobs.py). tests/test_agent_jobs.py::test_a_coding_task_runs_as_a_background_job fails on 561101d and on this branch.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T12 · PARTIAL
+
+> Model fallback occurs after provider failure: the correct provider is used; limitations and the error are disclosed.
+
+- **Evidence:** Cloud fallback off-by-default was already tested. This session added xAI to that rule and tested it with a stand-in HTTP session (tests/test_xai_provider.py). No live failover.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T13 · PARTIAL
+
+> Fact-checking and speculative creativity are tested separately: factual errors are flagged without needlessly suppressing clearly marked fiction.
+
+- **Evidence:** tests/test_owner_control.py::test_fiction_is_written_as_asked_and_facts_are_labelled passed. Withhold remains available when reality_check=withhold.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T14 · MISSING
+
+> Android executes an approved backend workflow: the same effective policy, result and state are observed across devices.
+
+- **Evidence:** No Android device or emulator was available. The Android repo was not modified.
+- **Needs:** Still open. This session did not invent a completion.
+
+#### OC-T15 · PARTIAL
+
+> Sensitive configuration and logs are exported: tokens and credentials are not leaked; the audit is still informative.
+
+- **Evidence:** tests/test_owner_control.py::test_saved_settings_and_the_policy_view_hold_no_secrets passed. tools/check_repo_hygiene.py was run on this branch.
+- **Tests:** See evidence. Not a live-provider or device run.
+- **Needs:** Live model, and a second session, before this can be called complete.
+
+#### OC-T16 · MISSING
+
+> An independent reviewer inspects every one of the 146 original items: each marked verified, not verified, blocked, or inapplicable with proof.
+
+- **Evidence:** The 146-item ledger was not independently re-verified item by item in this session. Counts were left as they were at 561101d.
+- **Needs:** Still open. This session did not invent a completion.
+
 
 ## 1. Fix the foundations and release confusion (P0)
 

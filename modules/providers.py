@@ -15,7 +15,7 @@ DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_GENERATE_TIMEOUT = float(os.environ.get("OLLAMA_GENERATE_TIMEOUT", "600"))
 FALLBACK_RESPONSE = (
     "Fallback: no working text provider returned an answer. Start Ollama with `ollama serve`, "
-    "install or select a local model, or configure OpenAI/Anthropic keys. Check Diagnostics for "
+    "install or select a local model, or configure an OpenAI, Anthropic, or xAI key and enable that provider. Check Diagnostics for "
     "the provider attempt log."
 )
 OLLAMA_SESSION = requests.Session()
@@ -213,6 +213,15 @@ def get_provider_inventory() -> List[dict]:
             "type": "cloud_llm",
             "available": bool(os.environ.get("ANTHROPIC_API_KEY")),
             "details": "Optional cloud provider; disabled unless ANTHROPIC_API_KEY is set.",
+        },
+        {
+            "name": "xAI",
+            "type": "cloud_llm",
+            "available": bool(os.environ.get("XAI_API_KEY")),
+            "details": (
+                "Optional paid fallback. Disabled unless XAI_API_KEY is set and xai is in the provider order. "
+                "It is not in the default order. Cloud fallback must also be on unless xai is placed first."
+            ),
         },
         {
             "name": "OpenAI images",

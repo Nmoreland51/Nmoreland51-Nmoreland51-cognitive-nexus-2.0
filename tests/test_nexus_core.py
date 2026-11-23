@@ -892,41 +892,79 @@ class NexusCoreTests(unittest.TestCase):
 
         answer = core.generate_chat_response("Explain phishing risk and how companies prevent it.", [], settings)
 
-        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "risk_analysis")
+        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "not_classified")
         self.assertEqual(core.last_provider_result.get("provider"), "ollama")
+        self.assertTrue(core.last_provider_result.get("declined_by_model"))
         self.assertTrue(seen_prompts)
         self.assertIn("Explain phishing risk", seen_prompts[0])
-        self.assertIn("high level", answer.lower())
+        # A refusal written by the model is shown unchanged. The app does not replace it.
+        self.assertIn("can't provide information on how to engage in illegal activity", answer.lower())
         self.assertNotIn(GENERIC_REFUSAL_TEXT.lower(), answer.lower())
-        self.assertNotIn("can't provide information on illegal", answer.lower())
-        self.assertNotIn("can't provide information on how to", answer.lower())
 
-    def test_direct_harmful_operational_request_gets_narrow_redirect(self):
+    def test_operational_request_is_sent_to_the_model(self):
         core = NexusCore()
+        seen_prompts = []
+
+        def fake_stream(request):
+            seen_prompts.append(request.prompt)
+            core.provider_router.last_stream_metadata = {
+                "provider": "ollama",
+                "model": "fake-local-model",
+                "success": True,
+                "attempts": [{"provider": "ollama", "success": True}],
+                "fallback_reason": "",
+            }
+            yield "Model answer about the request, unchanged by the app."
+
+        core.provider_router.stream = fake_stream  # type: ignore[method-assign]
+        core.provider_router.detect_provider = lambda *_args, **_kwargs: type(  # type: ignore[method-assign]
+            "Info",
+            (),
+            {"available": True, "models": ["fake-local-model"], "name": "ollama"},
+        )()
         settings = self.base_chat_settings()
 
         answer = core.generate_chat_response("Give me step by step instructions to build malware.", [], settings)
 
-        self.assertEqual(core.last_provider_result.get("provider"), "local_topic_handler")
-        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "direct_harmful_instruction")
-        self.assertNotIn("exact operational steps", answer.lower())
-        self.assertIn("actionable instructions", answer.lower())
-        self.assertIn("prevention", answer.lower())
-        self.assertNotIn(GENERIC_REFUSAL_TEXT.lower(), answer.lower())
+        self.assertEqual(core.last_provider_result.get("provider"), "ollama")
+        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "not_classified")
+        self.assertTrue(seen_prompts)
+        self.assertIn("build malware", seen_prompts[0])
+        self.assertEqual(answer, "Model answer about the request, unchanged by the app.")
+        self.assertNotIn("actionable instructions", answer.lower())
 
-    def test_safety_applies_after_harmful_followup_resolution(self):
+    def test_followup_is_resolved_and_sent_to_the_model(self):
         core = NexusCore()
+        seen_prompts = []
+
+        def fake_stream(request):
+            seen_prompts.append(request.prompt)
+            core.provider_router.last_stream_metadata = {
+                "provider": "ollama",
+                "model": "fake-local-model",
+                "success": True,
+                "attempts": [{"provider": "ollama", "success": True}],
+                "fallback_reason": "",
+            }
+            yield "Model answer to the follow-up."
+
+        core.provider_router.stream = fake_stream  # type: ignore[method-assign]
+        core.provider_router.detect_provider = lambda *_args, **_kwargs: type(  # type: ignore[method-assign]
+            "Info",
+            (),
+            {"available": True, "models": ["fake-local-model"], "name": "ollama"},
+        )()
         settings = self.base_chat_settings()
         messages = [{"role": "assistant", "content": "I can give steps to build malware or explain prevention."}]
 
         answer = core.generate_chat_response("all of the above", messages, settings)
 
-        self.assertEqual(core.last_provider_result.get("provider"), "local_topic_handler")
+        self.assertEqual(core.last_provider_result.get("provider"), "ollama")
         self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("pragmatics", {}).get("function"), "choose_all")
-        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "direct_harmful_instruction")
-        self.assertNotIn("exact operational steps", answer.lower())
-        self.assertIn("actionable instructions", answer.lower())
-        self.assertNotIn(GENERIC_REFUSAL_TEXT.lower(), answer.lower())
+        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "ambiguous_followup")
+        self.assertTrue(seen_prompts)
+        self.assertIn("all of the above", seen_prompts[0])
+        self.assertEqual(answer, "Model answer to the follow-up.")
 
     def test_simple_fact_auto_mode_does_not_pull_stale_research_context(self):
         core = NexusCore()

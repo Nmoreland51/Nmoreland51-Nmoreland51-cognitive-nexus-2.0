@@ -81,10 +81,11 @@ class TestResponsePlanner(unittest.TestCase):
 
         self.assertEqual(harmless_followup["category"], "ambiguous_followup")
         self.assertEqual(yolo_followup["category"], "ambiguous_followup")
-        self.assertEqual(sensitive["category"], "educational_context")
-        self.assertEqual(risk["category"], "risk_analysis")
-        self.assertEqual(direct["category"], "direct_harmful_instruction")
-        self.assertEqual(harmful_followup["category"], "direct_harmful_instruction")
+        # Topics are not classified. A short follow-up is still resolved against the previous turn.
+        self.assertEqual(sensitive["category"], "not_classified")
+        self.assertEqual(risk["category"], "not_classified")
+        self.assertEqual(direct["category"], "not_classified")
+        self.assertEqual(harmful_followup["category"], "ambiguous_followup")
 
     def test_literal_math_requires_math_command_not_vibe_check(self):
         vibe = analyze_intent_cached("yo check it 1 2 1 2", "")

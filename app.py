@@ -282,7 +282,7 @@ def context_window_caption(context: dict[str, Any]) -> str:
 def data_locality_caption(provider_order: list[str], allow_cloud_fallback: bool, cloud_ready: list[str]) -> str:
     """One line saying where chat prompts can go with the current settings."""
 
-    names = {"openai": "OpenAI", "anthropic": "Anthropic"}
+    names = {"openai": "OpenAI", "anthropic": "Anthropic", "xai": "xAI"}
     primary = next((name for name in provider_order if name != "fallback"), "")
     if primary in cloud_ready:
         return f"Data: chat prompts are sent to {names[primary]}, because it is first in the provider order."
@@ -566,7 +566,7 @@ def render_sidebar(
         )
         st.caption(f"Current answer mode: {current_mode}")
 
-        provider_options = ["ollama", "openai", "anthropic", "huggingface_local", "fallback"]
+        provider_options = ["ollama", "openai", "anthropic", "xai", "huggingface_local", "fallback"]
         configured_order = normalize_provider_order(
             [
                 item
@@ -765,9 +765,24 @@ def render_sidebar(
                 value=allow_cloud_fallback,
                 help=(
                     "Off (default): if the local model fails, the app says so and your prompt, with any memory "
-                    "or document text in it, stays on this machine. On: a configured OpenAI or Anthropic "
-                    "provider lower in the order may answer instead. A cloud provider you put first in the "
-                    "order is always used."
+                    "or document text in it, stays on this machine. On: a configured OpenAI, Anthropic, or xAI "
+                    "provider lower in the order may answer instead. xAI is optional and is not used until you "
+                    "add it to this order. A cloud provider you put first in the order is always used. "
+                    "Turning this on sends prompts to a paid service."
+                ),
+            )
+            xai_model = st.text_input(
+                "xAI model",
+                value=str(core_status.get("config", {}).get("xai_model") or "grok-4.7"),
+                help="Used only when xai is in the order above and XAI_API_KEY is set in the environment. The key is not saved in settings.",
+            )
+            xai_store_responses = st.checkbox(
+                "Let xAI store prompts for 30 days",
+                value=bool(core_status.get("config", {}).get("xai_store_responses", False)),
+                help=(
+                    "Off (default): requests set store=false. The prompt is still sent to xAI when that provider "
+                    "runs, and xAI is asked not to keep it in the Responses store. On: xAI may retain the prompt "
+                    "and reply for up to 30 days. This is separate from allowing cloud fallback."
                 ),
             )
             if demo_safe_mode:
@@ -787,6 +802,8 @@ def render_sidebar(
                     {
                         "provider_order": provider_order,
                         "allow_cloud_fallback": bool(allow_cloud_fallback),
+                        "xai_model": xai_model.strip() or "grok-4.7",
+                        "xai_store_responses": bool(xai_store_responses),
                         "max_context_chars": int(max_context_chars),
                         "recent_message_limit": int(recent_message_limit),
                         "comfyui_url": comfyui_url.rstrip("/"),
@@ -822,7 +839,7 @@ def render_sidebar(
             data_locality_caption(
                 provider_order,
                 bool(allow_cloud_fallback),
-                [name for name in ("openai", "anthropic") if provider_health.get(name)],
+                [name for name in ("openai", "anthropic", "xai") if provider_health.get(name)],
             )
         )
 
