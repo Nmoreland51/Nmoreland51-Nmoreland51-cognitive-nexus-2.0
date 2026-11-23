@@ -1,8 +1,13 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import app
 from streamlit.testing.v1 import AppTest
+
+# Newer Streamlit resolves a relative AppTest path against this test file, not the working
+# directory, so point at app.py in the repo root explicitly.
+APP_PATH = str(Path(__file__).resolve().parents[1] / "app.py")
 
 
 class AppControlsTests(unittest.TestCase):
@@ -86,7 +91,7 @@ class AppControlsTests(unittest.TestCase):
         self.assertIn("Tools / Utilities", app.TAB_LABELS)
 
     def test_streamlit_overview_and_demo_safe_mode_render(self):
-        app_test = AppTest.from_file("app.py", default_timeout=25)
+        app_test = AppTest.from_file(APP_PATH, default_timeout=25)
         app_test.run()
 
         self.assertEqual(len(app_test.exception), 0)
@@ -115,7 +120,7 @@ class AppControlsTests(unittest.TestCase):
         )
 
     def test_auto_precision_mode_defaults_on_in_sidebar(self):
-        app_test = AppTest.from_file("app.py", default_timeout=25)
+        app_test = AppTest.from_file(APP_PATH, default_timeout=25)
         app_test.run()
 
         self.assertEqual(len(app_test.exception), 0)
