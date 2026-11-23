@@ -33,6 +33,8 @@ The only difference is the seven tests listed in `docs/MANIFEST.md`. The agent f
 
 GitHub Actions on `8c1f8a3`: Ubuntu and the ledger job passed. Windows failed the same nine `tests/test_agent_benchmark.py` cases that already failed on `561101d`. Those tasks reach review, then the independent clone check disagrees. `tools/agent_benchmark.py` now clones with `core.autocrlf=false` and compares the committed blob. Actions on `02ce243`: all 6 checks passed, including Python 3.12 and 3.13 on Windows. https://github.com/Nmoreland51/Nmoreland51-Nmoreland51-cognitive-nexus-2.0/actions/runs/45287989155
 
+Actions on `f9dcdb5` (a progress-note commit) aborted Python 3.13 on Ubuntu inside trafilatura while two page scrapes ran at once (`tests/test_owner_control.py::test_a_substring_never_blocks_a_message`, exit 134). The other five jobs passed. `modules/web_research.py` now holds one lock around trafilatura so parallel scrapes cannot enter that copy at the same time.
+
 GitHub Actions on `561101d`: run 45272983617, conclusion failure. https://github.com/Nmoreland51/Nmoreland51-Nmoreland51-cognitive-nexus-2.0/actions/runs/45272983617
 
 ## Next

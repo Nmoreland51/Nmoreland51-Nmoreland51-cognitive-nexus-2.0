@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,6 +12,27 @@ from modules import web_research
 
 
 class WebResearchTests(unittest.TestCase):
+    def test_overlapping_scrapes_do_not_crash_the_interpreter(self) -> None:
+        """trafilatura is not safe to call from two threads. Research scrapes pages in parallel."""
+
+        html = "<html><head><title>T</title></head><body><h1>Heading</h1><p>Visible paragraph for extraction.</p></body></html>"
+
+        class Response:
+            status_code = 200
+            text = html
+            headers: dict[str, str] = {}
+
+            def raise_for_status(self) -> None:
+                return None
+
+        web_research._scrape_url_cached.cache_clear()
+        urls = [f"https://example-{index}.test/page" for index in range(4)]
+        with patch.object(web_research, "safe_get", lambda *args, **kwargs: Response()):
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                pages = list(pool.map(web_research.scrape_url, urls))
+        self.assertEqual(len(pages), 4)
+        self.assertTrue(all(page.get("success") and "Visible paragraph" in page.get("text", "") for page in pages))
+
     def test_slugify_query(self) -> None:
         self.assertEqual(web_research.slugify_query("Latest AI News!!!"), "latest_ai_news")
         self.assertEqual(web_research.slugify_query(""), "research")
