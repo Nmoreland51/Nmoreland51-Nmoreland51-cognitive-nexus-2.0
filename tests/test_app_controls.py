@@ -147,7 +147,7 @@ class AppControlsTests(unittest.TestCase):
             saved = app.persist_assistant_response("Provider answer", {})
 
         self.assertEqual(saved, "Provider answer")
-        add_message.assert_called_once_with("assistant", "Provider answer")
+        add_message.assert_called_once_with("assistant", "Provider answer", meta=None)
         save_history.assert_called_once()
 
     def test_persist_empty_assistant_response_saves_visible_fallback(self):
@@ -156,8 +156,35 @@ class AppControlsTests(unittest.TestCase):
 
         self.assertIn("Fallback:", saved)
         self.assertIn("empty stream", saved)
-        add_message.assert_called_once_with("assistant", saved)
+        add_message.assert_called_once_with("assistant", saved, meta=None)
         save_history.assert_called_once()
+
+    def test_persisted_answer_records_how_it_was_produced(self):
+        result = {"provider": "ollama", "model": "dolphin3:8b", "success": True, "elapsed": 3.0}
+        with patch("app.add_message") as add_message, patch("app.save_session_history"):
+            app.persist_assistant_response("Provider answer", result)
+
+        meta = add_message.call_args.kwargs["meta"]
+        self.assertEqual((meta["provider"], meta["model"], meta["locality"]), ("ollama", "dolphin3:8b", "local"))
+
+    def test_model_check_caption_only_says_working_after_text_came_back(self):
+        self.assertIn("has not answered yet", app.model_check_caption(None))
+        self.assertIn("answered a test prompt in 9.3s", app.model_check_caption({"ok": True, "seconds": 9.31, "source": "test"}))
+        self.assertIn("wrote the last answer", app.model_check_caption({"ok": True, "seconds": None, "source": "answer"}))
+        self.assertEqual(app.model_check_caption({"ok": False, "error": "refused"}), "Model check failed: refused")
+
+    def test_data_locality_caption_states_where_prompts_can_go(self):
+        local_first = ["ollama", "openai", "anthropic", "fallback"]
+
+        self.assertIn("stay on this machine", app.data_locality_caption(local_first, False, []))
+        blocked = app.data_locality_caption(local_first, False, ["anthropic"])
+        self.assertIn("Anthropic is set up but will not be used as a fallback", blocked)
+        allowed = app.data_locality_caption(local_first, True, ["openai", "anthropic"])
+        self.assertIn("may be sent to OpenAI or Anthropic", allowed)
+        cloud_first = app.data_locality_caption(["anthropic", "ollama", "fallback"], False, ["anthropic"])
+        self.assertIn("are sent to Anthropic", cloud_first)
+        # A cloud provider listed first but without a key cannot receive anything.
+        self.assertIn("stay on this machine", app.data_locality_caption(["openai", "ollama", "fallback"], False, []))
 
     def test_merge_chat_timing_trace_adds_render_save_and_total_ms(self):
         with patch("app.time.perf_counter", side_effect=[10.25]):

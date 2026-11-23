@@ -31,11 +31,18 @@ def get_messages() -> List[Message]:
     return st.session_state.messages
 
 
-def add_message(role: str, content: str) -> None:
-    """Append a chat message to the current Streamlit session."""
+def add_message(role: str, content: str, meta: dict | None = None) -> None:
+    """Append a chat message to the current Streamlit session.
+
+    `meta` records how an assistant reply was produced (see modules/answer_meta.py); it is saved
+    with the message so the label is still there after the chat is reloaded.
+    """
 
     initialize_chat_state()
-    st.session_state.messages.append({"role": role, "content": content})
+    message = {"role": role, "content": content}
+    if meta:
+        message["meta"] = meta
+    st.session_state.messages.append(message)
 
 
 def clear_messages() -> None:

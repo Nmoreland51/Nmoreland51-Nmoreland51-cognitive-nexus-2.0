@@ -36,6 +36,7 @@ try:
 except Exception:
     trafilatura = None
 
+from modules.event_log import record_event
 from modules.url_safety import safe_get
 
 try:
@@ -306,6 +307,7 @@ def _search_web_cached(query: str, max_results: int) -> tuple[str, ...]:
         except Exception as exc:
             _cooldown_until[name] = time.monotonic() + SEARCH_COOLDOWN_SECONDS
             problems.append(f"{name}: {exc}")
+            record_event("search_source_failure", f"{name} search failed", source=name, error=str(exc))
             logger.warning("Search source %s failed query=%r error=%s; switching to the next source", name, query, exc)
             continue
         if not results:
@@ -600,14 +602,18 @@ def unsourced_numbers_note(answer: str, source_text: str) -> str:
     )
 
 
-def summarize_research(
+def summarize_research_result(
     query: str,
     results: list[dict[str, Any]],
     scraped_pages: list[dict[str, Any]],
     ai_callback: Callable[[str], str] | None = None,
     brief: bool = False,
-) -> str:
-    """Summarize research with the active provider callback when available.
+) -> tuple[str, bool]:
+    """Summarize research with the active provider callback.
+
+    Returns (text, generated). `generated` is True only when a model wrote the text. The other
+    outcomes (no sources, no provider, the model failed) return a plain statement of what
+    happened, which must not be stored or presented as a research summary.
 
     Version numbers or years the model wrote that aren't in its sources get a warning appended.
     """
@@ -615,22 +621,36 @@ def summarize_research(
     if not _has_research_sources(results, scraped_pages):
         # Without sources the model would only answer from (possibly stale) memory and
         # invent a source list, which then gets saved as if it were research.
-        return NO_RESULTS_SUMMARY
+        return NO_RESULTS_SUMMARY, False
 
     if ai_callback is None:
         return (
             "AI summarization is unavailable because no active provider was found.\n\n"
             "Raw research results were collected successfully."
-        )
+        ), False
 
     try:
         prompt = build_summary_prompt(query, results, scraped_pages, brief=brief)
-        summary = ai_callback(prompt)
-        logger.info("Research summary generated query=%r chars=%s", query, len(summary or ""))
-        return (summary or "") + unsourced_numbers_note(summary or "", prompt)
+        summary = str(ai_callback(prompt) or "").strip()
     except Exception as exc:
         logger.warning("Research summarization failed query=%r error=%s", query, exc)
-        return f"AI summarization failed: {exc}"
+        return f"AI summarization failed: {exc}\n\nThe pages that were found are listed below.", False
+    if not summary:
+        return "AI summarization returned no text. The pages that were found are listed below.", False
+    logger.info("Research summary generated query=%r chars=%s", query, len(summary))
+    return summary + unsourced_numbers_note(summary, prompt), True
+
+
+def summarize_research(
+    query: str,
+    results: list[dict[str, Any]],
+    scraped_pages: list[dict[str, Any]],
+    ai_callback: Callable[[str], str] | None = None,
+    brief: bool = False,
+) -> str:
+    """The text of summarize_research_result, for callers that only show it."""
+
+    return summarize_research_result(query, results, scraped_pages, ai_callback, brief=brief)[0]
 
 
 def save_research_session(
@@ -814,8 +834,13 @@ def finish_research_session(
     settings: dict[str, Any],
     save_locally: bool = True,
     save_to_memory: bool = True,
+    summary_generated: bool = True,
 ) -> dict[str, Any]:
-    """Store the summary in memory, log stage timings and save the session to disk."""
+    """Store the summary in memory, log stage timings and save the session to disk.
+
+    summary_generated=False means `summary` is a notice (the model failed, was skipped or was
+    not available), not a model's summary. The pages are still stored; the notice is not.
+    """
 
     query = gathered["query"]
     results = gathered["results"]
@@ -827,8 +852,9 @@ def finish_research_session(
     memory_result: dict[str, Any] = {}
     timings.setdefault("summary", time.perf_counter() - started - sum(timings.values()))
 
+    settings = {**settings, "summary_generated": bool(summary_generated)}
     if save_to_memory and gathered["has_sources"]:
-        memory_result = add_research_to_memory(query, scraped_pages, summary)
+        memory_result = add_research_to_memory(query, scraped_pages, summary if summary_generated else "")
     timings["memory"] = time.perf_counter() - started - sum(timings.values())
     logger.info(
         "Research timings query=%r brief=%s %s total=%.1fs",
@@ -854,6 +880,7 @@ def finish_research_session(
         "results": results,
         "scraped_pages": scraped_pages,
         "summary": summary,
+        "summary_generated": bool(summary_generated),
         "errors": errors,
         "saved_paths": saved_paths,
         "memory_result": memory_result,
@@ -887,9 +914,11 @@ def run_research_session(
     gathered = gather_research(query, max_results=max_results, scrape_pages=scrape_pages, brief=brief)
     summary_started = time.perf_counter()
     if summarize_with_ai:
-        summary = summarize_research(query, gathered["results"], gathered["scraped_pages"], ai_callback, brief=brief)
+        summary, generated = summarize_research_result(
+            query, gathered["results"], gathered["scraped_pages"], ai_callback, brief=brief
+        )
     else:
-        summary = "AI summarization was skipped for this research session."
+        summary, generated = "AI summarization was skipped for this research session.", False
     gathered["timings"]["summary"] = time.perf_counter() - summary_started
 
     return finish_research_session(
@@ -898,4 +927,5 @@ def run_research_session(
         settings=settings,
         save_locally=save_locally,
         save_to_memory=save_to_memory,
+        summary_generated=generated,
     )

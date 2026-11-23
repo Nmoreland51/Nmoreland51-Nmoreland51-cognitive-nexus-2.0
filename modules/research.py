@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 import requests
 
-from modules.providers import generate_with_ollama
+from modules.providers import FALLBACK_RESPONSE, generate_with_ollama
 from web_research_module import WebResearchModule
 
 
@@ -186,6 +186,7 @@ def query_knowledge(
     if not results:
         return {"answer": "No matching knowledge was found. Add URLs or files first.", "results": []}
 
+    model_error = ""
     if ai_callback is not None:
         context = "\n\n".join(
             f"Source: {item.get('title') or item.get('url')}\n{item.get('text', '')[:900]}"
@@ -196,7 +197,13 @@ def query_knowledge(
             "If the answer is not in the context, say that the knowledge base does not contain it.\n\n"
             f"Context:\n{context}\n\nQuestion: {query}\n\nAnswer:"
         )
-        answer = ai_callback(prompt)
+        try:
+            answer = str(ai_callback(prompt) or "").strip()
+            if not answer:
+                model_error = "The model returned no text."
+        except Exception as exc:
+            answer = ""
+            model_error = str(exc)
     elif provider_ready and model:
         context = "\n\n".join(
             f"Source: {item.get('title') or item.get('url')}\n{item.get('text', '')[:900]}"
@@ -213,10 +220,17 @@ def query_knowledge(
             base_url=base_url,
             options={"num_predict": 320, "num_ctx": 2048, "temperature": 0.35},
         )
+        if answer.startswith(FALLBACK_RESPONSE):
+            # generate_with_ollama reports failure as text; do not pass it off as an answer.
+            model_error = answer[len(FALLBACK_RESPONSE):].strip() or "The local model did not answer."
+            answer = ""
     else:
-        answer = module.generate_response(query, results)
+        return {"answer": module.generate_response(query, results), "results": results, "model_answered": False, "model_error": ""}
 
-    return {"answer": answer, "results": results}
+    if model_error:
+        passages = module.generate_response(query, results)
+        answer = f"The model did not answer ({model_error}), so these are the matching passages as stored:\n\n{passages}"
+    return {"answer": answer, "results": results, "model_answered": not model_error, "model_error": model_error}
 
 
 def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:

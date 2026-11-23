@@ -19,7 +19,9 @@ from modules.chat_profile import (
     save_chat_profile,
 )
 from modules.context_manager import load_user_profile_summary
+from modules.answer_meta import answer_meta, describe_answer
 from modules.core_health import run_core_health_check
+from modules.event_log import event_counts, recent_events
 from modules.image_gen import (
     IMAGE_STYLE_OPTIONS,
     ImageGenerationRequest,
@@ -177,7 +179,8 @@ def persist_assistant_response(response: Any, provider_result: dict[str, Any] | 
     response_text = normalize_assistant_response(response)
     if not response_text:
         response_text = empty_assistant_response_message(provider_result)
-    add_message("assistant", response_text)
+    meta = answer_meta(provider_result)
+    add_message("assistant", response_text, meta=meta if meta.get("provider") else None)
     save_session_history()
     return response_text
 
@@ -223,11 +226,43 @@ def sync_core_diagnostics(core: NexusCore | None = None) -> None:
 
 @st.cache_resource(show_spinner=False)
 def warm_chat_model(model: str) -> bool:
-    """Start loading the chat model in Ollama once per model, in the background, so the
-    first message doesn't wait ~7s for the model to load."""
+    """Once per model, in the background: load the chat model in Ollama and ask it for a few
+    words. That saves the first message ~7s of loading and proves the model really answers,
+    which being listed by Ollama does not."""
 
-    threading.Thread(target=get_nexus_core().provider_router.warm_ollama, args=(model,), daemon=True).start()
+    threading.Thread(target=get_nexus_core().provider_router.verify_ollama, args=(model,), daemon=True).start()
     return True
+
+
+def model_check_caption(record: dict[str, Any] | None) -> str:
+    """One line saying whether the chat model has actually produced text."""
+
+    if not record:
+        return "Model check: testing now. The model is installed but has not answered yet."
+    if record.get("ok"):
+        if record.get("source") == "answer":
+            return "Model check: working (it wrote the last answer)."
+        return f"Model check: working (answered a test prompt in {float(record.get('seconds') or 0):.1f}s)."
+    return f"Model check failed: {record.get('error') or 'no text came back'}"
+
+
+def data_locality_caption(provider_order: list[str], allow_cloud_fallback: bool, cloud_ready: list[str]) -> str:
+    """One line saying where chat prompts can go with the current settings."""
+
+    names = {"openai": "OpenAI", "anthropic": "Anthropic"}
+    primary = next((name for name in provider_order if name != "fallback"), "")
+    if primary in cloud_ready:
+        return f"Data: chat prompts are sent to {names[primary]}, because it is first in the provider order."
+    usable = [names[name] for name in provider_order if name in cloud_ready]
+    if usable and allow_cloud_fallback:
+        return (
+            "Data: prompts stay on this machine unless the local model fails; "
+            f"then they may be sent to {' or '.join(usable)}."
+        )
+    if usable:
+        verb = "is" if len(usable) == 1 else "are"
+        return f"Data: prompts stay on this machine. {' and '.join(usable)} {verb} set up but will not be used as a fallback."
+    return "Data: prompts stay on this machine. Web searches go to the internet only when you ask for one."
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -409,7 +444,12 @@ def restore_persisted_chat() -> None:
         return
     for message in load_session_history_file():
         if isinstance(message, dict) and message.get("role") in {"user", "assistant"}:
-            add_message(str(message["role"]), str(message.get("content", "")))
+            saved_meta = message.get("meta")
+            add_message(
+                str(message["role"]),
+                str(message.get("content", "")),
+                meta=saved_meta if isinstance(saved_meta, dict) else None,
+            )
 
 
 def _select_model_option(label: str, models: list[str], default: str) -> str:
@@ -428,7 +468,7 @@ def render_sidebar(
         st.header("Cognitive Nexus")
         st.subheader("Provider")
         if status.available and status.models:
-            st.success("Ollama available")
+            st.success("Ollama running")
         elif status.available:
             st.warning("Ollama running, no models")
         else:
@@ -470,6 +510,12 @@ def render_sidebar(
             default_index = status.models.index(default_model) if default_model in status.models else 0
             selected_model = st.selectbox("Chat model", status.models, index=default_index)
             warm_chat_model(selected_model)
+            model_check = get_nexus_core().provider_router.verification("ollama", selected_model)
+            st.caption(model_check_caption(model_check))
+            if model_check and not model_check.get("ok") and st.button("Test the model again", key="retest_chat_model"):
+                with st.spinner("Asking the model for a few words..."):
+                    get_nexus_core().provider_router.verify_ollama(selected_model)
+                st.rerun()
         else:
             st.info("Fallback mode is active.")
 
@@ -497,6 +543,7 @@ def render_sidebar(
             provider_options,
         )
         provider_order = configured_order
+        allow_cloud_fallback = bool(core_status.get("config", {}).get("allow_cloud_fallback", False))
         configured_comfyui_url = str(core_status.get("config", {}).get("comfyui_url") or "http://127.0.0.1:8188")
         configured_hf_local_model = str(core_status.get("config", {}).get("hf_local_model") or "")
         comfyui_url = configured_comfyui_url
@@ -695,6 +742,16 @@ def render_sidebar(
             )
             provider_order = normalize_provider_order(selected_provider_order, provider_options)
             st.caption(f"Active order: {' -> '.join(provider_order)}")
+            allow_cloud_fallback = st.checkbox(
+                "Allow cloud fallback",
+                value=allow_cloud_fallback,
+                help=(
+                    "Off (default): if the local model fails, the app says so and your prompt, with any memory "
+                    "or document text in it, stays on this machine. On: a configured OpenAI or Anthropic "
+                    "provider lower in the order may answer instead. A cloud provider you put first in the "
+                    "order is always used."
+                ),
+            )
             if demo_safe_mode:
                 st.caption("ComfyUI URL: local service hidden")
                 st.caption("HF local model: local model path hidden" if hf_local_model else "HF local model: not configured")
@@ -711,6 +768,7 @@ def render_sidebar(
                 runtime_config.update(
                     {
                         "provider_order": provider_order,
+                        "allow_cloud_fallback": bool(allow_cloud_fallback),
                         "max_context_chars": int(max_context_chars),
                         "recent_message_limit": int(recent_message_limit),
                         "comfyui_url": comfyui_url.rstrip("/"),
@@ -741,7 +799,14 @@ def render_sidebar(
             if provider != "fallback"
         )
         if not primary_available:
-            st.warning("No primary provider is currently available; chat will use fallback until a local or optional provider is ready.")
+            st.warning("No model provider is ready. Chat will show a fallback notice until a local or cloud provider works.")
+        st.caption(
+            data_locality_caption(
+                provider_order,
+                bool(allow_cloud_fallback),
+                [name for name in ("openai", "anthropic") if provider_health.get(name)],
+            )
+        )
 
         st.subheader("Persona")
         profile = chat_profile
@@ -797,6 +862,7 @@ def render_sidebar(
             "auto_precision_mode": auto_precision_mode,
             "generation_timeout": float(generation_timeout),
             "provider_order": provider_order,
+            "allow_cloud_fallback": bool(allow_cloud_fallback),
             "throughput_mode": throughput_mode,
             "target_tokens_per_second": int(target_tokens_per_second),
             "max_context_chars": int(max_context_chars),
@@ -919,6 +985,9 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
     for message in get_messages():
         with messages_box.chat_message(message.get("role", "assistant")):
             st.markdown(message.get("content", ""))
+            answer_line = "" if demo_safe else describe_answer(message.get("meta"))
+            if answer_line:
+                st.caption(answer_line)
 
     show_advanced_debug = settings.get("advanced_mode") or settings["router_config"].show_debug
     if show_advanced_debug and demo_safe:
@@ -1046,6 +1115,9 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         if not response:
             response = empty_assistant_response_message(st.session_state.last_provider_result)
             st.warning(response)
+        answer_line = "" if demo_safe else describe_answer(answer_meta(st.session_state.get("last_provider_result")))
+        if answer_line:
+            st.caption(answer_line)
         record_perf("chat.stream_response", time.perf_counter() - started, settings)
 
     if settings.get("show_perf_timings") and "last_provider_result" in st.session_state and not demo_safe:
@@ -1817,6 +1889,26 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
         st.warning(f"Fallback reason: {sanitize_demo_text(fallback_reason) if demo_safe else fallback_reason}")
     else:
         st.caption("Fallback reason: none recorded for the latest turn.")
+    for model_note in core_status.get("config", {}).get("model_id_notes") or []:
+        st.info(model_note)
+
+    st.markdown("### Problems Since Start")
+    problem_counts = event_counts()
+    problem_cols = st.columns(5)
+    problem_cols[0].metric("Model failures", problem_counts["model_failure"])
+    problem_cols[1].metric("Fallback notices", problem_counts["provider_fallback"])
+    problem_cols[2].metric("Search source failures", problem_counts["search_source_failure"])
+    problem_cols[3].metric("Tool failures", problem_counts["tool_failure"])
+    problem_cols[4].metric("Degraded mode", problem_counts["degraded_mode"])
+    st.caption(
+        "Counted separately so a model that failed, a blocked search source and a broken tool are not confused. "
+        f"Cloud providers skipped to keep data local: {problem_counts['provider_skipped']}. "
+        f"Other errors: {problem_counts['error']}. Also written to logs/events.jsonl."
+    )
+    problem_rows = recent_events(25)
+    if problem_rows and not demo_safe:
+        with st.expander("Recent problems", expanded=False):
+            st.dataframe(problem_rows, width="stretch", hide_index=True)
 
     st.markdown("### Core Stability Self-Check")
     action_cols = st.columns([1, 1, 4])
@@ -1891,16 +1983,43 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
         provider_rows = []
         for provider in providers:
             models = provider.get("models") or []
+            proof = get_nexus_core().provider_router.latest_verification(str(provider.get("name", "")))
+            if not provider.get("available"):
+                provider_state = "Offline"
+            elif provider.get("name") == "fallback":
+                provider_state = "Notice only (not a model)"
+            elif proof is None:
+                provider_state = "Set up, not tested"
+            elif proof.get("ok"):
+                provider_state = "Working (produced text)"
+            else:
+                provider_state = "Failed its last request"
             provider_rows.append(
                 {
                     "Provider": str(provider.get("name", "unknown")).title(),
-                    "Status": "Available" if provider.get("available") else "Offline",
+                    "Status": provider_state,
                     "Models": len(models),
                     "Endpoint": "Local service hidden" if demo_safe and provider.get("base_url") else provider.get("base_url", ""),
                     "Message": sanitize_demo_text(provider.get("message", "")) if demo_safe else provider.get("message", ""),
                 }
             )
         st.dataframe(provider_rows, width="stretch", hide_index=True)
+        st.caption(
+            "A provider counts as working only after it has produced text: a test prompt or a real answer. "
+            "An installed model or a saved API key alone shows as 'Set up, not tested'."
+        )
+        testable = [str(item.get("name")) for item in providers if item.get("available") and item.get("name") != "fallback"]
+        if testable and not demo_safe:
+            test_cols = st.columns([2, 1, 3])
+            provider_to_test = test_cols[0].selectbox("Provider to test", testable, key="provider_to_test")
+            if test_cols[1].button("Send a test prompt", key="send_provider_test"):
+                with st.spinner(f"Asking {provider_to_test} for a few words..."):
+                    test_record = get_nexus_core().provider_router.verify_provider(provider_to_test, selected_model if provider_to_test == "ollama" else "")
+                if test_record.get("ok"):
+                    st.success(f"{provider_to_test} answered in {float(test_record.get('seconds') or 0):.1f}s.")
+                else:
+                    st.error(f"{provider_to_test} failed: {test_record.get('error') or 'no text came back'}")
+            test_cols[2].caption("OpenAI and Anthropic bill a few tokens for a test. Local providers are free.")
     else:
         st.info("No providers configured.")
 

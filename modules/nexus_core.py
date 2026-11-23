@@ -172,6 +172,9 @@ class NexusCore:
                     "enable_reality_research_agent",
                     "epistemic_mode",
                     "show_grounding_notes",
+                    "allow_cloud_fallback",
+                    "anthropic_effort",
+                    "model_id_notes",
                     "enable_bloodhound_search",
                     "enable_onion_search",
                     "max_search_results",
@@ -476,7 +479,19 @@ class NexusCore:
             timeout=float(settings.get("generation_timeout") or 300.0),
             system_prompt=system_prompt,
             max_tokens=int((route_options or {}).get("num_predict", 512)),
+            # None leaves the decision to the saved allow_cloud_fallback setting.
+            allow_cloud_fallback=(bool(settings["allow_cloud_fallback"]) if settings.get("allow_cloud_fallback") is not None else None),
         )
+
+    def _model_text(self, prompt: str, settings: dict[str, Any], options: dict[str, Any]) -> str:
+        """Text written by a real model, or ModelUnavailableError.
+
+        Used wherever the text is stored or shown as the model's work (summaries, reports,
+        knowledge answers), so the fallback notice can never be saved as if it were an answer.
+        """
+
+        request = self._provider_request(prompt, settings, options, model=settings.get("selected_model") or "")
+        return self.provider_router.generate_or_raise(request).text
 
     def _apply_throughput_profile(
         self,
@@ -533,7 +548,8 @@ class NexusCore:
                     timeout=min(float(settings.get("generation_timeout", 300.0)), 120.0),
                 )
             )
-            return result.text
+            # A model that did not answer has no opinion; the rule-based route is used instead.
+            return result.text if result.success else ""
 
         return classify
 
@@ -943,6 +959,7 @@ class NexusCore:
         }
         profile = settings.get("chat_profile")
         self.last_memory = {}
+        self.last_provider_result = {}
         direct_response = self._direct_response_instruction(user_message)
         if direct_response is not None:
             verification = verify_response(direct_response, tool_confirmed=True)
@@ -1298,6 +1315,8 @@ class NexusCore:
             gathered = gather_research(query, max_results=5, brief=True)
             results = gathered["results"]
             summary_started = time.perf_counter()
+            model_meta: dict[str, Any] = {}
+            model_answered = False
             if gathered["has_sources"]:
                 prompt = build_summary_prompt(query, results, gathered["scraped_pages"], brief=True)
                 request = self._provider_request(
@@ -1311,11 +1330,20 @@ class NexusCore:
                     chunks.append(chunk)
                     yield chunk
                 summary = "".join(chunks).strip()
+                model_meta = dict(getattr(self.provider_router, "last_stream_metadata", {}) or {})
+                model_answered = bool(summary) and bool(model_meta.get("success")) and model_meta.get("provider") != "fallback"
                 if not summary:
                     summary = "No summary was generated."
                     yield summary
-                # Flag version numbers/years the model wrote that its sources don't contain.
-                note = unsourced_numbers_note(summary, prompt)
+                if model_answered:
+                    # Flag version numbers/years the model wrote that its sources don't contain.
+                    note = unsourced_numbers_note(summary, prompt)
+                else:
+                    # What was shown is the fallback notice or a cut-off answer, not a summary.
+                    note = (
+                        "\n\nThe model did not finish a summary, so the text above is not a summary of these pages. "
+                        "They are listed below so you can read them."
+                    )
                 if note:
                     summary += note
                     yield note
@@ -1340,6 +1368,7 @@ class NexusCore:
                 gathered,
                 summary,
                 settings={"max_results": 5, "scrape_pages": True, "summarize_with_ai": True, "brief": True},
+                summary_generated=model_answered,
             )
             audited = self._audit_answer(
                 answer,
@@ -1362,6 +1391,17 @@ class NexusCore:
                 "provider": "web_research",
                 "elapsed": time.perf_counter() - started,
                 "response_completion": completion,
+                # Which model wrote the summary, if one did.
+                "model_provider": str(model_meta.get("provider") or ""),
+                "model": str(model_meta.get("model") or ""),
+                "success": model_answered,
+                "partial": bool(model_meta.get("partial")),
+                "attempts": list(model_meta.get("attempts") or []),
+                "fallback_reason": "" if model_answered else str(model_meta.get("fallback_reason") or ""),
+                "skipped_cloud": list(model_meta.get("skipped_cloud") or []),
+                "usage": dict(model_meta.get("usage") or {}),
+                "tools_run": ["web_search"],
+                "sources": len(results),
             }
             self._record_response_self_critic(user_message, answer, plan, settings)
             return
@@ -1595,6 +1635,9 @@ class NexusCore:
             "provider_order": request.provider_order,
             "attempts": provider_meta.get("attempts", []),
             "fallback_reason": provider_meta.get("fallback_reason", ""),
+            "partial": bool(provider_meta.get("partial")),
+            "skipped_cloud": list(provider_meta.get("skipped_cloud") or []),
+            "usage": dict(provider_meta.get("usage") or {}),
             "retrieval": retrieval_meta,
             "sources": source_count,
             "throughput": {
@@ -1641,15 +1684,7 @@ class NexusCore:
         ai_callback = None
         if summarize_with_ai:
             def ai_callback(prompt: str) -> str:
-                result = self.provider_router.generate(
-                    self._provider_request(
-                        prompt,
-                        settings,
-                        options,
-                        model=settings.get("selected_model") or "",
-                    )
-                )
-                return result.text
+                return self._model_text(prompt, settings, options)
 
         return run_research_session(
             query,
@@ -1681,15 +1716,7 @@ class NexusCore:
         )
 
         def ai_callback(prompt: str) -> str:
-            result = self.provider_router.generate(
-                self._provider_request(
-                    prompt,
-                    settings,
-                    {"temperature": 0.2, "num_predict": 700, "num_ctx": 4096},
-                    model=settings.get("selected_model") or "",
-                )
-            )
-            return result.text
+            return self._model_text(prompt, settings, {"temperature": 0.2, "num_predict": 700, "num_ctx": 4096})
 
         return run_bloodhound_search(
             query,
@@ -1706,15 +1733,7 @@ class NexusCore:
         """Run the signature source-grounded research workflow."""
 
         def ai_callback(prompt: str) -> str:
-            result = self.provider_router.generate(
-                self._provider_request(
-                    prompt,
-                    settings,
-                    {"temperature": 0.2, "num_predict": 700, "num_ctx": 4096},
-                    model=settings.get("selected_model") or "",
-                )
-            )
-            return result.text
+            return self._model_text(prompt, settings, {"temperature": 0.2, "num_predict": 700, "num_ctx": 4096})
 
         return run_reality_research(
             request,
@@ -1742,14 +1761,7 @@ class NexusCore:
         use_ai_synthesis = bool(settings.get("knowledge_use_ai", False))
 
         def ai_callback(prompt: str) -> str:
-            return self.provider_router.generate(
-                self._provider_request(
-                    prompt,
-                    settings,
-                    {"temperature": 0.25, "num_predict": 420, "num_ctx": 4096},
-                    model=settings.get("selected_model") or "",
-                )
-            ).text
+            return self._model_text(prompt, settings, {"temperature": 0.25, "num_predict": 420, "num_ctx": 4096})
 
         result = query_knowledge(
             module,

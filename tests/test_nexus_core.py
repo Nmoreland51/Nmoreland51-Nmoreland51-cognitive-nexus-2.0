@@ -1063,6 +1063,21 @@ class NexusCoreTests(unittest.TestCase):
         self.assertIn("Grounded answer", answer)
         self.assertEqual(core.last_provider_result.get("provider"), "reality_research_agent")
 
+    def _model_stream(self, core, chunks, provider="ollama", success=True):
+        """Stand-in for ProviderRouter.stream: yields the chunks and records who answered."""
+
+        def stream(_request):
+            yield from chunks
+            core.provider_router.last_stream_metadata = {
+                "provider": provider,
+                "model": "fake-local-model",
+                "success": success,
+                "attempts": [{"provider": provider, "success": success}],
+                "fallback_reason": "",
+            }
+
+        return patch.object(core.provider_router, "stream", side_effect=stream)
+
     def _web_gathered(self, results):
         return {
             "query": "the latest stable Python release",
@@ -1089,7 +1104,7 @@ class NexusCoreTests(unittest.TestCase):
         ]
         with patch("modules.nexus_core.gather_research", return_value=self._web_gathered(results)), patch(
             "modules.nexus_core.finish_research_session"
-        ) as finish, patch.object(core.provider_router, "stream", return_value=iter(["Python 3.15.2 ", "is the latest."])):
+        ) as finish, self._model_stream(core, ["Python 3.15.2 ", "is the latest."]):
             chunks = list(core.stream_chat_response("search the web for the latest stable Python release", [], settings))
 
         text = "".join(chunks)
@@ -1097,6 +1112,9 @@ class NexusCoreTests(unittest.TestCase):
         self.assertLess(text.index("is the latest."), text.index("Sources:"))
         self.assertIn("https://www.python.org/downloads/release/python-3152/", text)
         finish.assert_called_once()
+        self.assertTrue(finish.call_args.kwargs["summary_generated"])
+        self.assertEqual(core.last_provider_result["model_provider"], "ollama")
+        self.assertTrue(core.last_provider_result["success"])
 
     def test_chat_web_answer_warns_about_version_not_in_sources(self):
         core = NexusCore()
@@ -1112,7 +1130,7 @@ class NexusCoreTests(unittest.TestCase):
         ]
         with patch("modules.nexus_core.gather_research", return_value=self._web_gathered(results)), patch(
             "modules.nexus_core.finish_research_session"
-        ), patch.object(core.provider_router, "stream", return_value=iter(["The latest Streamlit is 1.28.0."])):
+        ), self._model_stream(core, ["The latest Streamlit is 1.28.0."]):
             text = "".join(core.stream_chat_response("search the web for the latest version of Streamlit", [], settings))
 
         self.assertIn("Not found in the sources: 1.28.0", text)
