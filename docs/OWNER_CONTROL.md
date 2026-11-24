@@ -161,6 +161,7 @@ account. These are permissions and protections, not rules about what may be said
 | Tests and CI files cannot be edited; "done" means a recorded passing run | The agent cannot make a change pass by changing the test | Size limits yes; the protection no | Any change could be made to "pass" |
 | Its own branch, never merged | Works in a separate checkout; no merge, force-push or other branch | No | A wrong change could land on your main branch |
 | Sandbox | Programs it starts run with reduced rights, limits and a clean environment; only listed programs start | Limits and the program list: yes. The sandbox: no | The repository's own code would run with your full rights and see your keys |
+| What it may install | For a task whose tests need packages: only the repository's own requirement files, as they were before the task started, as ready-built packages from the package index, into an environment of the task's own | **Yes**: `agent_package_policy` in the settings file (`declared`, `any`, `off`) | With `any`, a model can write a requirements file naming any package and have it installed and run |
 | Budgets | Stops after 3 attempts, 30 minutes, 60,000 tokens, or any spending not granted | Yes, per task | A task that cannot be solved runs on, and with a paid model spends on |
 | Research does not fetch local addresses | Localhost, the home network and cloud metadata are refused | Yes: `ALLOW_PRIVATE_URL_FETCH=true` | A page could point the app at your router or Ollama and copy what they return into a report |
 | Cloud fallback off | A failed local model does not send your prompt to a cloud provider | Yes: "Allow cloud fallback" | Prompts, with memory and document text in them, leave the machine when the local model fails |
@@ -194,6 +195,7 @@ Not put to you; listed so you can object:
 | D10 | How the content rule is enforced (first look, then two questions) | A prompt line alone does not stop an uncensored model; a keyword block alone stops ordinary questions | Say if you want it also to read what the model wrote, at the cost of another model call |
 | D11 | The image model's own content checker stays off | As found; it matches your wish for adult content | One line in `modules/image_gen.py` |
 | D12 | Every protection in the tools table marked "No" | They protect the machine, the data and your accounts | Each is one entry in the register with its reason |
+| D13 | The agent installs only what a repository already declared | Installing a package runs other people's code | `agent_package_policy` in the settings file |
 
 ## The acceptance tests
 
@@ -206,7 +208,7 @@ Not put to you; listed so you can object:
 | OC-T05 Hosted model: limits and fallback reported truthfully | **Tested with recorded responses only** | `tests/test_provider_truth.py` (refusal is an error, not an answer). No API key was available to call the live services |
 | OC-T06 A page with fake system lines stays material | Passes | `test_a_saved_page_with_fake_system_and_owner_lines_stays_material`; real model: 0 of 12 obeyed |
 | OC-T07 Your own instruction is not demoted | Passes | `test_the_owners_own_message_is_never_scanned_scored_or_fenced_whatever_it_says`; real model: `style-1`, `style-2` in `behavior_dolphin3-8b.json` |
-| OC-T08 The agent fixes a failing test | Passes | `tests/test_agent_coder.py`; real model: 7 of 9 seeded bugs (`agent_dolphin3-8b.json`) |
+| OC-T08 The agent fixes a failing test | Passes | `tests/test_agent_coder.py`; real model: 4 of 9 seeded bugs it was never tuned on (`agent_heldout_dolphin3-8b.json`), 7 of 9 on the set the harness was improved against |
 | OC-T09 Several edit and test rounds without new prompting | Passes | `test_a_failed_attempt_is_undone_and_the_next_one_is_told_what_happened`, `test_after_a_crash_the_task_continues_without_asking_the_model_again` |
 | OC-T10 Publishing follows the approved scope and is logged | Passes against a local Git remote and a stand-in for the GitHub API | `tests/test_agent_github.py`. github.com itself was not called: no token |
 | OC-T11 A scheduled job survives a restart, runs once | Passes | `test_jobs_are_still_there_after_the_app_restarts`, `test_a_firing_is_not_made_twice_if_the_app_died_between_its_two_writes` |

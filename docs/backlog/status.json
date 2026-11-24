@@ -298,9 +298,9 @@
  },
  "053": {
   "commits": "6bb0b97, 96cdb29, b35835c, 4f725ee, 3297f44",
-  "evidence": "A real agent that executes exists in agent/: it takes a task with acceptance tests, reproduces the failure, edits in its own checkout, runs the tests in a sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py); tasks, actions and approvals are kept in a database; `python -m agent` drives it. Measured with the local 8B model on ten seeded bugs: 7 of 9 solvable ones fixed, no failure reported as a success. Not built: breaking a goal down into tasks by itself (a person writes the task and its test), and a tab in the app (command line only). Its success rate is the underlying model's on small tasks; it is not a substitute for a stronger model.",
+  "evidence": "A real agent that executes exists in agent/: it takes a task with acceptance tests, reproduces the failure, edits in its own checkout, runs the tests in a sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py); tasks, actions and approvals are kept in a database; it is driven from the Agent tab in the app (ui/agent_panel.py) or with `python -m agent`. Measured with the local 8B model on small seeded bugs it was never tuned on: 4 of 9 fixed (7 of 9 on the first set, which the harness was improved against), no failure reported as a success in 30 task runs. Not built: breaking a goal down into tasks by itself (a person writes the task and its test). Its success rate is the underlying model's on small tasks; it is not a substitute for a stronger model.",
   "status": "PARTIAL",
-  "tests": "tests/test_agent_coder.py, tests/test_agent_cli.py, tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_dolphin3-8b.json"
+  "tests": "tests/test_agent_coder.py, tests/test_agent_cli.py, tests/test_agent_panel.py, tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_heldout_dolphin3-8b.json and agent_dolphin3-8b.json"
  },
  "054": {
   "commits": "96cdb29",
@@ -328,8 +328,9 @@
   "tests": "tests/test_agent_sandbox.py: test_the_operating_system_refuses_writes_outside_the_workspace, test_a_time_limit_ends_the_program_and_everything_it_started, test_memory_beyond_the_limit_cannot_be_taken, test_the_environment_carries_no_secrets_and_points_home_into_the_workspace, test_the_report_says_what_is_and_is_not_enforced"
  },
  "058": {
-  "evidence": "There is a policy and nothing more: inside the sandbox `pip install` is refused and only listed programs may start. No tool sets up an environment for a task, installs what a repository needs, or keeps a cache of dependencies, so a task whose tests need packages that are not already installed cannot be worked on.",
-  "status": "MISSING"
+  "evidence": "agent/environment.py. Setup: every task gets its own virtual environment inside the sandbox, built from the repository's own requirement file (the first of the usual names that exists, or one the task names, with the files it includes), and identified by a key over those files and the Python version, so the same files give the same environment and an unchanged one is reused. Policy (setting agent_package_policy, shown in Settings, Behaviour): 'declared' installs only what those files name, as ready-made packages (no build scripts run), refuses lines that point at another index, a URL or a local path, and does not trust a requirement file the task itself changed; 'any' lifts those limits; 'off' installs nothing. `pip install` typed as a command stays refused. Cache: downloads are kept in one cache folder shared by all tasks. When a test run fails because a module is missing, the coding agent sets the environment up and runs the tests again (agent/coder.py). A real install from PyPI was run once on this machine (six 1.17.0, 9 s, importable in the sandbox). Scope: Python repositories only; versions are as reproducible as the requirement files are pinned (no lock file is generated).",
+  "status": "COMPLETE",
+  "tests": "tests/test_agent_environment.py (14 tests: a real virtual environment and a hand-made package installed from a local folder; the policy cases; reuse; a changed requirement file; the missing-module retry in the coding loop)"
  },
  "059": {
   "commits": "b35835c",
@@ -449,9 +450,9 @@
  },
  "078": {
   "commits": "6bb0b97, 4f725ee",
-  "evidence": "Every action is recorded with its inputs, whether it needed approval and who decided, its result and what it produced; `python -m agent history` and `python -m agent task show` list them, and `python -m agent approvals` lists what is waiting. It is visible from the command line only: the app has no tab for it.",
-  "status": "PARTIAL",
-  "tests": "tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_tools.py: test_everything_a_task_did_is_in_the_history; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal"
+  "evidence": "Every action is recorded before it runs and completed after: its inputs, what it can affect, whether it needed approval and who decided, how it ended, whether the outcome was confirmed by looking at the files, branch or remote, and what it produced (agent/store.py, agent/registry.py). The owner sees it in the app: the Agent tab lists what is waiting for a decision (with Allow and Refuse), every action taken with those columns, each task's steps, and the diff of a finished change (ui/agent_panel.py). The same is available as `python -m agent history`, `task show` and `approvals`.",
+  "status": "COMPLETE",
+  "tests": "tests/test_agent_panel.py: test_the_history_says_who_allowed_an_action_and_what_it_produced, test_a_task_is_given_worked_on_shown_and_accepted_through_the_tab, test_a_request_for_approval_is_decided_in_the_tab; tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal"
  },
  "079": {
   "evidence": "The only linked account is GitHub, through a token read from an environment variable. There is no sign-in flow, no renewal of tokens, and permission is withdrawn by removing the variable. Nothing of what the item asks for is built.",
@@ -862,13 +863,15 @@
   "tests": "tools/audit_ledger.py check (CI): fails when any of the 32 items has no status or evidence"
  },
  "OC-1": {
-  "evidence": "docs/OWNER_CONTROL_RESTRICTIONS.md lists 50 mechanisms in six layers (conversation, model and provider, tools, security, quality, interface), each with trigger, effect, who asked for it, origin, reason, default, alternatives, whether the owner can change it, the decision, tests, risk and limits. It is generated from docs/backlog/restrictions.json. Each entry quotes the line of code it lives on; the check fails when a quoted line is gone, when code recorded as removed is back, or when a source file mentions a restriction-related term without being registered or listed as reviewed (55 files are accounted for). Every 'removed' entry was verified to exist in the commit before the change (3297f44). Limits: the judgement of what counts as a restriction is the assistant's and has not been reviewed by anyone else; the phone app's own backend is in another repository and has no register.",
+  "commits": "65781ef, 2720797",
+  "evidence": "docs/OWNER_CONTROL_RESTRICTIONS.md lists 51 mechanisms in six layers (conversation, model and provider, tools, security, quality, interface), each with trigger, effect, who asked for it, origin, reason, default, alternatives, whether the owner can change it, the decision, tests, risk and limits. It is generated from docs/backlog/restrictions.json. Each entry quotes the line of code it lives on; the check fails when a quoted line is gone, when code recorded as removed is back, or when a source file mentions a restriction-related term without being registered or listed as reviewed. Every 'removed' entry was verified to exist in the commit before the change (3297f44). Limits: the judgement of what counts as a restriction is the assistant's and has not been reviewed by anyone else; the phone app's own backend is in another repository and has no register.",
   "status": "COMPLETE",
   "tests": "tests/test_restriction_register.py; CI step 'Restriction register describes the code as it is' (tools/restriction_register.py check)"
  },
  "OC-2": {
-  "evidence": "docs/OWNER_CONTROL.md, section Decisions: four decisions the owner made in writing (D1 to D4), two that were put to the owner and not answered, with the recommended option in place as a setting and the alternatives named (D5 agent autonomy, D6 reality check), and six that were not put to the owner and are listed so the owner can object (D7 to D12), one of which (D7, pictures) is the assistant's own limit and is flagged as such. No entry in the register records a decision as the owner's unless the owner made it.",
-  "needs": "The owner's answers to D5 to D12 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.",
+  "commits": "65781ef, 2720797",
+  "evidence": "docs/OWNER_CONTROL.md, section Decisions: four decisions the owner made in writing (D1 to D4), two that were put to the owner and not answered, with the recommended option in place as a setting and the alternatives named (D5 agent autonomy, D6 reality check), and seven that were not put to the owner and are listed so the owner can object (D7 to D13), one of which (D7, pictures) is the assistant's own limit and is flagged as such. No entry in the register records a decision as the owner's unless the owner made it.",
+  "needs": "The owner's answers to D5 to D13 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.",
   "status": "COMPLETE",
   "tests": "tests/test_restriction_register.py: test_a_decision_is_never_recorded_as_the_owners_when_the_owner_did_not_make_it"
  },
@@ -929,9 +932,9 @@
  },
  "OC-T08": {
   "commits": "b35835c, 3297f44",
-  "evidence": "The agent reproduces a failing test, edits, runs the tests in the sandbox, has the change reviewed and commits it to its own branch with the diff and the test run recorded; a person's acceptance closes the task. With the real model on ten seeded bugs: 7 of 9 solvable ones fixed, each checked by checking the commit out into a fresh clone.",
+  "evidence": "The agent reproduces a failing test, edits, runs the tests in the sandbox, has the change reviewed and commits it to its own branch with the diff and the test run recorded; a person's acceptance closes the task. With the real model on small seeded bugs it was never tuned on: 4 of 9 fixed (7 of 9 on the set the harness was improved against), each checked by checking the commit out into a fresh clone; no failure reported as a success.",
   "status": "COMPLETE",
-  "tests": "tests/test_agent_coder.py: test_a_fix_is_reproduced_made_tested_reviewed_and_committed_for_a_person_to_accept; tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_dolphin3-8b.json"
+  "tests": "tests/test_agent_coder.py: test_a_fix_is_reproduced_made_tested_reviewed_and_committed_for_a_person_to_accept; tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_heldout_dolphin3-8b.json, agent_dolphin3-8b.json"
  },
  "OC-T09": {
   "commits": "b35835c",

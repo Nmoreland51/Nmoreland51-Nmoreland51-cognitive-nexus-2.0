@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 61 |
-| PARTIAL | 50 |
-| MISSING | 34 |
+| COMPLETE | 63 |
+| PARTIAL | 49 |
+| MISSING | 33 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -20,8 +20,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 2. Make core AI chat genuinely reliable (P1) | 4 | 6 | 3 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 13 | 2 | 0 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
-| 5. Build the autonomous software engineer you actually want (P1) | 11 | 5 | 1 | 0 |
-| 6. Make external actions and automation useful (P1) | 6 | 4 | 1 | 0 |
+| 5. Build the autonomous software engineer you actually want (P1) | 12 | 5 | 0 | 0 |
+| 6. Make external actions and automation useful (P1) | 7 | 3 | 1 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 2 | 4 | 5 | 0 |
 | 9. Security, privacy and data integrity (P0) | 3 | 7 | 3 | 0 |
@@ -67,6 +67,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, after Phase 1e: research prompts fence web text and drop sentences aimed at a model (measured: 6 of 12 planted instructions obeyed before, 0 after); the claim check compares the same statement, gives a reason and dates for every passage, lists what it left out, and has the model re-read supporting passages; contradictions between sources use the same rules; caches expire; fetching retries. Three benchmark tools with saved real-model results and gates are in tools/ and docs/benchmarks (re-run them after changing a research prompt: the tests tell you when). Phase 2 has started: agent/store.py, registry.py, approvals.py, sandbox.py, workspace.py and tools.py are in and tested. Next in Phase 2: the model interface and the coding loop (reproduce, edit, test, retry, stop, escalate) in agent/coder.py, the independent review (agent/review.py), pull requests (agent/github.py, needs a token to run for real), the durable job queue and scheduler (agent/jobs.py), a command-line entry and a tab in the app, then a live run with the local model on small seeded bugs, saved under docs/benchmarks.
 - 2026-11-23, after Phase 2: the coding agent is in `agent/`. It reproduces a failing test, edits in its own Git worktree, runs the tests in the sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py, agent/review.py); publishes its own branch and a draft pull request with narrow authority (agent/github.py; tested against a local remote and a stand-in API, never against github.com: no token); durable background jobs, schedules, reminders and page watching (agent/jobs.py, agent/handlers.py); `python -m agent` (agent/cli.py). Measured with dolphin3:8b on ten seeded bugs: 7 of 9 solvable ones fixed, no failure reported as a success (docs/benchmarks/agent_dolphin3-8b.json; those tasks were also what the harness was improved against). Still open in Phase 2: a second task set the harness has never seen, installing packages for a task (item 058), and an agent tab in the app.
 - 2026-11-23, owner control (Priority 0, added by the owner mid-way; documents in docs/owner/): the app now has one content rule and no topic filters. Everything is in docs/OWNER_CONTROL.md (the account, the decisions, the acceptance tests) and docs/OWNER_CONTROL_RESTRICTIONS.md (50 mechanisms, generated from docs/backlog/restrictions.json; `python tools/restriction_register.py check` fails when the code and the register disagree, and when a new file mentions a restriction without being registered). The policy is modules/behavior_policy.py; the panel is ui/behavior_panel.py. Three real-model measurements gate it and must be re-run after changing what they measure (each test says so when it fails): tools/content_rule_benchmark.py, tools/behavior_check.py, tools/injection_benchmark.py (with --mode for each setting). Two things a successor must not undo without the owner: adding any topic filter or canned refusal to the app, and treating the owner's own messages as untrusted. One thing that is the assistant's own and is flagged as such: pictures of minors nude or undressed are not made, whatever the scene (register entry R-A21). Decisions the owner has not answered are listed in docs/OWNER_CONTROL.md under Decisions (D5 to D12); each has a default in place. Also fixed on the way: the chat-model list offered an embedding model; the test suite runs in parallel (`python -m pytest -n auto`, about 5 minutes instead of 13). Next: the phone backend should pass on the content rule's own message for research and image requests (it shows a general error today) and expose the behaviour settings; then the rest of Phase 3 (remaining capability and automation items), Phases 4 to 6, and the final verification report.
+- 2026-11-23, Phase 2 leftovers: the app has an Agent tab (ui/agent_panel.py); the coding agent sets up a virtual environment per task from the repository's requirement files, under a package policy (agent/environment.py, setting agent_package_policy); and the agent was measured on a second set of seeded bugs nothing had been tuned on (tests/fixtures/agent_tasks_heldout.json): 4 of 9 with dolphin3:8b, against 7 of 9 on the first set. Quote the 4 of 9. That second set has now been looked at, so a change to the harness needs a third set before a new figure is quoted. An idea not acted on, so as not to tune on that set: in all five misses the model repeated a change it had been told did not work; retrying with a higher temperature, or showing the failing assertion more prominently, might help.
 
 ## Items that need the owner
 
@@ -103,7 +104,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **145** (MISSING): Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.
 - **146** (MISSING): Owner decision (the audit marks this 'if desired').
 - **CN-GR-010** (PARTIAL): Review by the owner or another person; a register for the phone app's repository.
-- **OC-2** (COMPLETE): The owner's answers to D5 to D12 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
+- **OC-2** (COMPLETE): The owner's answers to D5 to D13 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
 - **OC-4** (PARTIAL): An OpenAI or Anthropic API key and a GitHub token to exercise the live services; an Android device or emulator for the phone.
 - **OC-5** (PARTIAL): An independent reviewer.
 - **OC-T05** (PARTIAL): An OpenAI or Anthropic API key.
@@ -131,16 +132,18 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Inspect all current controls and populate the restriction register (docs/OWNER_CONTROL_RESTRICTIONS.md).
 
-- **Evidence:** docs/OWNER_CONTROL_RESTRICTIONS.md lists 50 mechanisms in six layers (conversation, model and provider, tools, security, quality, interface), each with trigger, effect, who asked for it, origin, reason, default, alternatives, whether the owner can change it, the decision, tests, risk and limits. It is generated from docs/backlog/restrictions.json. Each entry quotes the line of code it lives on; the check fails when a quoted line is gone, when code recorded as removed is back, or when a source file mentions a restriction-related term without being registered or listed as reviewed (55 files are accounted for). Every 'removed' entry was verified to exist in the commit before the change (3297f44). Limits: the judgement of what counts as a restriction is the assistant's and has not been reviewed by anyone else; the phone app's own backend is in another repository and has no register.
+- **Evidence:** docs/OWNER_CONTROL_RESTRICTIONS.md lists 51 mechanisms in six layers (conversation, model and provider, tools, security, quality, interface), each with trigger, effect, who asked for it, origin, reason, default, alternatives, whether the owner can change it, the decision, tests, risk and limits. It is generated from docs/backlog/restrictions.json. Each entry quotes the line of code it lives on; the check fails when a quoted line is gone, when code recorded as removed is back, or when a source file mentions a restriction-related term without being registered or listed as reviewed. Every 'removed' entry was verified to exist in the commit before the change (3297f44). Limits: the judgement of what counts as a restriction is the assistant's and has not been reviewed by anyone else; the phone app's own backend is in another repository and has no register.
 - **Tests:** tests/test_restriction_register.py; CI step 'Restriction register describes the code as it is' (tools/restriction_register.py check)
+- **Commits:** 65781ef, 2720797
 
 #### OC-2 · COMPLETE
 
 > Give the owner a single consolidated list of material decisions, with recommended alternatives and trade-offs.
 
-- **Evidence:** docs/OWNER_CONTROL.md, section Decisions: four decisions the owner made in writing (D1 to D4), two that were put to the owner and not answered, with the recommended option in place as a setting and the alternatives named (D5 agent autonomy, D6 reality check), and six that were not put to the owner and are listed so the owner can object (D7 to D12), one of which (D7, pictures) is the assistant's own limit and is flagged as such. No entry in the register records a decision as the owner's unless the owner made it.
+- **Evidence:** docs/OWNER_CONTROL.md, section Decisions: four decisions the owner made in writing (D1 to D4), two that were put to the owner and not answered, with the recommended option in place as a setting and the alternatives named (D5 agent autonomy, D6 reality check), and seven that were not put to the owner and are listed so the owner can object (D7 to D13), one of which (D7, pictures) is the assistant's own limit and is flagged as such. No entry in the register records a decision as the owner's unless the owner made it.
 - **Tests:** tests/test_restriction_register.py: test_a_decision_is_never_recorded_as_the_owners_when_the_owner_did_not_make_it
-- **Needs:** The owner's answers to D5 to D12 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
+- **Commits:** 65781ef, 2720797
+- **Needs:** The owner's answers to D5 to D13 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
 
 #### OC-3 · COMPLETE
 
@@ -307,8 +310,8 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Authorized agent changes a test repository and fixes a failing case: diff, passing tests, and task completion evidence.
 
-- **Evidence:** The agent reproduces a failing test, edits, runs the tests in the sandbox, has the change reviewed and commits it to its own branch with the diff and the test run recorded; a person's acceptance closes the task. With the real model on ten seeded bugs: 7 of 9 solvable ones fixed, each checked by checking the commit out into a fresh clone.
-- **Tests:** tests/test_agent_coder.py: test_a_fix_is_reproduced_made_tested_reviewed_and_committed_for_a_person_to_accept; tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_dolphin3-8b.json
+- **Evidence:** The agent reproduces a failing test, edits, runs the tests in the sandbox, has the change reviewed and commits it to its own branch with the diff and the test run recorded; a person's acceptance closes the task. With the real model on small seeded bugs it was never tuned on: 4 of 9 fixed (7 of 9 on the set the harness was improved against), each checked by checking the commit out into a fresh clone; no failure reported as a success.
+- **Tests:** tests/test_agent_coder.py: test_a_fix_is_reproduced_made_tested_reviewed_and_committed_for_a_person_to_accept; tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_heldout_dolphin3-8b.json, agent_dolphin3-8b.json
 - **Commits:** b35835c, 3297f44
 
 #### OC-T09 · COMPLETE
@@ -791,8 +794,8 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Create a true task/planning/execution agent instead of only markdown agent descriptions and intent routing.
 
-- **Evidence:** A real agent that executes exists in agent/: it takes a task with acceptance tests, reproduces the failure, edits in its own checkout, runs the tests in a sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py); tasks, actions and approvals are kept in a database; `python -m agent` drives it. Measured with the local 8B model on ten seeded bugs: 7 of 9 solvable ones fixed, no failure reported as a success. Not built: breaking a goal down into tasks by itself (a person writes the task and its test), and a tab in the app (command line only). Its success rate is the underlying model's on small tasks; it is not a substitute for a stronger model.
-- **Tests:** tests/test_agent_coder.py, tests/test_agent_cli.py, tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_dolphin3-8b.json
+- **Evidence:** A real agent that executes exists in agent/: it takes a task with acceptance tests, reproduces the failure, edits in its own checkout, runs the tests in a sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py); tasks, actions and approvals are kept in a database; it is driven from the Agent tab in the app (ui/agent_panel.py) or with `python -m agent`. Measured with the local 8B model on small seeded bugs it was never tuned on: 4 of 9 fixed (7 of 9 on the first set, which the harness was improved against), no failure reported as a success in 30 task runs. Not built: breaking a goal down into tasks by itself (a person writes the task and its test). Its success rate is the underlying model's on small tasks; it is not a substitute for a stronger model.
+- **Tests:** tests/test_agent_coder.py, tests/test_agent_cli.py, tests/test_agent_panel.py, tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_heldout_dolphin3-8b.json and agent_dolphin3-8b.json
 - **Commits:** 6bb0b97, 96cdb29, b35835c, 4f725ee, 3297f44
 
 ### 054 · P1 · recommended · COMPLETE
@@ -828,11 +831,12 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Commits:** 96cdb29
 - **Needs:** Docker or a WSL distribution for confinement of reading and of the network. Neither is installed on this machine.
 
-### 058 · P1 · recommended · MISSING
+### 058 · P1 · recommended · COMPLETE
 
 > Use reproducible environment setup, package installation policy and dependency caches.
 
-- **Evidence:** There is a policy and nothing more: inside the sandbox `pip install` is refused and only listed programs may start. No tool sets up an environment for a task, installs what a repository needs, or keeps a cache of dependencies, so a task whose tests need packages that are not already installed cannot be worked on.
+- **Evidence:** agent/environment.py. Setup: every task gets its own virtual environment inside the sandbox, built from the repository's own requirement file (the first of the usual names that exists, or one the task names, with the files it includes), and identified by a key over those files and the Python version, so the same files give the same environment and an unchanged one is reused. Policy (setting agent_package_policy, shown in Settings, Behaviour): 'declared' installs only what those files name, as ready-made packages (no build scripts run), refuses lines that point at another index, a URL or a local path, and does not trust a requirement file the task itself changed; 'any' lifts those limits; 'off' installs nothing. `pip install` typed as a command stays refused. Cache: downloads are kept in one cache folder shared by all tasks. When a test run fails because a module is missing, the coding agent sets the environment up and runs the tests again (agent/coder.py). A real install from PyPI was run once on this machine (six 1.17.0, 9 s, importable in the sandbox). Scope: Python repositories only; versions are as reproducible as the requirement files are pinned (no lock file is generated).
+- **Tests:** tests/test_agent_environment.py (14 tests: a real virtual environment and a hand-made package installed from a local folder; the policy cases; reuse; a changed requirement file; the missing-module retry in the coding loop)
 
 ### 059 · P1 · recommended · COMPLETE
 
@@ -991,12 +995,12 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Commits:** 96cdb29
 - **Needs:** Docker or WSL for a sandbox that also confines reading and the network.
 
-### 078 · P1 · recommended · PARTIAL
+### 078 · P1 · recommended · COMPLETE
 
 > Keep user-visible action history: inputs, approvals, results and artifacts.
 
-- **Evidence:** Every action is recorded with its inputs, whether it needed approval and who decided, its result and what it produced; `python -m agent history` and `python -m agent task show` list them, and `python -m agent approvals` lists what is waiting. It is visible from the command line only: the app has no tab for it.
-- **Tests:** tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_tools.py: test_everything_a_task_did_is_in_the_history; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal
+- **Evidence:** Every action is recorded before it runs and completed after: its inputs, what it can affect, whether it needed approval and who decided, how it ended, whether the outcome was confirmed by looking at the files, branch or remote, and what it produced (agent/store.py, agent/registry.py). The owner sees it in the app: the Agent tab lists what is waiting for a decision (with Allow and Refuse), every action taken with those columns, each task's steps, and the diff of a finished change (ui/agent_panel.py). The same is available as `python -m agent history`, `task show` and `approvals`.
+- **Tests:** tests/test_agent_panel.py: test_the_history_says_who_allowed_an_action_and_what_it_produced, test_a_task_is_given_worked_on_shown_and_accepted_through_the_tab, test_a_request_for_approval_is_decided_in_the_tab; tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal
 - **Commits:** 6bb0b97, 4f725ee
 
 ### 079 · P1 · recommended · MISSING
