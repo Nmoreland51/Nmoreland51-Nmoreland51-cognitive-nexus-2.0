@@ -97,6 +97,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # What the coding agent may install for a task: "declared" (the repository's own requirement
     # files, ready-built packages from the index only), "any", or "off". See agent/environment.py.
     "agent_package_policy": "declared",
+    # Web questions: work out what is meant and what to search for before searching (one model call).
+    "plan_web_search": True,
     # Off: a cloud provider is used only when it is first in provider_order. On: a configured
     # cloud provider lower in the order may answer when the providers before it fail.
     "allow_cloud_fallback": False,

@@ -815,6 +815,50 @@ def _budget_for_mode(mode: str, intent: str, function: str = "") -> tuple[int, i
     return 60, 420, 1200, 4096
 
 
+# How many tokens a word of ordinary English takes for the local models measured here (about 1.3),
+# with room so that the ending is not the part that gets cut.
+TOKENS_PER_WORD = 1.45
+_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+_RANGE = re.compile(r"\b(?:between\s+)?(\d{2,4})\s*(?:-|–|—|to|and)\s*(\d{2,4})[\s-]*words?\b", re.IGNORECASE)
+_AT_LEAST = re.compile(r"\b(?:at\s+least|minimum\s+of|no\s+fewer\s+than|more\s+than)\s+(\d{2,4})\s*words?\b", re.IGNORECASE)
+_AT_MOST = re.compile(r"\b(?:at\s+most|no\s+more\s+than|under|less\s+than|fewer\s+than|maximum\s+of|max\.?|up\s+to)\s+(\d{2,4})\s*words?\b", re.IGNORECASE)
+_ABOUT = re.compile(r"\b(\d{2,4})(?:[\s-]*|\s+or\s+so\s+)words?\b", re.IGNORECASE)
+# One paragraph is handled by the explanation rules already; two or more are a length.
+_PARAGRAPHS = re.compile(r"\b([2-9]|10|two|three|four|five|six|seven|eight|nine|ten)[\s-]+paragraphs\b", re.IGNORECASE)
+# Rules of a kind of question that limit length. They give way when the user states a length.
+_LENGTH_RULE = re.compile(r"under \d+ words|one compact paragraph|about 120 to 180 words|under 20 words|exactly one option", re.IGNORECASE)
+
+
+def requested_length(message: str) -> tuple[int, int] | None:
+    """(fewest, most) words the user asked for, or None when no length was stated.
+
+    "about 300 words" and "a 300-word story" allow 10% either way; "450 to 550 words" is taken as
+    written; "at least 400 words" and "under 200 words" bound one side; "three paragraphs" is read
+    as about 80 to 130 words each.
+    """
+
+    text = str(message or "")
+    found = _RANGE.search(text)
+    if found:
+        low, high = sorted((int(found.group(1)), int(found.group(2))))
+        return (low, high) if high >= 10 else None
+    found = _AT_MOST.search(text)  # before "at least": "no more than" contains "more than"
+    if found:
+        return max(1, int(int(found.group(1)) * 0.6)), int(found.group(1))
+    found = _AT_LEAST.search(text)
+    if found:
+        return int(found.group(1)), int(int(found.group(1)) * 1.3)
+    found = _ABOUT.search(text)
+    if found and int(found.group(1)) >= 10:
+        number = int(found.group(1))
+        return int(number * 0.9), int(round(number * 1.1))
+    found = _PARAGRAPHS.search(text)
+    if found:
+        count = _NUMBER_WORDS.get(found.group(1).lower()) or int(found.group(1))
+        return count * 80, count * 130
+    return None
+
+
 def plan_response(
     *,
     user_message: str,
@@ -929,6 +973,27 @@ def plan_response(
         diagnostics["social_presence"] = social_presence_policy(function)
     if intent == "conversation_followup":
         diagnostics["backchannel_continuity"] = backchannel_continuity_policy(function)
+
+    # A length the user states outranks the budget of the kind of question. Before this, the
+    # planner never read it: a 300-word explanation got 220 tokens and "one compact paragraph",
+    # and a 500-word story the 420-token default (measured: 326 words, cut mid-sentence).
+    asked = None if short_copy else requested_length(user_message)
+    if asked:
+        low, high = asked
+        max_tokens = max(max_tokens, int(high * TOKENS_PER_WORD) + 80)
+        min_chars = max(min_chars, low * 4)
+        ideal_chars = max(ideal_chars, int((low + high) / 2 * 6))
+        max_chars = max(max_chars, ideal_chars * 2)
+        num_ctx = max(num_ctx, 4096)
+        if mode == "short":
+            mode = "standard"
+        instructions = [item for item in instructions if not _LENGTH_RULE.search(item)]
+        instructions.append(
+            f"Length: the user asked for {low} to {high} words. Write within that range, with as many paragraphs as it needs, "
+            "and finish with a complete ending. Do not stop early and do not pad."
+        )
+        formatting_style = "as many paragraphs as the requested length needs"
+        diagnostics["requested_words"] = [low, high]
 
     return ResponsePlan(
         intent=intent,

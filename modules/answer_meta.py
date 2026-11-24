@@ -128,6 +128,8 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
         parts.append("Passages from your saved knowledge, no model used")
     elif provider == "content_rule":
         parts.append("Not answered: the app's one content rule (no sexual content involving minors)")
+    elif provider == "calculator":
+        parts.append("Calculated exactly by the app; no model used")
     elif provider in BUILT_IN_PROVIDERS:
         parts.append("Built-in reply, no model used")
     elif answered:

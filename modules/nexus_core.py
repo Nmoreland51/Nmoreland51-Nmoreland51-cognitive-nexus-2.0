@@ -60,6 +60,8 @@ from modules.response_self_critic import (
     store_self_critic_observation,
 )
 from modules.response_verifier import log_verification, verify_response
+from modules.calculator import calculate
+from modules.research_plan import PLAN_OPTIONS, SearchPlan, as_typed, plan_search, unsourced_names_note
 from modules.web_research import (
     NO_RESULTS_SUMMARY,
     build_summary_prompt,
@@ -587,6 +589,11 @@ class NexusCore:
             max_predict = max(max_predict, 700)
         elif plan.intent in {"debugging", "troubleshooting", "project_planning"}:
             max_predict = max(max_predict, 320)
+        if plan.diagnostics.get("requested_words"):
+            # A length the owner asked for outranks the speed profile. "Fast" used to cap every
+            # answer at 384 tokens, about 290 words, whatever was asked for.
+            max_predict = max(max_predict, int(plan.max_tokens))
+            max_ctx = max(max_ctx, 4096)
 
         tuned["num_ctx"] = min(int(tuned.get("num_ctx", max_ctx) or max_ctx), max_ctx)
         tuned["num_predict"] = min(int(tuned.get("num_predict", max_predict) or max_predict), max_predict)
@@ -749,7 +756,7 @@ class NexusCore:
             "project_planning": "Start with '1.'. Give exactly 3 short concrete steps, each under 10 words, with no preamble.",
             "opinion_rating": "Start with Score or Verdict, then a compact reason and next upgrade.",
         }
-        if plan.intent in compact_rules:
+        if plan.intent in compact_rules and not plan.diagnostics.get("requested_words"):
             base = prompt.rstrip()
             if base.endswith("Final answer:"):
                 base = base[: -len("Final answer:")].rstrip()
@@ -1053,6 +1060,24 @@ class NexusCore:
                 "sources": 0,
             }
             yield rule.reply
+            return
+        calculated = calculate(user_message)
+        if calculated is not None:
+            # Plain arithmetic is worked out exactly instead of sampled from the model (modules/calculator.py).
+            self.last_verification = {}
+            self.last_reality_audit = {"enabled": False, "reason": "calculator"}
+            self.last_trust_audit = {}
+            self.last_provider_result = {
+                "text": calculated.answer,
+                "provider": "calculator",
+                "model": "",
+                "elapsed": time.perf_counter() - started,
+                "success": True,
+                "attempts": [{"provider": "calculator", "success": True}],
+                "calculation": calculated.to_dict(),
+                "sources": 0,
+            }
+            yield calculated.answer
             return
         direct_response = self._direct_response_instruction(user_message)
         if direct_response is not None:
@@ -1376,15 +1401,20 @@ class NexusCore:
             if plan.acknowledge:
                 yield plan.acknowledgement
             query = route_decision.search_query or user_message
-            # Search and read pages first, then stream the brief answer so words appear while the
-            # model writes them (~45s on CPU) instead of all at once at the end.
-            gathered = gather_research(query, max_results=5, brief=True)
+            # Work out what the question means and what to search for, search until enough
+            # relevant results are in hand, then read pages and stream the brief answer.
+            plan_started = time.perf_counter()
+            search_plan = self.plan_web_search(user_message, settings)
+            if search_plan.source != "model":
+                search_plan.queries = [query]  # no plan: search as before
+            gathered = gather_research(query, max_results=5, brief=True, plan=search_plan)
+            gathered["timings"]["plan_and_search"] = time.perf_counter() - plan_started
             results = gathered["results"]
             summary_started = time.perf_counter()
             model_meta: dict[str, Any] = {}
             model_answered = False
             if gathered["has_sources"]:
-                prompt = build_summary_prompt(query, results, gathered["scraped_pages"], brief=True)
+                prompt = build_summary_prompt(query, results, gathered["scraped_pages"], brief=True, meaning=search_plan.topic if search_plan.source == "model" else "")
                 request = self._provider_request(
                     prompt,
                     settings,
@@ -1402,8 +1432,8 @@ class NexusCore:
                     summary = "No summary was generated."
                     yield summary
                 if model_answered:
-                    # Flag version numbers/years the model wrote that its sources don't contain.
-                    note = unsourced_numbers_note(summary, prompt)
+                    # Flag version numbers, years and names the model wrote that its sources don't contain.
+                    note = unsourced_numbers_note(summary, prompt) + unsourced_names_note(summary, prompt, user_message)
                 else:
                     # What was shown is the fallback notice or a cut-off answer, not a summary.
                     note = (
@@ -1510,6 +1540,10 @@ class NexusCore:
             options["temperature"] = min(float(options.get("temperature", 0.7)), 0.7)
         elif plan.mode in {"deep", "research"}:
             options["temperature"] = max(float(options.get("temperature", 0.75)), 0.8)
+        if plan.intent == "simple_fact":
+            # A short factual answer should not depend on chance. Measured: "What is 7 times 6?"
+            # came back 84 once in three at the chat's usual 0.35 to 0.7. Writing keeps its temperature.
+            options["temperature"] = min(float(options.get("temperature", 0.7)), 0.1)
         options = self._apply_throughput_profile(options, settings, plan)
         # Decide the model's window first, then pack the prompt to what that window leaves for
         # it. The answer rules are added after packing, so their size is taken off the allowance.
@@ -1663,6 +1697,15 @@ class NexusCore:
             answer = f"Fallback: provider returned no visible assistant response. Reason: {reason}"
             chunks.append(answer)
             yield answer
+        # Why the model stopped. "length" means it hit the token limit it was given: the answer is
+        # not finished, and is not shown as if it were.
+        stopped_because = str(provider_speed.get("done_reason") or "")
+        token_limit = int((request.options or {}).get("num_predict") or request.max_tokens or 0)
+        if stopped_because == "length" and answer and not answer.startswith("Fallback:"):
+            note = f"\n\n[Stopped at the output limit of {token_limit} tokens before the answer was finished. Say \"continue\" for the rest.]"
+            chunks.append(note)
+            yield note
+            answer += note
         audited_answer = self._audit_answer(
             answer,
             label="chat",
@@ -1714,7 +1757,16 @@ class NexusCore:
             "provider_order": request.provider_order,
             "attempts": provider_meta.get("attempts", []),
             "fallback_reason": provider_meta.get("fallback_reason", ""),
-            "partial": bool(provider_meta.get("partial")),
+            "partial": bool(provider_meta.get("partial")) or stopped_because == "length",
+            "stopped_because": stopped_because,
+            "generation": {
+                "num_predict": token_limit,
+                "num_ctx": (request.options or {}).get("num_ctx"),
+                "temperature": (request.options or {}).get("temperature"),
+                "requested_words": plan.diagnostics.get("requested_words"),
+                "words_written": len(answer.split()),
+                "throughput_profile": str(settings.get("throughput_mode") or "balanced"),
+            },
             "skipped_cloud": list(provider_meta.get("skipped_cloud") or []),
             "usage": dict(provider_meta.get("usage") or {}),
             "model_note": str(provider_meta.get("model_note") or ""),
@@ -1765,9 +1817,13 @@ class NexusCore:
         self._require_content_rule(query, settings)
         options = BRIEF_WEB_SUMMARY_OPTIONS if brief else FULL_WEB_SUMMARY_OPTIONS
         ai_callback = None
+        planner = None
         if summarize_with_ai:
             def ai_callback(prompt: str) -> str:
                 return self._model_text(prompt, settings, options)
+
+            def planner(question: str) -> SearchPlan:
+                return self.plan_web_search(question, settings)
 
         started = time.perf_counter()
         self.provider_router.last_stream_metadata = {}
@@ -1780,11 +1836,29 @@ class NexusCore:
             save_to_memory=save_to_memory,
             ai_callback=ai_callback,
             brief=brief,
+            planner=planner,
         )
         session["produced_by"] = self._produced_by(
             "web_research", started, answered=bool(session.get("summary_generated")), tools=["web_search"]
         )
         return session
+
+    def plan_web_search(self, question: str, settings: dict[str, Any]) -> SearchPlan:
+        """What a question for the web means and what to search for (modules/research_plan.py).
+
+        One model call, held to a JSON Schema. Switched off with the setting plan_web_search, or
+        when no model answers: the question is then searched as typed.
+        """
+
+        if not settings.get("plan_web_search", self.config.get("plan_web_search", True)):
+            return as_typed(question, "switched off")
+
+        def ask(prompt: str, schema: dict[str, Any]) -> str:
+            request = self._provider_request(prompt, settings, dict(PLAN_OPTIONS), model=settings.get("selected_model") or "")
+            request.response_schema = schema
+            return self.provider_router.generate_or_raise(request).text
+
+        return plan_search(question, ask)
 
     def run_bloodhound_search(self, query: str, settings: dict[str, Any], *, rule_checked: bool = False) -> dict[str, Any]:
         """Run Bloodhound Search Mode through the shared provider router.
