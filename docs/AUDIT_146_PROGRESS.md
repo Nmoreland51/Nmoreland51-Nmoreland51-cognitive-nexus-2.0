@@ -8,8 +8,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 75 |
-| PARTIAL | 51 |
+| COMPLETE | 76 |
+| PARTIAL | 50 |
 | MISSING | 19 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
@@ -24,7 +24,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
-| 9. Security, privacy and data integrity (P0) | 6 | 7 | 0 | 0 |
+| 9. Security, privacy and data integrity (P0) | 7 | 6 | 0 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
@@ -1326,13 +1326,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Commits:** 854e55c
 - **Needs:** Docker or a WSL distribution, so that reading and the network can be confined by the operating system (as for items 057 and 077).
 
-### 110 · P0 · recommended · PARTIAL
+### 110 · P0 · recommended · COMPLETE
 
 > Keep secrets out of repo files, image metadata, model prompts, logs and mobile APKs.
 
-- **Evidence:** tools/check_repo_hygiene.py scans every tracked file for API keys, tokens and private keys on each push (none found in 588 files) and .env is ignored. Logs, model prompts, image metadata and the Android APK are not scanned.
-- **Tests:** tests/test_repo_hygiene.py; CI 'checks' job.
-- **Commits:** 351c51d, ce2c584
+- **Evidence:** Repository files: tools/check_repo_hygiene.py scans every tracked file on each push (776 files, none found). Logs and picture metadata: modules/redaction.py redacts key and token shapes, passwords and keys in web addresses, Authorization values and this machine's own secrets in the log file (tracebacks included), the event log, the answer checks, picture metadata and the workflow text inside ComfyUI pictures. Prompts: the app's own keys never reach the model (tested with keys in the environment and the settings); the owner's own text is sent as typed, by design. Phone builds: the Android client's source (cognitive-nexus-android 77e34b1) compiles in no credential (the backend token is typed in Settings and kept in the Android keystore; the build writes only the source revision into the app), and check_repo_hygiene.py --scan looks inside an .apk or .aab. Limits: a built APK was not available to scan; a key in a format the patterns do not know, that is not this machine's own, is not recognised; the coding agent's journal keeps tool output as it was, because a resumed run replays it.
+- **Tests:** tests/test_redaction.py (including test_the_apps_own_keys_never_reach_the_model and test_a_phone_build_or_an_old_log_can_be_scanned); tests/test_repo_hygiene.py; CI 'checks' job.
+- **Commits:** 351c51d, ce2c584, 976955d
 
 ### 111 · P0 · recommended · PARTIAL
 

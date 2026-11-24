@@ -635,10 +635,10 @@
   "tests": "tests/test_agent_workspace.py, tests/test_agent_tools.py, tests/test_agent_sandbox.py, tests/test_agent_toolcall.py, tests/test_agent_registry.py"
  },
  "110": {
-  "commits": "351c51d, ce2c584",
-  "evidence": "tools/check_repo_hygiene.py scans every tracked file for API keys, tokens and private keys on each push (none found in 588 files) and .env is ignored. Logs, model prompts, image metadata and the Android APK are not scanned.",
-  "status": "PARTIAL",
-  "tests": "tests/test_repo_hygiene.py; CI 'checks' job."
+  "commits": "351c51d, ce2c584, 976955d",
+  "evidence": "Repository files: tools/check_repo_hygiene.py scans every tracked file on each push (776 files, none found). Logs and picture metadata: modules/redaction.py redacts key and token shapes, passwords and keys in web addresses, Authorization values and this machine's own secrets in the log file (tracebacks included), the event log, the answer checks, picture metadata and the workflow text inside ComfyUI pictures. Prompts: the app's own keys never reach the model (tested with keys in the environment and the settings); the owner's own text is sent as typed, by design. Phone builds: the Android client's source (cognitive-nexus-android 77e34b1) compiles in no credential (the backend token is typed in Settings and kept in the Android keystore; the build writes only the source revision into the app), and check_repo_hygiene.py --scan looks inside an .apk or .aab. Limits: a built APK was not available to scan; a key in a format the patterns do not know, that is not this machine's own, is not recognised; the coding agent's journal keeps tool output as it was, because a resumed run replays it.",
+  "status": "COMPLETE",
+  "tests": "tests/test_redaction.py (including test_the_apps_own_keys_never_reach_the_model and test_a_phone_build_or_an_old_log_can_be_scanned); tests/test_repo_hygiene.py; CI 'checks' job."
  },
  "111": {
   "evidence": "The Android backend requires a bearer token of at least 32 characters compared in constant time (backend/server.py). There is no rotation, rate limiting, revocation or per-device access.",
