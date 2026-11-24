@@ -100,6 +100,9 @@ Then open:
 http://localhost:8501
 ```
 
+The app has one user and no sign-in, so it listens on this computer only (`.streamlit/config.toml`);
+for the phone, use the phone backend with its token. Who can reach what is in `docs/ACCESS_MODEL.md`.
+
 ## Validate
 
 Run the import smoke test:

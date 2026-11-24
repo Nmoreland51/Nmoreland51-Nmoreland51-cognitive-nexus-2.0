@@ -1728,6 +1728,33 @@
    ]
   },
   {
+   "id": "R-D13",
+   "name": "The app is reachable from this computer only; the experimental fullstack backend answers only its own page",
+   "category": "D",
+   "status": "active",
+   "trigger": "Starting the app with streamlit run app.py (run.py and the launcher already did this); a web page in the browser calling the fullstack-local backend.",
+   "effect": "The app listens on localhost, so another device on the network cannot open it. Streamlit's usage statistics are not sent. The fullstack-local backend accepts browser requests only from its own page, not from other websites.",
+   "owner_requested": "In general terms (the audit's items 114 and 111: a single-owner access model; access controls for remote use).",
+   "evidence": ".streamlit/config.toml; run.py and cognitive_nexus/launcher.py (--server.address=localhost); fullstack-local/backend/app.py ALLOWED_ORIGINS; docs/ACCESS_MODEL.md.",
+   "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.",
+   "technical_reason": "The app has no sign-in: anyone who can reach it has the owner's full control (chat, files, deleting saved data, the coding agent). Streamlit listens on every network interface unless told otherwise, and the fullstack backend allowed any website to call it and read the answers.",
+   "affected_workflows": "Opening the app from another device on the network (use the phone backend with its token instead); calling the fullstack backend from another web page.",
+   "default_state": "On.",
+   "effective_state": "On.",
+   "alternatives": "address = \"0.0.0.0\" in .streamlit/config.toml, or --server.address 0.0.0.0, to open the app to the network; FULLSTACK_ALLOWED_ORIGINS for other pages.",
+   "configurable": "Yes: .streamlit/config.toml or --server.address; COGNITIVE_NEXUS_HOST for the launcher; FULLSTACK_ALLOWED_ORIGINS.",
+   "owner_decision": "Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.",
+   "tests": "tests/test_access_model.py",
+   "regression_risk": "Low. A bookmark to http://localhost:8501 keeps working; one to this computer's network address stops working until the address is changed.",
+   "known_limitations": "Anything running on this computer can still open the app. The phone backend has its own token (item 111).",
+   "locations": [
+    {
+     "file": "fullstack-local/backend/app.py",
+     "anchor": "ALLOWED_ORIGINS = ["
+    }
+   ]
+  },
+  {
    "id": "R-E01",
    "name": "The reality check",
    "category": "E",

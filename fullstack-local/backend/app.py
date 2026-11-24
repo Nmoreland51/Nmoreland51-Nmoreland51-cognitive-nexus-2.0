@@ -26,12 +26,20 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "llama3.1:8b")
 
 app = FastAPI(title="Cognitive Nexus Local Fullstack")
+# Only this app's own page may call it from a browser. With "*" any website open in the same browser
+# could send chat and picture requests to it and read the answers (it has no sign-in; see
+# docs/ACCESS_MODEL.md). The page is served from here, so it needs no exception itself.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("FULLSTACK_ALLOWED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",")
+    if origin.strip() and origin.strip() != "*"
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 class ChatRequest(BaseModel):

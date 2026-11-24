@@ -1,0 +1,13 @@
+# Streamlit settings for Cognitive Nexus, read by `streamlit run app.py` from this folder.
+# See docs/ACCESS_MODEL.md: the app has one user, its owner, and no sign-in.
+
+[server]
+# Reachable from this computer only, however the app is started (the launcher already does this).
+# Without it Streamlit listens on every network interface, and anyone who can reach the port has the
+# owner's full control: chat, files, saved data, the coding agent. To use it from another device on
+# your own network, set "0.0.0.0" here or start it with --server.address 0.0.0.0, knowing that.
+address = "localhost"
+
+[browser]
+# Streamlit sends usage statistics to Streamlit by default. Everything this app does stays on this computer.
+gatherUsageStats = false

@@ -18,7 +18,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | A. Conversation behaviour | 10 | 2 | 9 |
 | B. Model and provider | 5 | 0 | 0 |
 | C. Tools and side effects | 8 | 1 | 0 |
-| D. Integrity and security | 9 | 2 | 1 |
+| D. Integrity and security | 10 | 2 | 1 |
 | E. Quality controls | 2 | 1 | 0 |
 | F. Interface defaults and labels | 4 | 0 | 1 |
 
@@ -71,6 +71,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | R-D10 | Limits on uploaded files and on deleting data | active | On | No setting | Pending review by the owner |
 | R-D11 | In a tool run, private text is not sent out and pages are fetched only from known addresses | active | On | Rule 1: yes, per run | Pending review by the owner |
 | R-D12 | Limits on heavy work: one picture at a time, a time limit, room in memory, a bounded job queue | active | One picture at a time, two may wait up to 10 minutes; 30 minutes per picture; picture_memory free_chat_model; 100 waiting jobs per kind, 10 coding tasks | Yes: picture_memory in the Images tab and the settings file; picture_time_limit_seconds and picture_wait_seconds in config/nexus_config.json; queue_limit per enqueue call | Pending review by the owner |
+| R-D13 | The app is reachable from this computer only; the experimental fullstack backend answers only its own page | active | On | Yes: .streamlit/config.toml or --server.address; COGNITIVE_NEXUS_HOST for the launcher; FULLSTACK_ALLOWED_ORIGINS | Pending review by the owner |
 | R-E01 | The reality check | changed | label | Yes | Pending: the owner was asked on 2026-11-23 and did not answer, so the recommended option is the default and it is a setting |
 | R-E02 | Notes about grounding and checks after an answer | active | On; notes hidden in ordinary conversation | Yes | Pending review by the owner |
 | R-E03 | Research answers come from the sources and say when the sources do not have the answer | active | On | No setting | Pending review by the owner |
@@ -1156,6 +1157,26 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Tests:** tests/test_heavy_work.py, tests/test_agent_jobs.py
 - **Regression risk:** Low. The chat path checks one flag and one lock file when no picture is being made.
 - **Known limitations:** The memory a picture needs is measured at two sizes on one machine and estimated in between and beyond. Waiting is counted per process; across processes the lock file gives one picture at a time but not the waiting limit. A picture cannot be cancelled from the Images tab while it is made; it stops at its time limit.
+- **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
+
+### R-D13 · The app is reachable from this computer only; the experimental fullstack backend answers only its own page · active
+
+- **Where:** `fullstack-local/backend/app.py:32` — `ALLOWED_ORIGINS = [`
+- **Trigger:** Starting the app with streamlit run app.py (run.py and the launcher already did this); a web page in the browser calling the fullstack-local backend.
+- **Effect:** The app listens on localhost, so another device on the network cannot open it. Streamlit's usage statistics are not sent. The fullstack-local backend accepts browser requests only from its own page, not from other websites.
+- **Owner requested:** In general terms (the audit's items 114 and 111: a single-owner access model; access controls for remote use).
+- **Evidence:** .streamlit/config.toml; run.py and cognitive_nexus/launcher.py (--server.address=localhost); fullstack-local/backend/app.py ALLOWED_ORIGINS; docs/ACCESS_MODEL.md.
+- **Origin:** Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.
+- **Technical reason:** The app has no sign-in: anyone who can reach it has the owner's full control (chat, files, deleting saved data, the coding agent). Streamlit listens on every network interface unless told otherwise, and the fullstack backend allowed any website to call it and read the answers.
+- **Affected workflows:** Opening the app from another device on the network (use the phone backend with its token instead); calling the fullstack backend from another web page.
+- **Default:** On.
+- **Effective now:** On.
+- **Alternatives:** address = "0.0.0.0" in .streamlit/config.toml, or --server.address 0.0.0.0, to open the app to the network; FULLSTACK_ALLOWED_ORIGINS for other pages.
+- **Can the owner change it?:** Yes: .streamlit/config.toml or --server.address; COGNITIVE_NEXUS_HOST for the launcher; FULLSTACK_ALLOWED_ORIGINS.
+- **Owner decision:** Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.
+- **Tests:** tests/test_access_model.py
+- **Regression risk:** Low. A bookmark to http://localhost:8501 keeps working; one to this computer's network address stops working until the address is changed.
+- **Known limitations:** Anything running on this computer can still open the app. The phone backend has its own token (item 111).
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
 

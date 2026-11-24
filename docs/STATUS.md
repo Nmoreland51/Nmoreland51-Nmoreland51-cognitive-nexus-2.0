@@ -65,6 +65,7 @@ This page replaces the readiness claims in the older reports in this repository 
 - **Answers from a small local model** can state outdated facts. Web answers flag version numbers and years that are not in their sources, but other errors can get through.
 - **Saved data** is in JSON files changed under a lock and, for the knowledge index and the agent's records, SQLite databases, so two programs writing at once do not overwrite each other.
 - **Pictures and memory**: what a picture needs is measured at 512x512 and 768x768 on one machine and estimated for other sizes (above 768x768 the estimate is a lower bound). A picture cannot be cancelled from the Images tab while it is being made; it stops at its time limit (30 minutes).
+- **One user, no sign-in.** Whoever can reach the app has the owner's full control, so it listens on this computer only; anything running on this computer can still open it (`docs/ACCESS_MODEL.md`).
 - **Live data is not encrypted.** Backups can be; the files the app works on are plain files. Use full-disk encryption if the computer is shared or portable.
 - **History in chat prompts.** On the default settings many simple turns are answered without earlier messages, which keeps a CPU-only machine responsive but means the model does not always see the conversation.
 - **Knowledge search** needs an embedding model in Ollama (for example `ollama pull all-minilm`, 45 MB) to search by meaning. The app does not download one itself; without it, search matches words and says so.
