@@ -697,8 +697,10 @@
   "tests": "tests/test_provider_truth.py::test_local_failure_does_not_send_the_prompt_to_a_configured_cloud_provider and the other cloud-gate tests; tests/test_app_controls.py::test_data_locality_caption_states_where_prompts_can_go; tests/test_model_failure_paths.py::test_label_for_a_cloud_answer_shows_where_the_prompt_went_and_the_cost."
  },
  "120": {
-  "evidence": "app.py is about 2,300 lines with every tab renderer in one file.",
-  "status": "MISSING"
+  "commits": "ae3f7ef",
+  "evidence": "Every tab renderer moved out of app.py into ui/ modules (shared state, chat, sidebar, research, images and gallery, knowledge, diagnostics, settings, overview); app.py went from 2,609 to 152 lines and only starts the app and lays out the tabs. All 74 functions and constants are identical, as syntax trees, where they now are. Each of the twelve tabs is drawn and tested on its own through Streamlit's test runner. Profiled before and after (two runs each): a rerun went from 0.47-0.54 s to 0.22-0.29 s; first visit and chat turn no slower.",
+  "status": "COMPLETE",
+  "tests": "tests/test_ui_tabs.py; tests/test_app_controls.py; tools/app_profile.py (docs/benchmarks/app_profile.json, tabs_moved_out_of_app_py)."
  },
  "121": {
   "evidence": "modules/nexus_core.py is about 1,750 lines in one class.",

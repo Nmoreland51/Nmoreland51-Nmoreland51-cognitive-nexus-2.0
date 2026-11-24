@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 76 |
+| COMPLETE | 77 |
 | PARTIAL | 50 |
-| MISSING | 19 |
+| MISSING | 18 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -25,7 +25,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
 | 9. Security, privacy and data integrity (P0) | 7 | 6 | 0 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 7 | 6 | 3 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
 Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
@@ -1411,11 +1411,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 ## 10. Code quality, tests, delivery, and maintenance (P0)
 
-### 120 · P0 · observed · MISSING
+### 120 · P0 · observed · COMPLETE
 
 > Extract Streamlit UI tab renderers from the roughly 105 KB app.py, in testable units.
 
-- **Evidence:** app.py is about 2,300 lines with every tab renderer in one file.
+- **Evidence:** Every tab renderer moved out of app.py into ui/ modules (shared state, chat, sidebar, research, images and gallery, knowledge, diagnostics, settings, overview); app.py went from 2,609 to 152 lines and only starts the app and lays out the tabs. All 74 functions and constants are identical, as syntax trees, where they now are. Each of the twelve tabs is drawn and tested on its own through Streamlit's test runner. Profiled before and after (two runs each): a rerun went from 0.47-0.54 s to 0.22-0.29 s; first visit and chat turn no slower.
+- **Tests:** tests/test_ui_tabs.py; tests/test_app_controls.py; tools/app_profile.py (docs/benchmarks/app_profile.json, tabs_moved_out_of_app_py).
+- **Commits:** ae3f7ef
 
 ### 121 · P0 · observed · MISSING
 
