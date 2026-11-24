@@ -185,8 +185,16 @@ def render_agent_panel(
     # ---- what waits for the owner ----------------------------------------------------------------
     waiting = [task for task in tasks if task.status in WAITING_STATES]
     st.markdown(f"**Waiting for you: {len(approvals) + len(waiting)}**")
+    tasks_by_id = {task.id: task for task in tasks}
     for request in approvals:
         st.write(f"The agent asks to **{request['summary']}** (can affect: {request['effect']}; task {request['task_id'] or 'none'}).")
+        with st.expander("Exactly what it would do", expanded=False):
+            st.caption(f"Tool {request['tool']}, with these arguments:")
+            st.json(request.get("arguments") or {})
+            asking_task = tasks_by_id.get(request.get("task_id") or "")
+            if asking_task is not None:
+                st.caption(f"The changes on its branch ({asking_task.branch or 'none yet'}), which this would act on:")
+                st.code(_diff_of(build(), asking_task) or "(no changes)", language="diff")
         if not read_only:
             allow, refuse = st.columns(2)
             if allow.button("Allow this once", key=f"agent_allow_{request['id']}"):
@@ -279,8 +287,11 @@ def render_agent_panel(
                 _notice(f"The agent stopped: {describe(done)}")
                 st.rerun()
             if hand_over.button("Hand to the background worker", key="agent_queue", help="Needs a worker: `python -m agent worker`, or the button under Background work."):
-                queue.enqueue("coding_task", {"task_id": chosen.id}, timeout_seconds=7200, max_attempts=2, idempotency_key=f"coding:{chosen.id}:{chosen.updated_at}")
-                _notice("Queued for the background worker.")
+                try:
+                    queue.enqueue("coding_task", {"task_id": chosen.id}, timeout_seconds=7200, max_attempts=2, idempotency_key=f"coding:{chosen.id}:{chosen.updated_at}")
+                    _notice("Queued for the background worker.")
+                except StoreError as exc:  # the queue is full (agent/jobs.py QUEUE_LIMITS)
+                    _notice(f"Not queued: {exc}")
                 st.rerun()
             if chosen.status not in {"done", "cancelled"} and cancel.button("Cancel the task", key="agent_cancel"):
                 store.update_task(chosen.id, status="cancelled", note="Cancelled in the app")

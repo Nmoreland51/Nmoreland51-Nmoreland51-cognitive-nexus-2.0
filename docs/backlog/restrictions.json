@@ -1697,6 +1697,37 @@
    ]
   },
   {
+   "id": "R-D12",
+   "name": "Limits on heavy work: one picture at a time, a time limit, room in memory, a bounded job queue",
+   "category": "D",
+   "status": "active",
+   "trigger": "Making a picture on this machine (the local pipeline, Automatic1111 or a ComfyUI workflow) while another is being made; a picture that runs longer than its time limit; too little memory for a picture beside the loaded chat model; a chat request while a picture is made and the chat model does not fit beside it; adding a background job when many of its kind already wait.",
+   "effect": "A second picture waits its turn (up to 10 minutes); with two already waiting, one more is turned down at once with a message saying the machine is busy. A picture is stopped between steps after 30 minutes and nothing half-made is kept. When memory is short the chat model is taken out of memory first (Ollama loads it again for the next answer), and the note under the picture says so; nothing is refused for lack of memory. A chat request that would load the chat model beside a picture waits for the picture. A job of a kind with 100 waiting (10 for coding tasks) is refused with a message; a scheduled firing over that limit is skipped with a notice.",
+   "owner_requested": "In general terms (the audit's items 098 and 105: no large model beside an image pipeline when resources are tight; bounded concurrency, queues and cancellation for heavy jobs).",
+   "evidence": "modules/heavy_work.py, modules/image_gen.py generate_images, modules/nexus_core.py run_comfyui_workflow, modules/provider_router.py _stream_ollama, agent/jobs.py enqueue; measured with tools/picture_memory_check.py (docs/benchmarks/picture_memory*.json).",
+   "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.",
+   "technical_reason": "Measured on the development machine: with the chat model loaded and 8.4 GB free, one 768x768 picture took 8.5 GB at its peak and left 0.35 GB free; two pictures at once, or a picture beside a model being loaded, run the machine out of memory.",
+   "affected_workflows": "Images tab and pictures asked for in chat or from the phone; chat while a picture is made; background jobs of the coding agent.",
+   "default_state": "One picture at a time, two may wait up to 10 minutes; 30 minutes per picture; picture_memory free_chat_model; 100 waiting jobs per kind, 10 coding tasks.",
+   "effective_state": "As set.",
+   "alternatives": "Keep the chat model loaded (picture_memory keep_chat_model); longer limits in config/nexus_config.json.",
+   "configurable": "Yes: picture_memory in the Images tab and the settings file; picture_time_limit_seconds and picture_wait_seconds in config/nexus_config.json; queue_limit per enqueue call.",
+   "owner_decision": "Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.",
+   "tests": "tests/test_heavy_work.py, tests/test_agent_jobs.py",
+   "regression_risk": "Low. The chat path checks one flag and one lock file when no picture is being made.",
+   "known_limitations": "The memory a picture needs is measured at two sizes on one machine and estimated in between and beyond. Waiting is counted per process; across processes the lock file gives one picture at a time but not the waiting limit. A picture cannot be cancelled from the Images tab while it is made; it stops at its time limit.",
+   "locations": [
+    {
+     "file": "modules/heavy_work.py",
+     "anchor": "MAX_WAITING = 2"
+    },
+    {
+     "file": "agent/jobs.py",
+     "anchor": "QUEUE_LIMITS = {\"coding_task\": 10}"
+    }
+   ]
+  },
+  {
    "id": "R-E01",
    "name": "The reality check",
    "category": "E",

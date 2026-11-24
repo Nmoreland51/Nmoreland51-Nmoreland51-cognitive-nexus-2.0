@@ -12,7 +12,7 @@ from typing import Any, Generator, Optional
 
 import requests
 
-from modules import accounts
+from modules import accounts, heavy_work
 from modules.context_budget import PROMPT_SECONDS, ContextBudget, default_max_window, plan_budget, window_for_prompt
 from modules.event_log import record_event
 from modules.model_capabilities import ModelCapabilities, capabilities as model_capabilities
@@ -253,6 +253,10 @@ class ProviderRouter:
         if not model:
             return False
         url = (base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/")
+        if heavy_work.picture_in_progress():
+            # Loading ahead of time is only a convenience; while a picture is being made it would
+            # put the model in memory beside it. The first chat answer loads it instead.
+            return False
         try:
             response = OLLAMA_SESSION.post(
                 f"{url}/api/generate",
@@ -753,6 +757,14 @@ class ProviderRouter:
         read_timeout = max(float(request.timeout or 0), OLLAMA_MIN_READ_TIMEOUT)
         if _needs_slow_startup_timeout(model):
             read_timeout = max(read_timeout, SLOW_STARTUP_OLLAMA_READ_TIMEOUT)
+        # While a picture is being made, a model that is not loaded and does not fit beside it waits
+        # for the picture instead of being loaded next to it (modules/heavy_work.py). Costs nothing
+        # when no picture is being made.
+        picture_wait = heavy_work.wait_for_room(
+            model, base_url, wait_seconds=float(self.config.get("picture_wait_seconds") or heavy_work.DEFAULT_WAIT_SECONDS)
+        )
+        if picture_wait["waited_seconds"]:
+            record_event("picture_wait", picture_wait["reason"], model=model, waited_seconds=picture_wait["waited_seconds"])
         for attempt in range(2):
             try:
                 response = OLLAMA_SESSION.post(
@@ -803,6 +815,9 @@ class ProviderRouter:
                     "num_ctx": num_ctx,
                     "prompt_tokens_estimated": prompt_estimate,
                     "prompt_fits": prompt_fits,
+                    # Time Ollama spent loading the model for this answer (0 when it was already loaded).
+                    "load_duration_ns": int(data.get("load_duration") or 0),
+                    "waited_for_picture_seconds": picture_wait["waited_seconds"],
                 }
                 return
         if not yielded_any:

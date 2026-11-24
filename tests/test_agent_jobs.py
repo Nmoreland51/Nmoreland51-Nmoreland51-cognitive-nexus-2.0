@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from agent.handlers import default_handlers, page_fingerprint, watch_url
-from agent.jobs import JobCancelled, JobQueue, Worker, retry_delay
+from agent.jobs import MAX_QUEUED_PER_KIND, QUEUE_LIMITS, JobCancelled, JobQueue, QueueFull, Worker, retry_delay
 from agent.store import AgentStore, StoreError
 from modules import event_log
 
@@ -295,6 +295,35 @@ def test_a_firing_is_not_made_twice_if_the_app_died_between_its_two_writes(queue
         db.execute("UPDATE schedules SET next_run = ? WHERE id = ?", (start.isoformat(timespec="milliseconds"), schedule))
     assert queue.tick(start + timedelta(seconds=1)) == made
     assert len(queue.jobs()) == 1
+
+
+def test_the_queue_of_one_kind_is_bounded(queue):
+    first = queue.enqueue("coding_task", {"n": 1}, idempotency_key="coding:1", queue_limit=2)
+    queue.enqueue("coding_task", {"n": 2}, queue_limit=2)
+    with pytest.raises(QueueFull, match="2 coding_task jobs are already waiting"):
+        queue.enqueue("coding_task", {"n": 3}, queue_limit=2)
+    # Asking again for a job that exists is not a new job, so it is not refused.
+    assert queue.enqueue("coding_task", {"n": 1}, idempotency_key="coding:1", queue_limit=2) == first
+    assert queue.enqueue("reminder", {"title": "tea"}, queue_limit=2)  # another kind has its own limit
+    queue.cancel(first)
+    assert queue.enqueue("coding_task", {"n": 3}, queue_limit=2)
+    # Without a limit given: the kind's default (coding tasks take many minutes each), else the general one.
+    assert QUEUE_LIMITS["coding_task"] == 10 and MAX_QUEUED_PER_KIND == 100
+
+
+def test_a_scheduled_firing_over_the_limit_is_skipped_and_the_user_is_told(queue, monkeypatch):
+    monkeypatch.setitem(QUEUE_LIMITS, "check_mail", 1)
+    start = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
+    schedule = queue.add_schedule("Check mail", "check_mail", every_seconds=600, first_run=start)
+    queue.enqueue("check_mail", {"by": "hand"})  # fills the queue for this kind
+    assert queue.tick(start + timedelta(seconds=5)) == []
+    assert [job.payload for job in queue.jobs()] == [{"by": "hand"}]
+    notices = [notice for notice in queue.notices() if notice["kind"] == "schedule_skipped"]
+    assert len(notices) == 1 and "already waiting" in notices[0]["body"]
+    # The schedule moved on to its next firing instead of trying the same one over and over.
+    assert queue.schedules()[0]["next_run"].startswith("2026-11-23T12:10:00")
+    assert queue.tick(start + timedelta(seconds=6)) == [] and len([n for n in queue.notices() if n["kind"] == "schedule_skipped"]) == 1
+    assert schedule
 
 
 def test_daily_schedules_switching_off_and_what_is_refused(queue):

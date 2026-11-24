@@ -44,8 +44,12 @@ What the assistant may say is now the owner's decision, visible in one place. Th
 - The claim check no longer counts a passage as support because it shares the claim's words. It compares the same statement: a different figure, a different year for a one-time event, or the opposite word ("fell" for "rose") contradicts; another year of a recurring event, a question, a hedge, an open question or a reported opinion settles nothing; a passage about someone else is not about the claim.
 - "Latest version" answers could stay whatever they were when the app started: search results and fetched pages were cached with no expiry. They now expire after 10 and 30 minutes, and failed fetches are not remembered.
 - Contradictions between sources were flagged whenever two sentences shared words and one contained "not". They are now found with the claim check's rules, between statements made outright, about the same thing.
+- **Making a picture could run the computer out of memory.** The local Stable Diffusion pipeline was loaded beside the chat model, which Ollama keeps in memory for a day; measured here, a 768x768 picture left 0.35 GB free. The app now makes one picture at a time on this computer (a second waits its turn and is told so), and when a picture would not fit beside the chat model it takes the chat model out of memory first and says so under the picture: 8.8 GB stayed free for the same picture. The next chat answer then takes about 12 s longer while Ollama loads the model again; you can choose to keep it loaded instead. A chat request made while a picture is being made no longer loads the model beside it when it would not fit, and a picture stops after 30 minutes instead of running on.
 
 ### Added
+- The coding agent's background queue is bounded: 10 coding tasks (100 jobs of any other kind) may wait at once, and one more is refused with a message instead of piling up; a scheduled job that would go over is skipped with a notice.
+- A request for approval in the Agent tab shows exactly what it would do: the tool, its arguments, and the changes on the task's branch it would act on.
+- `tools/picture_memory_check.py` measures what a picture costs in memory on this machine, as the app did before and as it does now.
 - Search sources with automatic switching (SearXNG, Brave Search API, search pages, Wikipedia).
 - Refusal to fetch local and private-network addresses during research.
 - Crash-safe (atomic) saves for memory, settings and the knowledge index.

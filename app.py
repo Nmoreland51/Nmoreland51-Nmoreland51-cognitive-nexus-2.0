@@ -23,6 +23,7 @@ from modules.answer_meta import answer_meta, describe_answer
 from modules.core_health import run_core_health_check
 from modules.data_stores import DATA_ROOT, SEED_KNOWLEDGE_DIR
 from modules.event_log import event_counts, recent_events
+from modules import heavy_work
 from modules.image_gen import (
     IMAGE_STYLE_OPTIONS,
     ImageGenerationRequest,
@@ -1362,6 +1363,19 @@ def sanitize_image_generation_result(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def image_generation_notes(result: dict[str, Any]) -> list[str]:
+    """What making the picture involved besides the picture: a wait for another one, room made in memory."""
+
+    notes = []
+    waited = float(result.get("waited_seconds") or 0)
+    if waited >= 1:
+        notes.append(f"Waited {waited:.0f} s for another picture to finish first: this computer makes one at a time.")
+    note = (result.get("memory") or {}).get("note")
+    if note:
+        notes.append(str(note))
+    return notes
+
+
 def render_image_tab(settings: dict[str, Any] | None = None) -> None:
     st.subheader("Image Generation")
     demo_safe = is_demo_safe(settings)
@@ -1413,6 +1427,18 @@ def render_image_tab(settings: dict[str, Any] | None = None) -> None:
         seed_text = st.text_input("Seed", value="", placeholder="Blank = random")
         num_images = st.number_input("Number of images", min_value=1, max_value=4, value=1, step=1)
     save_outputs = st.checkbox("Save outputs", value=True)
+    configured_memory = str(get_nexus_core().config.get("picture_memory") or heavy_work.DEFAULT_POLICY)
+    picture_memory = st.radio(
+        "When memory is short for a picture made on this computer",
+        heavy_work.POLICIES,
+        index=heavy_work.POLICIES.index(configured_memory) if configured_memory in heavy_work.POLICIES else 0,
+        format_func=lambda value: heavy_work.POLICY_LABELS.get(value, value),
+        key="picture_memory",
+        help=(
+            f"A {width}x{height} picture needs about {heavy_work.picture_need_gb(width, height):.1f} GB of memory while it is made here. "
+            "One picture is made at a time; it stops after the time limit in the settings."
+        ),
+    )
     generation_ready, readiness_message = image_generation_ready(provider, providers)
     if generation_ready:
         st.caption(readiness_message)
@@ -1445,13 +1471,15 @@ def render_image_tab(settings: dict[str, Any] | None = None) -> None:
         with st.spinner("Generating image..."):
             started = time.perf_counter()
             try:
-                result = get_nexus_core().generate_image(req)
+                result = get_nexus_core().generate_image(req, {**(settings or {}), "picture_memory": picture_memory})
             except ContentRuleBlocked as stopped:
                 result = {"success": False, "error": stopped.reply, "images": [], "saved": []}
             record_perf("image.generate", time.perf_counter() - started)
             get_cached_gallery.clear()
             get_cached_image_summary.clear()
         st.session_state.last_image_generation_result = sanitize_image_generation_result(result)
+        for note in image_generation_notes(result):
+            st.caption(note)
         if not result.get("success"):
             st.error(result.get("error") or "Image generation failed.")
         else:

@@ -12,7 +12,7 @@ from core.reasoning import analyze_epistemic_request
 from core.reality_grounding import audit_answer
 from core.reality_grounding.prompt_firewall import set_untrusted_mode
 from modules.chat_profile import build_capability_greeting
-from modules.comfyui_client import ComfyUIClient
+from modules.comfyui_client import ComfyUIClient, ComfyUIResult
 from modules.context_manager import (
     ContextBundle,
     build_context_bundle,
@@ -20,6 +20,7 @@ from modules.context_manager import (
     handle_local_memory_command,
     load_user_fact_records,
 )
+from modules import heavy_work
 from modules.image_gen import ImageGenerationRequest, generate_images
 from modules.behavior_policy import (
     JUDGE_OPTIONS,
@@ -2028,15 +2029,24 @@ class NexusCore:
         )
         return result
 
-    def generate_image(self, request: ImageGenerationRequest) -> dict[str, Any]:
+    def generate_image(self, request: ImageGenerationRequest, settings: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """Generate images through the existing image provider module.
 
         The content rule is applied to what is asked for (the prompt). The negative prompt lists
-        what to leave out and is not part of the request.
+        what to leave out and is not part of the request. How memory is made for a picture made
+        here, and how long it may take, come from the settings (picture_memory and the config's
+        picture_time_limit_seconds and picture_wait_seconds; see modules/heavy_work.py).
         """
 
         self._require_content_rule(str(request.prompt or ""), kind="image")
-        return generate_images(request)
+        settings = settings or {}
+        return generate_images(
+            request,
+            memory_policy=str(settings.get("picture_memory") or self.config.get("picture_memory") or heavy_work.DEFAULT_POLICY),
+            ollama_url=str(settings.get("base_url") or self.config.get("ollama_url") or ""),
+            time_limit_seconds=float(self.config.get("picture_time_limit_seconds") or heavy_work.DEFAULT_TIME_LIMIT_SECONDS),
+            wait_seconds=float(self.config.get("picture_wait_seconds") or heavy_work.DEFAULT_WAIT_SECONDS),
+        )
 
     def run_comfyui_workflow(
         self,
@@ -2046,12 +2056,19 @@ class NexusCore:
         negative_prompt: str = "",
         timeout: float = 240.0,
     ):
-        """Run a ComfyUI workflow through the central client."""
+        """Run a ComfyUI workflow through the central client.
+
+        It takes the machine's one picture slot like any picture made here (modules/heavy_work.py),
+        so a workflow and a local picture are never made at once."""
 
         self._require_content_rule(str(prompt or ""), kind="image")
-        return self.comfyui.run_workflow(
-            workflow=workflow,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            timeout=timeout,
-        )
+        try:
+            with heavy_work.picture_slot(float(self.config.get("picture_wait_seconds") or heavy_work.DEFAULT_WAIT_SECONDS)):
+                return self.comfyui.run_workflow(
+                    workflow=workflow,
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    timeout=timeout,
+                )
+        except heavy_work.MachineBusy as busy:
+            return ComfyUIResult(success=False, error=str(busy))

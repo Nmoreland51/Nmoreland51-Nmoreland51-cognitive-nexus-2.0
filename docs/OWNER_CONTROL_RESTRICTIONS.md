@@ -18,7 +18,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | A. Conversation behaviour | 10 | 2 | 9 |
 | B. Model and provider | 5 | 0 | 0 |
 | C. Tools and side effects | 8 | 1 | 0 |
-| D. Integrity and security | 8 | 2 | 1 |
+| D. Integrity and security | 9 | 2 | 1 |
 | E. Quality controls | 2 | 1 | 0 |
 | F. Interface defaults and labels | 4 | 0 | 1 |
 
@@ -70,6 +70,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | R-D09 | Cloud fallback is off unless the owner allows it | active | Off | Yes | Pending review by the owner |
 | R-D10 | Limits on uploaded files and on deleting data | active | On | No setting | Pending review by the owner |
 | R-D11 | In a tool run, private text is not sent out and pages are fetched only from known addresses | active | On | Rule 1: yes, per run | Pending review by the owner |
+| R-D12 | Limits on heavy work: one picture at a time, a time limit, room in memory, a bounded job queue | active | One picture at a time, two may wait up to 10 minutes; 30 minutes per picture; picture_memory free_chat_model; 100 waiting jobs per kind, 10 coding tasks | Yes: picture_memory in the Images tab and the settings file; picture_time_limit_seconds and picture_wait_seconds in config/nexus_config.json; queue_limit per enqueue call | Pending review by the owner |
 | R-E01 | The reality check | changed | label | Yes | Pending: the owner was asked on 2026-11-23 and did not answer, so the recommended option is the default and it is a setting |
 | R-E02 | Notes about grounding and checks after an answer | active | On; notes hidden in ordinary conversation | Yes | Pending review by the owner |
 | R-E03 | Research answers come from the sources and say when the sources do not have the answer | active | On | No setting | Pending review by the owner |
@@ -339,8 +340,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:324` — `_CREATIVE = re.compile(`
 - **Where:** `modules/behavior_policy.py:446` — `JUDGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:467` — `JUDGE_EXAMPLES_B = """`
-- **Where:** `modules/nexus_core.py:1077` — `rule = self.content_rule(user_message, settings, recent_turns)`
-- **Where:** `modules/nexus_core.py:327` — `def _require_content_rule(`
+- **Where:** `modules/nexus_core.py:1078` — `rule = self.content_rule(user_message, settings, recent_turns)`
+- **Where:** `modules/nexus_core.py:328` — `def _require_content_rule(`
 - **Where:** `modules/event_log.py:32` — `"content_rule",`
 - **Where:** `agent/toolcall.py:285` — `decision = check_content_rule(request, "", judge, "text")`
 - **Where:** `modules/behavior_policy.py:420` — `def history_counts(message: str, recent: str) -> bool:`
@@ -453,9 +454,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A17 · Length and format rules added to each message · active
 
-- **Where:** `modules/nexus_core.py:773` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
+- **Where:** `modules/nexus_core.py:774` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
 - **Where:** `modules/response_planner.py:720` — `def apply_auto_precision_settings(`
-- **Where:** `modules/nexus_core.py:671` — `routed_system = "Answer only the current message.`
+- **Where:** `modules/nexus_core.py:672` — `routed_system = "Answer only the current message.`
 - **Trigger:** Every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.
 - **Effect:** Lines such as "Answer in 1-3 short sentences", "Maximum output: about N tokens", and for small talk a list of stock phrases to avoid, are added to the prompt; the reply length limit is set to match. For quick turns the prompt also says "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics."
 - **Owner requested:** Yes, in part: the owner asked for fast answers (about 60 seconds for web answers) and less filler.
@@ -475,9 +476,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A18 · Replies the app writes itself, without a model · active
 
-- **Where:** `modules/nexus_core.py:170` — `def _direct_response_instruction(`
-- **Where:** `modules/nexus_core.py:1322` — `"provider": "local_followup_clarification",`
-- **Where:** `modules/nexus_core.py:1287` — `"provider": "local_fast_path",`
+- **Where:** `modules/nexus_core.py:171` — `def _direct_response_instruction(`
+- **Where:** `modules/nexus_core.py:1323` — `"provider": "local_followup_clarification",`
+- **Where:** `modules/nexus_core.py:1288` — `"provider": "local_fast_path",`
 - **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). (d) A bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?". (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
 - **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject.
 - **Owner requested:** No.
@@ -497,9 +498,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A19 · Edits made to a model's answer after it is written · active
 
-- **Where:** `modules/nexus_core.py:884` — `def _clean_model_answer(`
-- **Where:** `modules/nexus_core.py:932` — `def _repair_social_presence_answer(`
-- **Where:** `modules/nexus_core.py:1034` — `def _reduce_hedging(`
+- **Where:** `modules/nexus_core.py:885` — `def _clean_model_answer(`
+- **Where:** `modules/nexus_core.py:933` — `def _repair_social_presence_answer(`
+- **Where:** `modules/nexus_core.py:1035` — `def _reduce_hedging(`
 - **Trigger:** (a) An answer that begins with leaked prompt text ("User request:", "Response plan:"). (b) Small talk containing stock phrases ("It's great to hear...", "How's it going?"). (c) The research-simulation route with the persona's default settings.
 - **Effect:** (a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. (c) Phrases such as "However,", "Note that", "I think" are deleted from the app's stored copy of the answer; the text already shown while streaming is not changed. None of this depends on the subject and none of it turns an answer into a refusal or back.
 - **Owner requested:** No.
@@ -519,8 +520,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A20 · Memory notes and self-critique hints added to the prompt · active
 
-- **Where:** `modules/nexus_core.py:349` — `def _memory_context(`
-- **Where:** `modules/nexus_core.py:833` — `def _self_critic_prompt_hints(`
+- **Where:** `modules/nexus_core.py:350` — `def _memory_context(`
+- **Where:** `modules/nexus_core.py:834` — `def _self_critic_prompt_hints(`
 - **Where:** `modules/context_manager.py:431` — `Relevant memory (the app's notes about the owner)`
 - **Trigger:** Memory switched on: an "Adaptive response policy" (tone, detail, directness) inferred from the owner's earlier messages, with saved preferences and facts. Always: up to three hints from the app's notes on its own earlier answers ("use warmer, less formal wording").
 - **Effect:** Added to the prompt as plain notes. They shape tone and length. They are not about subjects.
@@ -545,8 +546,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:541` — `IMAGE_CLOTHED_QUESTION = """`
 - **Where:** `modules/behavior_policy.py:493` — `IMAGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:57` — `CONTENT_RULE_PICTURE_REPLY = (`
-- **Where:** `modules/nexus_core.py:2038` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
-- **Where:** `modules/nexus_core.py:2051` — `self._require_content_rule(str(prompt or ""), kind="image")`
+- **Where:** `modules/nexus_core.py:2041` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
+- **Where:** `modules/nexus_core.py:2064` — `self._require_content_rule(str(prompt or ""), kind="image")`
 - **Trigger:** Every request for a picture (image generation, ComfyUI workflows) that names a minor. Naming a minor is enough: no sexual word is needed.
 - **Effect:** A request that also uses a word for nudity (nude, naked, topless, undressed, no clothes) is stopped at once, without a model. For the rest the model is asked three things: two wordings of whether the picture would show a minor nude, undressed or sexualised, and directly whether the child would be clothed. Any answer against it stops the request with the text "Not drawn. This app does not make pictures that show anyone under 18 nude or undressed, whatever the scene." An innocent scene such as a toddler in the bath is stopped too.
 - **Owner requested:** No. The owner's rule is about sexual content. This line is stricter and is the assistant's own: it would not wire up the generation of pictures of unclothed children, innocent scene or not.
@@ -590,7 +591,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B02 · A hosted model applies its provider's policies · active
 
-- **Where:** `modules/provider_router.py:950` — `if stop_reason == "refusal":`
+- **Where:** `modules/provider_router.py:965` — `if stop_reason == "refusal":`
 - **Where:** `modules/behavior_policy.py:772` — `applies its own usage policies and may refuse or cut off an answer`
 - **Trigger:** A request sent to OpenAI or Anthropic (a cloud provider first in the order, or cloud fallback allowed).
 - **Effect:** The provider may refuse or cut off an answer. When Anthropic's API reports a refusal the app shows "Claude declined this request (category: ...)" as the reason; it never writes an answer of its own in its place.
@@ -612,7 +613,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B03 · Anthropic: ask for the provider's own fallback when its classifier declines · active
 
-- **Where:** `modules/provider_router.py:928` — `if self.config.get("anthropic_refusal_fallback", True):`
+- **Where:** `modules/provider_router.py:943` — `if self.config.get("anthropic_refusal_fallback", True):`
 - **Where:** `modules/nexus_config.py:91` — `"anthropic_refusal_fallback": True,`
 - **Where:** `config/nexus_config.json:13` — `"anthropic_refusal_fallback": true`
 - **Trigger:** A request to Anthropic with the setting anthropic_refusal_fallback on.
@@ -656,7 +657,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B05 · The image model's built-in content checker is not loaded · active
 
-- **Where:** `modules/image_gen.py:337` — `"safety_checker": None,`
+- **Where:** `modules/image_gen.py:339` — `"safety_checker": None,`
 - **Trigger:** Local image generation with Diffusers.
 - **Effect:** Stable Diffusion's own "safety checker", which blacks out pictures it classifies as adult, is switched off, so adult images are produced as asked.
 - **Owner requested:** Consistent with the owner's wish for adult content; not asked for in these words.
@@ -786,7 +787,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-C06 · Every tool call is checked and recorded · active
 
 - **Where:** `agent/registry.py:178` — `def call(`
-- **Where:** `agent/jobs.py:41` — `DEFAULT_KIND_LIMITS = {"coding_task": 1}`
+- **Where:** `agent/jobs.py:44` — `DEFAULT_KIND_LIMITS = {"coding_task": 1}`
 - **Trigger:** Every tool call by the agent.
 - **Effect:** Arguments are checked against the tool's schema; the call, its approval and its result are written to the agent's database; a refused call is recorded as refused. Background jobs run one model-heavy job at a time.
 - **Owner requested:** In general terms (the audit's tool-registry and audit-trail items).
@@ -836,8 +837,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/accounts.py:255` — `def _checked_address(address: str, what: str) -> str:`
 - **Where:** `agent/github.py:55` — `def token_for(permission: str) -> str:`
 - **Where:** `agent/github.py:246` — `if not _is_github(context, address):`
-- **Where:** `modules/provider_router.py:484` — `usable, why = accounts.available("openai", "chat")`
-- **Where:** `modules/provider_router.py:912` — `api_key = accounts.credential("anthropic", "chat")`
+- **Where:** `modules/provider_router.py:488` — `usable, why = accounts.available("openai", "chat")`
+- **Where:** `modules/provider_router.py:927` — `api_key = accounts.credential("anthropic", "chat")`
 - **Where:** `modules/web_research.py:273` — `headers={"X-Subscription-Token": accounts.credential("brave_search", "search")},`
 - **Where:** `agent/cli.py:250` — `def _accounts(args: argparse.Namespace) -> int:`
 - **Trigger:** Code in the app needs a credential for an outside service: a cloud model provider, Brave Search, GitHub, or a service the owner added.
@@ -1049,9 +1050,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-D08 · Keys and tokens stay out of the settings file, the logs, backups and the sandbox · active
 
-- **Where:** `modules/nexus_config.py:214` — `if "key" not in key.lower()`
+- **Where:** `modules/nexus_config.py:221` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
-- **Where:** `modules/nexus_core.py:324` — `record_event("content_rule",`
+- **Where:** `modules/nexus_core.py:325` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
 - **Where:** `modules/data_stores.py:233` — `holds_credentials=True,`
 - **Where:** `modules/accounts.py:144` — `def _dpapi(data: bytes, *, protect: bool) -> bytes:`
@@ -1074,7 +1075,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-D09 · Cloud fallback is off unless the owner allows it · active
 
-- **Where:** `modules/provider_router.py:449` — `value = self.config.get("allow_cloud_fallback", False)`
+- **Where:** `modules/provider_router.py:453` — `value = self.config.get("allow_cloud_fallback", False)`
 - **Trigger:** The local model fails and a cloud provider is configured lower in the order.
 - **Effect:** The prompt is not sent to the cloud provider. The fallback notice says which provider was set up but not used, and why.
 - **Owner requested:** In general terms (local-first; keep private data local).
@@ -1136,6 +1137,27 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Known limitations:** With rule 1 lifted, what the model puts into a search query after reading notes is up to the model. A request that itself contains private text and asks for a web search sends that text: the owner wrote it. A link on a page is followed as it stands, so a site learns that the page was opened, as in any browser.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
+### R-D12 · Limits on heavy work: one picture at a time, a time limit, room in memory, a bounded job queue · active
+
+- **Where:** `modules/heavy_work.py:44` — `MAX_WAITING = 2`
+- **Where:** `agent/jobs.py:48` — `QUEUE_LIMITS = {"coding_task": 10}`
+- **Trigger:** Making a picture on this machine (the local pipeline, Automatic1111 or a ComfyUI workflow) while another is being made; a picture that runs longer than its time limit; too little memory for a picture beside the loaded chat model; a chat request while a picture is made and the chat model does not fit beside it; adding a background job when many of its kind already wait.
+- **Effect:** A second picture waits its turn (up to 10 minutes); with two already waiting, one more is turned down at once with a message saying the machine is busy. A picture is stopped between steps after 30 minutes and nothing half-made is kept. When memory is short the chat model is taken out of memory first (Ollama loads it again for the next answer), and the note under the picture says so; nothing is refused for lack of memory. A chat request that would load the chat model beside a picture waits for the picture. A job of a kind with 100 waiting (10 for coding tasks) is refused with a message; a scheduled firing over that limit is skipped with a notice.
+- **Owner requested:** In general terms (the audit's items 098 and 105: no large model beside an image pipeline when resources are tight; bounded concurrency, queues and cancellation for heavy jobs).
+- **Evidence:** modules/heavy_work.py, modules/image_gen.py generate_images, modules/nexus_core.py run_comfyui_workflow, modules/provider_router.py _stream_ollama, agent/jobs.py enqueue; measured with tools/picture_memory_check.py (docs/benchmarks/picture_memory*.json).
+- **Origin:** Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.
+- **Technical reason:** Measured on the development machine: with the chat model loaded and 8.4 GB free, one 768x768 picture took 8.5 GB at its peak and left 0.35 GB free; two pictures at once, or a picture beside a model being loaded, run the machine out of memory.
+- **Affected workflows:** Images tab and pictures asked for in chat or from the phone; chat while a picture is made; background jobs of the coding agent.
+- **Default:** One picture at a time, two may wait up to 10 minutes; 30 minutes per picture; picture_memory free_chat_model; 100 waiting jobs per kind, 10 coding tasks.
+- **Effective now:** As set.
+- **Alternatives:** Keep the chat model loaded (picture_memory keep_chat_model); longer limits in config/nexus_config.json.
+- **Can the owner change it?:** Yes: picture_memory in the Images tab and the settings file; picture_time_limit_seconds and picture_wait_seconds in config/nexus_config.json; queue_limit per enqueue call.
+- **Owner decision:** Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.
+- **Tests:** tests/test_heavy_work.py, tests/test_agent_jobs.py
+- **Regression risk:** Low. The chat path checks one flag and one lock file when no picture is being made.
+- **Known limitations:** The memory a picture needs is measured at two sizes on one machine and estimated in between and beyond. Waiting is counted per process; across processes the lock file gives one picture at a time but not the waiting limit. A picture cannot be cancelled from the Images tab while it is made; it stops at its time limit.
+- **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
+
 
 ## E. Quality controls (accuracy labels and checks; they add notes, they do not refuse)
 
@@ -1143,7 +1165,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
-- **Where:** `modules/nexus_core.py:1210` — `reality_check != "off"`
+- **Where:** `modules/nexus_core.py:1211` — `reality_check != "off"`
 - **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
@@ -1164,7 +1186,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-E02 · Notes about grounding and checks after an answer · active
 
-- **Where:** `modules/nexus_core.py:951` — `def _audit_answer(`
+- **Where:** `modules/nexus_core.py:952` — `def _audit_answer(`
 - **Trigger:** Every answer, when reality grounding is on.
 - **Effect:** The answer is examined for unsupported claims and a short note may be added under it in the advanced views (never in ordinary conversation). The result is logged and shown in Diagnostics. The answer is not withheld.
 - **Owner requested:** Not specifically.
@@ -1208,7 +1230,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F01 · Auto Precision disables the manual answer controls · active
 
-- **Where:** `app.py:625` — `manual_disabled = bool(auto_precision_mode)`
+- **Where:** `app.py:626` — `manual_disabled = bool(auto_precision_mode)`
 - **Trigger:** Auto Precision Mode on (the default).
 - **Effect:** The controls under Advanced Overrides (memory, knowledge, web, router, response mode, verbosity) are greyed out and chosen per message instead. The Behaviour settings are not affected.
 - **Owner requested:** No.
@@ -1228,7 +1250,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F02 · Demo Safe Mode · active
 
-- **Where:** `app.py:2294` — `read_only=is_demo_safe(settings),`
+- **Where:** `app.py:2322` — `read_only=is_demo_safe(settings),`
 - **Trigger:** Demo Safe Mode switched on.
 - **Effect:** Local paths, service addresses and environment details are hidden; destructive actions are not shown; the Behaviour panel is read-only and does not show the last prompt.
 - **Owner requested:** No.
@@ -1249,7 +1271,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-F03 · The Behaviour panel · active
 
 - **Where:** `ui/behavior_panel.py:79` — `def render_behavior_panel(`
-- **Where:** `app.py:2289` — `render_behavior_panel(`
+- **Where:** `app.py:2317` — `render_behavior_panel(`
 - **Trigger:** Settings tab.
 - **Effect:** Shows and saves the owner's behaviour text and the three behaviour settings; prints the whole system prompt, the one content rule and how it is checked, the texts the app can show instead of an answer, what is added to each message, the last prompt as it was sent, what the selected model or provider may do, and the permissions and protections.
 - **Owner requested:** Yes.
@@ -1292,7 +1314,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F05 · Tor (.onion) search is off by default · active
 
-- **Where:** `modules/nexus_config.py:118` — `"enable_onion_search": False,`
+- **Where:** `modules/nexus_config.py:125` — `"enable_onion_search": False,`
 - **Trigger:** Bloodhound search.
 - **Effect:** Onion sites are searched only when the setting is on and a Tor proxy runs on this machine.
 - **Owner requested:** No.
@@ -1324,7 +1346,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `agent/environment.py` | 8 | R-C07 | - |
 | `agent/github.py` | 12 | R-C02, R-C08, R-D04, R-D08 | - |
 | `agent/handlers.py` | 1 | R-D05 | - |
-| `agent/jobs.py` | 2 | R-C06 | - |
+| `agent/jobs.py` | 4 | R-C06, R-D12 | - |
 | `agent/model.py` | 1 | - | The word appears in a comment. The file wraps the model for the agent and adds no rule. |
 | `agent/registry.py` | 27 | R-C06 | - |
 | `agent/review.py` | 13 | R-C04, R-D04 | - |
@@ -1349,6 +1371,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/data_stores.py` | 1 | R-D08 | A description of what the agent's database holds, for the Your data panel. |
 | `modules/event_log.py` | 3 | R-A12 | - |
 | `modules/file_utils.py` | 1 | - | A comment about Windows file locking. |
+| `modules/heavy_work.py` | 1 | R-D12 | - |
 | `modules/image_gen.py` | 2 | R-B05 | - |
 | `modules/ingest.py` | 1 | R-D10 | - |
 | `modules/nexus_config.py` | 2 | R-A14, R-B03, R-C01, R-C07, R-D01, R-D08, R-E01, R-F05 | - |

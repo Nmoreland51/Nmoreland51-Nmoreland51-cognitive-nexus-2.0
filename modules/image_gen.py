@@ -10,6 +10,7 @@ import logging
 import os
 import random
 import re
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from modules import heavy_work
 from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
 
 logger = logging.getLogger(__name__)
@@ -398,7 +400,11 @@ class LocalStableDiffusionGenerator:
 def generate_with_diffusers(
     req: ImageGenerationRequest,
     generator: LocalStableDiffusionGenerator | None = None,
+    stop: heavy_work.PictureStop | None = None,
 ) -> dict[str, Any]:
+    """Make the pictures with the local pipeline. With `stop`, a cancel or the time limit ends the
+    work between denoising steps (heavy_work.PictureStopped); a half-made picture is not kept."""
+
     import torch
 
     generator = generator or LocalStableDiffusionGenerator(model_id=req.model or DEFAULT_DIFFUSERS_MODEL)
@@ -406,8 +412,11 @@ def generate_with_diffusers(
     if generator.pipe is None:
         raise RuntimeError("Diffusers pipeline did not initialize.")
 
+    stop_after_step = {"callback_on_step_end": stop.on_step_end} if stop is not None else {}
     images = []
     for index in range(req.num_images):
+        if stop is not None and stop.should_stop():
+            stop.raise_if_stopped()
         seed = req.seed if req.seed is not None else random.randint(0, 2**32 - 1)
         if req.seed is not None and req.num_images > 1:
             seed = req.seed + index
@@ -420,7 +429,10 @@ def generate_with_diffusers(
             num_inference_steps=req.steps,
             guidance_scale=req.cfg_scale,
             generator=torch_generator,
+            **stop_after_step,
         )
+        if stop is not None:
+            stop.raise_if_stopped()
         images.append(result.images[0])
 
     return _package_generation_result(req, images, "diffusers_local", generator.model_id, generator.device)
@@ -491,8 +503,22 @@ def _package_generation_result(
     }
 
 
-def generate_images(req: ImageGenerationRequest) -> dict[str, Any]:
-    """Generate images with the selected provider and save outputs when enabled."""
+def generate_images(
+    req: ImageGenerationRequest,
+    *,
+    memory_policy: str = heavy_work.DEFAULT_POLICY,
+    ollama_url: str = "",
+    time_limit_seconds: float = heavy_work.DEFAULT_TIME_LIMIT_SECONDS,
+    wait_seconds: float = heavy_work.DEFAULT_WAIT_SECONDS,
+    stop: heavy_work.PictureStop | None = None,
+) -> dict[str, Any]:
+    """Generate images with the selected provider and save outputs when enabled.
+
+    Pictures made on this machine (the local pipeline, Automatic1111) take the machine's one picture
+    slot (modules/heavy_work.py), so two are never made at once. Before the local pipeline loads,
+    room is made in memory as `memory_policy` allows, and the picture stops between steps when
+    `stop` is cancelled or `time_limit_seconds` pass. The result says what was waited for and done.
+    """
 
     ensure_image_dirs()
     try:
@@ -534,15 +560,38 @@ def generate_images(req: ImageGenerationRequest) -> dict[str, Any]:
 
     try:
         if selected["name"] == "automatic1111":
-            images = generate_with_automatic1111(req)
-            return _package_generation_result(
+            with heavy_work.picture_slot(wait_seconds) as waited:
+                images = generate_with_automatic1111(req)
+            result = _package_generation_result(
                 req,
                 images,
                 "automatic1111",
                 req.model or selected.get("model", ""),
             )
+            result["waited_seconds"] = waited
+            return result
         if selected["name"] == "diffusers_local":
-            return generate_with_diffusers(req)
+            with heavy_work.picture_slot(wait_seconds) as waited:
+                room = heavy_work.make_room(
+                    heavy_work.picture_need_gb(req.width, req.height), policy=memory_policy, base_url=ollama_url
+                )
+                stop = stop or heavy_work.PictureStop(time_limit_seconds=time_limit_seconds)
+                stop.started = time.monotonic()  # waiting for the slot does not count against the limit
+                result = generate_with_diffusers(req, stop=stop)
+            result["waited_seconds"] = waited
+            result["memory"] = room
+            return result
+    except (heavy_work.MachineBusy, heavy_work.PictureStopped) as exc:
+        # Expected outcomes, said as they are: the machine is busy, or the picture was stopped.
+        return {
+            "success": False,
+            "provider": selected.get("name"),
+            "images": [],
+            "saved": [],
+            "error": str(exc),
+            "busy": isinstance(exc, heavy_work.MachineBusy),
+            "stopped": isinstance(exc, heavy_work.PictureStopped),
+        }
     except Exception as exc:
         logger.exception("Image generation failed with provider %s", selected.get("name"))
         return {

@@ -131,6 +131,22 @@ def test_a_request_for_approval_is_decided_in_the_tab(world):
     assert store.approvals() == []
 
 
+def test_a_request_for_approval_shows_exactly_what_it_would_do(world):
+    store = AgentStore(world["db"])
+    task = store.create_task("Publish", repo=str(world["repo"]))
+    store.request_approval(
+        key="k2", tool="push_branch", effect="external", summary="push the task's own branch to origin",
+        arguments={"remote": "origin", "branch": "agent/publish"}, task_id=task.id,
+    )  # fmt: skip
+
+    app = AppTest.from_function(_panel_app, default_timeout=60).run()
+    assert not app.exception
+    assert "Tool push_branch, with these arguments:" in shown(app)
+    assert any("agent/publish" in str(element.value) for element in app.json)
+    # And the changes the action would publish, from the task's own branch.
+    assert "The changes on its branch" in shown(app)
+
+
 def test_in_demo_safe_mode_the_tab_shows_and_changes_nothing(world, monkeypatch):
     store = AgentStore(world["db"])
     store.create_task("Something", repo=str(world["repo"]), acceptance=[ACCEPTANCE.split()])

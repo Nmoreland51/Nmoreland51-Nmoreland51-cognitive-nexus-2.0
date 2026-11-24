@@ -521,6 +521,38 @@ from it (a model twice the size writes about half as fast) and are labelled as e
 
 No other model was installed to check the estimates: you asked for Ollama to be left alone.
 
+## Making a picture beside the chat model (`picture_memory.json`)
+
+```
+python tools/picture_memory_check.py --path pipeline --sizes 512 768   # as the app did before
+python tools/picture_memory_check.py --path app --sizes 512 768        # as the app does now
+```
+
+Measured on 2026-11-24 on the same machine (31.2 GB of memory, of which about 8.8 GB was free with the
+browser, the app and `dolphin3:8b` loaded). Each size is one fresh process making one picture with the
+local Stable Diffusion 1.5 pipeline on the processor, 4 denoising steps (memory does not grow with the
+number of steps; time does). The chat model was loaded at the start of every run.
+
+| | Most memory the picture's process held | Free memory at the lowest point |
+|---|---|---|
+| Before, 512x512 (two runs) | 7.1 GB, 5.7 GB | 1.65 GB, 3.2 GB |
+| Before, 768x768 (two runs) | 8.5 GB, 7.1 GB | **0.35 GB**, 1.8 GB |
+| After, 512x512: enough room, nothing done | 5.5 GB | 3.3 GB |
+| After, 768x768: the chat model was taken out of memory first | 7.0 GB | **8.8 GB** |
+
+Before the change the app loaded the pipeline beside the chat model whatever the memory, and a 768x768
+picture brought the free memory down to 0.35 GB once, the point where Windows starts moving memory to disk.
+Now `modules/heavy_work.py` compares what the picture needs (the higher of the two measured peaks, plus
+1.5 GB to spare) with what is free, and takes the chat model out of memory when the picture would not fit
+beside it. The cost is the next chat answer: Ollama took **11.7 s** to load the model again (the answer
+took 14.7 s in all, against about 3 s when the model is loaded). A 512x512 picture fitted with 8.9 GB free,
+so the chat model stayed. The owner can choose to keep the chat model loaded instead (Images tab, or
+`picture_memory` in the settings file).
+
+The peak varied by 1.4 GB between two runs of the same picture, which is why the higher figure is used.
+Sizes other than the two measured are estimated from them, growing with the number of pixels; above
+768x768 that is a lower bound.
+
 ## Tests against the real model (`tests/test_live_ollama.py`)
 
 ```

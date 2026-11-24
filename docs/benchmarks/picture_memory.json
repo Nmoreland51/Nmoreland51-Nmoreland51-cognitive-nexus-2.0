@@ -1,0 +1,203 @@
+{
+  "what": "Memory taken by making one picture with the local Stable Diffusion pipeline on the development machine (tools/picture_memory_check.py, 4 denoising steps per picture, one fresh process per size), with the chat model dolphin3:8b loaded in Ollama at the start of every run",
+  "machine": {
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "cores": 6,
+    "threads": 12,
+    "ram_gb": 31.2,
+    "ram_free_gb": 8.9,
+    "system": "Windows 11",
+    "gpu": "none found",
+    "vram_gb": 0.0
+  },
+  "before": {
+    "what": "--path pipeline: the pipeline loaded and run directly, as the app did before modules/heavy_work.py; nothing is done about the chat model",
+    "runs": [
+      {
+        "measured_at": "2026-11-24T13:45:17+00:00",
+        "size": "512x512",
+        "steps": 4,
+        "chat_models_in_memory": [
+          {
+            "name": "dolphin3:8b",
+            "size_gb": 4.95,
+            "in_graphics_memory_gb": 0.0
+          }
+        ],
+        "available_before_gb": 8.43,
+        "available_lowest_gb": 1.65,
+        "available_after_gb": 8.61,
+        "load_seconds": 13.5,
+        "picture_seconds": 50.5,
+        "peak_after_load_gb": 5.94,
+        "peak_gb": 7.12,
+        "peak_is": "peak working set",
+        "device": "cpu",
+        "torch": "2.15.0+cpu",
+        "path": "pipeline",
+        "note": "first run; outside sampling not recorded (tool fixed afterwards)"
+      },
+      {
+        "measured_at": "2026-11-24T13:45:17+00:00",
+        "size": "768x768",
+        "steps": 4,
+        "chat_models_in_memory": [
+          {
+            "name": "dolphin3:8b",
+            "size_gb": 4.95,
+            "in_graphics_memory_gb": 0.0
+          }
+        ],
+        "available_before_gb": 8.61,
+        "available_lowest_gb": 0.35,
+        "available_after_gb": 8.93,
+        "load_seconds": 10.4,
+        "picture_seconds": 116.0,
+        "peak_after_load_gb": 5.94,
+        "peak_gb": 8.53,
+        "peak_is": "peak working set",
+        "device": "cpu",
+        "torch": "2.15.0+cpu",
+        "path": "pipeline",
+        "note": "first run; outside sampling not recorded (tool fixed afterwards)"
+      },
+      {
+        "measured_at": "2026-11-24T13:55:19+00:00",
+        "path": "pipeline",
+        "size": "512x512",
+        "steps": 4,
+        "chat_models_in_memory": [
+          {
+            "name": "dolphin3:8b",
+            "size_gb": 4.95,
+            "in_graphics_memory_gb": 0.0,
+            "context_length": 2048
+          }
+        ],
+        "available_before_gb": 8.79,
+        "available_lowest_gb": 3.22,
+        "available_after_gb": 8.71,
+        "sampled_peak_rss_gb": 5.56,
+        "load_seconds": 14.3,
+        "picture_seconds": 45.7,
+        "device": "cpu",
+        "peak_is": "peak working set",
+        "torch": "2.15.0+cpu",
+        "peak_after_load_gb": 5.16,
+        "peak_gb": 5.68
+      },
+      {
+        "measured_at": "2026-11-24T13:55:19+00:00",
+        "path": "pipeline",
+        "size": "768x768",
+        "steps": 4,
+        "chat_models_in_memory": [
+          {
+            "name": "dolphin3:8b",
+            "size_gb": 4.95,
+            "in_graphics_memory_gb": 0.0,
+            "context_length": 2048
+          }
+        ],
+        "available_before_gb": 8.71,
+        "available_lowest_gb": 1.8,
+        "available_after_gb": 8.93,
+        "sampled_peak_rss_gb": 7.06,
+        "load_seconds": 12.5,
+        "picture_seconds": 112.3,
+        "device": "cpu",
+        "peak_is": "peak working set",
+        "torch": "2.15.0+cpu",
+        "peak_after_load_gb": 5.15,
+        "peak_gb": 7.08
+      }
+    ]
+  },
+  "after": {
+    "what": "--path app: modules.image_gen.generate_images as the app calls it now (one picture slot, room made in memory with picture_memory free_chat_model, the time limit); chat_model_reload is the next request to the chat model afterwards",
+    "runs": [
+      {
+        "measured_at": "2026-11-24T13:58:55+00:00",
+        "path": "app",
+        "size": "512x512",
+        "steps": 4,
+        "chat_models_in_memory": [
+          {
+            "name": "dolphin3:8b",
+            "size_gb": 4.95,
+            "in_graphics_memory_gb": 0.0,
+            "context_length": 2048
+          }
+        ],
+        "available_before_gb": 8.94,
+        "available_lowest_gb": 3.34,
+        "available_after_gb": 8.82,
+        "sampled_peak_rss_gb": 5.48,
+        "seconds": 60.8,
+        "success": true,
+        "error": null,
+        "memory_report": {
+          "need_gb": 7.12,
+          "available_gb": 8.89,
+          "margin_gb": 1.5,
+          "short": false,
+          "policy": "free_chat_model",
+          "action": "none",
+          "unloaded": [],
+          "note": ""
+        },
+        "waited_seconds": 0.0,
+        "device": "cpu",
+        "peak_is": "peak working set",
+        "torch": "2.15.0+cpu",
+        "peak_gb": 5.48
+      },
+      {
+        "measured_at": "2026-11-24T13:58:55+00:00",
+        "path": "app",
+        "size": "768x768",
+        "steps": 4,
+        "chat_models_in_memory": [
+          {
+            "name": "dolphin3:8b",
+            "size_gb": 4.95,
+            "in_graphics_memory_gb": 0.0,
+            "context_length": 2048
+          }
+        ],
+        "available_before_gb": 8.82,
+        "available_lowest_gb": 8.77,
+        "available_after_gb": 16.61,
+        "sampled_peak_rss_gb": 6.95,
+        "seconds": 132.4,
+        "success": true,
+        "error": null,
+        "memory_report": {
+          "need_gb": 8.53,
+          "available_gb": 8.78,
+          "margin_gb": 1.5,
+          "short": true,
+          "policy": "free_chat_model",
+          "action": "unloaded",
+          "unloaded": [
+            "dolphin3:8b"
+          ],
+          "note": "Made room first (8.8 GB of memory free, about 10.0 GB needed): the chat model (dolphin3:8b (5.0 GB)) was taken out of memory. It loads again by itself for the next chat answer, which will take a little longer to start.",
+          "available_after_gb": 16.5
+        },
+        "waited_seconds": 0.0,
+        "device": "cpu",
+        "peak_is": "peak working set",
+        "torch": "2.15.0+cpu",
+        "peak_gb": 6.95,
+        "chat_model_reload": [
+          {
+            "model": "dolphin3:8b",
+            "load_seconds": 11.7,
+            "answer_seconds": 14.7
+          }
+        ]
+      }
+    ]
+  }
+}

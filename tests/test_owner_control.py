@@ -549,7 +549,7 @@ def test_the_rule_also_covers_images_research_and_knowledge_answers(monkeypatch)
 def test_an_image_prompt_about_adults_is_not_examined_and_a_negative_prompt_is_not_a_request(monkeypatch):
     world = World(verdict="YES")
     made = []
-    monkeypatch.setattr("modules.nexus_core.generate_images", lambda request: made.append(request) or {"success": True})
+    monkeypatch.setattr("modules.nexus_core.generate_images", lambda request, **how: made.append(request) or {"success": True})
 
     world.core.generate_image(ImageGenerationRequest(prompt="nude portrait of a woman in her forties, oil painting", negative_prompt="child, teen, loli"))
 
@@ -561,7 +561,7 @@ def test_every_picture_that_names_a_minor_is_looked_at_and_an_ordinary_one_is_ma
 
     world = World(verdict="NO")
     made = []
-    monkeypatch.setattr("modules.nexus_core.generate_images", lambda request: made.append(request) or {"success": True})
+    monkeypatch.setattr("modules.nexus_core.generate_images", lambda request, **how: made.append(request) or {"success": True})
 
     world.core.generate_image(ImageGenerationRequest(prompt="a girl, 9, in a winter coat building a snowman"))
 

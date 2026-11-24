@@ -104,6 +104,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "allow_cloud_fallback": False,
     "hf_local_model": "",
     "comfyui_url": "http://127.0.0.1:8188",
+    # Pictures made on this machine (modules/heavy_work.py): when memory is short, "free_chat_model"
+    # takes the chat model out of memory first (Ollama loads it again for the next answer);
+    # "keep_chat_model" leaves it loaded. A picture stops after picture_time_limit_seconds, and a
+    # request waits at most picture_wait_seconds for another picture to finish.
+    "picture_memory": "free_chat_model",
+    "picture_time_limit_seconds": 1800,
+    "picture_wait_seconds": 600,
     "max_context_chars": 12000,
     "recent_message_limit": 8,
     "summary_message_limit": 18,

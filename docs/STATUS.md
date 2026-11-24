@@ -17,7 +17,7 @@ This page replaces the readiness claims in the older reports in this repository 
 | Remember / recall / forget commands | Yes | Yes | Facts record how they are known; a new value replaces the old one; "forget" reaches history and snapshots |
 | Export, encrypted backup, restore, wipe | Yes | Partly | The command-line tool was run through a full backup, wipe and restore. In the browser only the panel's display was checked |
 | Prompt sized to the model's window | Yes | Yes | A conversation that used to be cut to 1,026 tokens is read whole (1,690) |
-| Image generation with local Diffusers | Mocked | Yes | About 3 minutes per 512x512 image on CPU |
+| Image generation with local Diffusers | Mocked | Yes | About 3 minutes per 512x512 image on CPU. One picture at a time; when it would not fit in memory beside the chat model, the chat model is taken out first (measured 2026-11-24: lowest free memory for a 768x768 picture 0.35-1.8 GB before, 8.8 GB after; the next chat answer then takes about 12 s longer) |
 | Reality-First Research and claim check | Yes | Partly | The claim check's judgement was measured with the real model on labelled passages (about 4 in 5 right, see `docs/benchmarks`). A whole run on live search results with model synthesis was not observed |
 | Web text cannot instruct the model | Yes | Yes | 12 pages carrying planted instructions, answered by the real model: obeyed 6 before, 0 now (`docs/benchmarks`) |
 | Chat web answers stay within their sources | Yes | Yes | Frozen pages, real model: 9 of 9 right, nothing invented in 12; but it said "the results do not say" for only 1 of 3 questions the pages could not answer |
@@ -62,6 +62,7 @@ This page replaces the readiness claims in the older reports in this repository 
 - **When pages do not contain the answer**, the small local model tends to recite what they do contain instead of saying so. It does not invent an answer.
 - **Answers from a small local model** can state outdated facts. Web answers flag version numbers and years that are not in their sources, but other errors can get through.
 - **Saved data** is in JSON files changed under a lock and, for the knowledge index and the agent's records, SQLite databases, so two programs writing at once do not overwrite each other.
+- **Pictures and memory**: what a picture needs is measured at 512x512 and 768x768 on one machine and estimated for other sizes (above 768x768 the estimate is a lower bound). A picture cannot be cancelled from the Images tab while it is being made; it stops at its time limit (30 minutes).
 - **Live data is not encrypted.** Backups can be; the files the app works on are plain files. Use full-disk encryption if the computer is shared or portable.
 - **History in chat prompts.** On the default settings many simple turns are answered without earlier messages, which keeps a CPU-only machine responsive but means the model does not always see the conversation.
 - **Knowledge search** needs an embedding model in Ollama (for example `ollama pull all-minilm`, 45 MB) to search by meaning. The app does not download one itself; without it, search matches words and says so.

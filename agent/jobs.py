@@ -14,6 +14,9 @@ whoever runs it has to say so:
   scheduler, or of whatever asked) does not do the work twice.
 * Workers respect capacity: a total number of jobs at once, and a limit per kind of job (one
   model-heavy job at a time on a machine with one local model). Higher priority goes first.
+* The queue is bounded: at most MAX_QUEUED_PER_KIND jobs of one kind wait at once (QUEUE_LIMITS:
+  10 coding tasks). One more is refused with a message (QueueFull); a scheduled firing that would
+  go over the limit is skipped, and the user gets a notice saying so.
 
 A schedule turns into jobs: every N seconds, or daily at a time. Each firing is enqueued under a
 key made of the schedule and the time it was due, so a firing happens once however often the
@@ -39,10 +42,18 @@ LEASE_GRACE_SECONDS = 30.0  # how long past its time limit a silent worker keeps
 RETRY_BASE_SECONDS = 5.0
 RETRY_MAX_SECONDS = 600.0
 DEFAULT_KIND_LIMITS = {"coding_task": 1}  # one job at a time that occupies the local model
+# How many jobs of one kind may wait at once. One more is refused (QueueFull) instead of joining a
+# queue that would take days to work through; a coding task takes many minutes on the local model.
+MAX_QUEUED_PER_KIND = 100
+QUEUE_LIMITS = {"coding_task": 10}
 
 
 class JobCancelled(Exception):
     """Raised inside a handler by control.check() when the job was cancelled or ran out of time."""
+
+
+class QueueFull(StoreError):
+    """Too many jobs of this kind are already waiting."""
 
 
 def _stamp(moment: datetime) -> str:
@@ -131,18 +142,29 @@ class JobQueue:
         timeout_seconds: float = 600.0,
         idempotency_key: str | None = None,
         schedule_id: str = "",
+        queue_limit: int | None = None,
     ) -> str:
-        """Add a job. With an idempotency key that was used before, returns the job it made then."""
+        """Add a job. With an idempotency key that was used before, returns the job it made then.
+
+        Raises QueueFull when `queue_limit` jobs of this kind are already waiting (default: the
+        kind's entry in QUEUE_LIMITS, else MAX_QUEUED_PER_KIND), so work does not pile up unseen.
+        """
 
         if not kind.strip():
             raise StoreError("A job needs a kind.")
         stamp = now()
         due = _stamp(run_at) if run_at is not None else _stamp(datetime.now(timezone.utc) + timedelta(seconds=max(0.0, delay_seconds)))
+        limit = int(queue_limit if queue_limit is not None else QUEUE_LIMITS.get(kind, MAX_QUEUED_PER_KIND))
         with self.store.transaction() as db:
             if idempotency_key is not None:
                 existing = db.execute("SELECT id FROM jobs WHERE idempotency_key = ?", (idempotency_key,)).fetchone()
                 if existing is not None:
                     return str(existing["id"])
+            waiting = int(db.execute("SELECT COUNT(*) AS n FROM jobs WHERE status = 'queued' AND kind = ?", (kind,)).fetchone()["n"])
+            if waiting >= limit:
+                raise QueueFull(
+                    f"{waiting} {kind} jobs are already waiting, which is the limit. Wait for some to finish, or cancel some, and add it again."
+                )
             job_id = new_id("job")
             db.execute(
                 "INSERT INTO jobs (id, kind, payload, priority, run_after, max_attempts, timeout_seconds, idempotency_key, schedule_id, created_at, updated_at) "
@@ -362,7 +384,13 @@ class JobQueue:
             due = schedule["next_run"]
             # The key ties the job to this firing: looking twice, or crashing between the two
             # writes below, cannot make it twice.
-            job_id = self.enqueue(schedule["kind"], {**schedule["payload"], "schedule_id": schedule["id"], "due": due}, idempotency_key=f"{schedule['id']}:{due}", schedule_id=schedule["id"])
+            try:
+                job_id = self.enqueue(schedule["kind"], {**schedule["payload"], "schedule_id": schedule["id"], "due": due}, idempotency_key=f"{schedule['id']}:{due}", schedule_id=schedule["id"])
+            except QueueFull as full:
+                # Too much of this kind is already waiting: this firing is skipped, and the user is
+                # told once per firing (the notice id is the firing's key).
+                job_id = ""
+                self.notify("schedule_skipped", f"A scheduled {schedule['kind']} was skipped", str(full), {"schedule_id": schedule["id"], "due": due}, notice_id=f"skipped:{schedule['id']}:{due}")
             if schedule["every_seconds"]:
                 following = _parse(due) + timedelta(seconds=schedule["every_seconds"])
                 while following <= moment:  # the app was off for a while: one catch-up run, not one per missed firing
@@ -370,8 +398,12 @@ class JobQueue:
             else:
                 following = _next_daily(schedule["daily_at"], moment.astimezone())
             with self.store.transaction() as db:
-                db.execute("UPDATE schedules SET next_run = ?, last_job = ? WHERE id = ?", (_stamp(following), job_id, schedule["id"]))
-            made.append(job_id)
+                if job_id:
+                    db.execute("UPDATE schedules SET next_run = ?, last_job = ? WHERE id = ?", (_stamp(following), job_id, schedule["id"]))
+                else:
+                    db.execute("UPDATE schedules SET next_run = ? WHERE id = ?", (_stamp(following), schedule["id"]))
+            if job_id:
+                made.append(job_id)
         return made
 
     # ---- notices -----------------------------------------------------------------------------
