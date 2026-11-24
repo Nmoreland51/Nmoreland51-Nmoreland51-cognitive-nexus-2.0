@@ -999,7 +999,7 @@
    "category": "C",
    "status": "active",
    "trigger": "run_command and run_tests.",
-   "effect": "Only listed programs start (python, pytest, git, node, npm, npx, cargo, go, dotnet, make, ruff, mypy), named without a path. Inside the sandbox Git may only read. pip install is refused.",
+   "effect": "Only listed programs start (python, pytest, git, node, npm, npx, cargo, go, dotnet, make, ruff, mypy), named without a path. Inside the sandbox Git may only read. `pip install` typed as a command is refused; packages are installed through setup_environment, under the installation policy (R-C07).",
    "owner_requested": "In general terms: \"Use isolated environments for autonomous code execution.\"",
    "evidence": "agent/tools.py.",
    "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.",
@@ -1012,7 +1012,7 @@
    "owner_decision": "Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.",
    "tests": "tests/test_agent_tools.py",
    "regression_risk": "Low.",
-   "known_limitations": "A task that needs new packages cannot install them yet (audit item 058 is open).",
+   "known_limitations": "None beyond the list itself.",
    "locations": [
     {
      "file": "agent/tools.py",
@@ -1114,6 +1114,53 @@
     {
      "file": "agent/jobs.py",
      "anchor": "DEFAULT_KIND_LIMITS = {\"coding_task\": 1}"
+    }
+   ]
+  },
+  {
+   "id": "R-C07",
+   "name": "What the coding agent may install",
+   "category": "C",
+   "status": "active",
+   "trigger": "A task's tests cannot import a package, or the agent calls setup_environment.",
+   "effect": "The task gets a virtual environment of its own, created and used inside the sandbox. Under the default policy ('declared') only the repository's own requirement files are installed, as they were before the task started, from the package index only, and only as ready-built packages, so nothing from a package runs in order to install it. A requirement file the task itself wrote or changed is refused, as are lines pointing at URLs, version-control repositories or other indexes. With the policy 'off' nothing is installed and the task is handed to a person with the name of the missing package.",
+   "owner_requested": "In general terms: the audit asked for a package installation policy (item 058). The default was not put to the owner.",
+   "evidence": "agent/environment.py. Run for real on 2026-11-23: one package installed from the public index inside the sandbox in 9 seconds, importable in the task's environment next to the app's own test runner, the download kept in a cache; a requirement line asking to build from source was refused.",
+   "origin": "Written during the 146-item audit work (November 2026), which the owner ordered.",
+   "technical_reason": "Installing a package runs other people's code. Limiting it to what the repository already declared keeps a model from having any package it names installed, and ready-built packages keep installation itself from running code.",
+   "affected_workflows": "Agent tasks on repositories whose tests need packages that are not installed.",
+   "default_state": "declared.",
+   "effective_state": "declared.",
+   "alternatives": "any: also install from requirement files the task changed and from URLs or other indexes. off: install nothing.",
+   "configurable": "Yes. Settings file: agent_package_policy (declared, any, off); agent_package_index for a mirror or a local folder of packages; agent_environment_inherits.",
+   "owner_decision": "Pending review by the owner. It is a permission for a tool, not a rule about what may be said; the middle setting is in place.",
+   "tests": "tests/test_agent_environment.py",
+   "regression_risk": "Low. Before this, such tasks could not be worked on at all.",
+   "known_limitations": "Python requirement files only: projects that declare their dependencies only in pyproject.toml, and other languages, are not set up. A package with no ready-built version for this Python cannot be installed under the default policy. The task's environment can also use the packages of the app's own Python (that is how the test runner is found), so it is not a clean room. What an installed package does when the tests import it is contained only as far as the sandbox goes (R-D06).",
+   "locations": [
+    {
+     "file": "agent/environment.py",
+     "anchor": "PACKAGE_POLICIES = (\"declared\", \"any\", \"off\")"
+    },
+    {
+     "file": "agent/environment.py",
+     "anchor": "command.append(\"--only-binary=:all:\")"
+    },
+    {
+     "file": "agent/environment.py",
+     "anchor": "def changed_since_start("
+    },
+    {
+     "file": "agent/coder.py",
+     "anchor": "def install_what_is_missing("
+    },
+    {
+     "file": "agent/tools.py",
+     "anchor": "Packages are installed with setup_environment"
+    },
+    {
+     "file": "modules/nexus_config.py",
+     "anchor": "\"agent_package_policy\": \"declared\","
     }
    ]
   },
@@ -1746,6 +1793,7 @@
   "tools/content_rule_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/injection_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/restriction_register.py": "This register's own tool.",
-  "tools/run_checks.py": "A development tool: runs every check, this register's among them. It does not run in the app."
+  "tools/run_checks.py": "A development tool: runs every check, this register's among them. It does not run in the app.",
+  "ui/agent_panel.py": "The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01)."
  }
 }

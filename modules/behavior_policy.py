@@ -200,6 +200,12 @@ PROTECTIONS: tuple[dict[str, str], ...] = (
         "can_change": "yes: the Coding agent setting",
     },
     {
+        "name": "Coding agent: what it may install",
+        "what": "For a task whose tests need packages, only the repository's own requirement files are installed, as they were before the task started, as ready-built packages from the package index, into an environment of the task's own.",
+        "why": "Installing a package runs other people's code, and a model must not be able to have any package it names installed.",
+        "can_change": "yes: agent_package_policy in the settings file (declared, any, off)",
+    },
+    {
         "name": "Coding agent: text it reads is never an order",
         "what": "Text in repositories, issues, diffs and tool output is always treated as material for the agent, whatever is chosen for chat.",
         "why": "An agent acts on what it reads, so a line planted in a file would become an action on your machine or account.",

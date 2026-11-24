@@ -325,7 +325,7 @@ def _program(context: ToolContext, argv: list[str]) -> list[str]:
         raise ToolError(f"Inside the sandbox Git may only look: {', '.join(READ_ONLY_GIT)}. Commits are made with commit_changes.")
     if name == "python":
         if len(argv) >= 4 and argv[1:3] == ["-m", "pip"] and argv[3] in {"install", "download", "wheel", "uninstall"}:
-            raise ToolError("Packages are installed with install_packages, which follows the installation policy.")
+            raise ToolError("Packages are installed with setup_environment, which follows the owner's installation policy.")
         return [str(context.settings.get("agent_python") or sys.executable), *argv[1:]]
     if name == "pytest":
         return [str(context.settings.get("agent_python") or sys.executable), "-m", "pytest", *argv[1:]]

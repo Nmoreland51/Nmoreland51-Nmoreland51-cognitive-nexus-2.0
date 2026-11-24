@@ -33,9 +33,11 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 from agent.approvals import ApprovalPolicy
+from agent.environment import environment_for, missing_module, package_policy, register_environment_tools, usual_requirement_files
 from agent.model import Model
 from agent.registry import ToolContext, ToolRegistry, ToolResult
 from agent.review import Review, is_protected, review_change
@@ -639,6 +641,7 @@ class _Run:
                 "spending": "Grant the task a spending budget, or use a local model.",
                 "unusable_replies": "The model did not produce edits in the required form. A more capable model is needed for this task.",
                 "not_allowed": "The approval policy refuses an action the task needs.",
+                "environment": "Install what the tests need yourself, add a requirements file to the repository, or change agent_package_policy, and queue the task again.",
                 "workspace": "The repository or the task's workspace is not in a usable state.",
             }.get(code, "Look at the task's history."),
         }
@@ -669,6 +672,10 @@ class _Run:
             workspaces=agent.workspaces,
             checkout=self.checkout,
         )
+        # A task that already has an environment of its own keeps using it after a pause or a restart.
+        ready = environment_for(task.id, agent.settings.get("agent_environments_dir"))
+        if ready:
+            self.context.settings["agent_python"] = ready["python"]
 
     def recover(self) -> None:
         """After a crash: note what was cut short, and put the files back to where the open attempt began."""
@@ -694,6 +701,7 @@ class _Run:
         tested = self.call("run_tests", {}, step="baseline")
         if not tested.ok:
             raise _Stop("workspace", f"The acceptance tests could not be run: {tested.error}")
+        tested = self.install_what_is_missing(tested)
         if tested.data["passed"]:
             raise _Stop("already_passing", "The acceptance tests already pass on the untouched code, so there is nothing here to fix.")
         failing = [name for run in tested.data["runs"] for name in run["failing"]]
@@ -701,6 +709,38 @@ class _Run:
         self.state["start_checkpoint"] = self.agent.workspaces.checkpoint(self.checkout, "task start")
         self.note("reproduced", f"Reproduced: {len(failing) or 'the'} failing test(s)", failing=failing[:20])
         self.save()
+
+    def install_what_is_missing(self, tested: ToolResult) -> ToolResult:
+        """When the tests fail only because a package is not installed, set up the task's own
+        environment from the repository's requirement files and run the tests again.
+
+        A failure for that reason says nothing about the code. Whether packages may be installed
+        is the owner's setting (agent_package_policy); when it is off, or the repository declares
+        nothing, the task is handed to a person with the name of the missing module.
+        """
+
+        assert self.checkout is not None and self.context is not None
+        if tested.data["passed"]:
+            return tested
+        missing = missing_module("\n".join(str(run.get("output", "")) for run in tested.data["runs"]))
+        if not missing or "setup_environment" not in self.agent.registry.names():
+            return tested
+        if package_policy(self.agent.settings) == "off" or not usual_requirement_files(Path(self.checkout.path)):
+            raise _Stop(
+                "environment",
+                f"The tests cannot import '{missing}'. It is not installed, and "
+                + ("installing packages is switched off." if package_policy(self.agent.settings) == "off" else "the repository has no requirement file to install from."),
+            )
+        self.note("step", f"The tests cannot import '{missing}': setting up the task's own environment from the repository's requirements")
+        made = self.call("setup_environment", {}, step="environment")
+        if not made.ok:
+            raise _Stop("environment", f"The tests cannot import '{missing}', and the repository's requirements could not be installed: {made.error[:900]}")
+        self.context.settings["agent_python"] = made.data["python"]
+        self.note("environment", f"Installed {len(made.data.get('installed', []))} package(s) into the task's own environment", files=made.data.get("requirement_files", []))
+        again = self.call("run_tests", {}, step="baseline.after_install")
+        if not again.ok:
+            raise _Stop("workspace", f"The acceptance tests could not be run: {again.error}")
+        return again
 
     def command_seconds(self) -> float:
         return float(max(10.0, min(float(self.agent.settings.get("agent_command_seconds", 600)), self.budget.seconds - self.elapsed())))
@@ -1066,7 +1106,7 @@ def default_agent(
 
     return CodingAgent(
         store=store,
-        registry=register_coding_tools(ToolRegistry()),
+        registry=register_environment_tools(register_coding_tools(ToolRegistry())),
         workspaces=workspaces or WorkspaceManager(),
         model=model,
         reviewer=(reviewer if reviewer is not None else model) if model_review else None,

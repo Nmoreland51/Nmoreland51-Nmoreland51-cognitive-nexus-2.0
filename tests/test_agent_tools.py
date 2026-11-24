@@ -205,7 +205,7 @@ def test_commands_run_in_the_sandbox_without_a_shell(env):
         (["git", "push", "origin", "main"], "Git may only look"),
         (["git", "commit", "-m", "x"], "Git may only look"),
         (["git", "config", "core.hooksPath", "x"], "Git may only look"),
-        (["python", "-m", "pip", "install", "requests"], "install_packages"),
+        (["python", "-m", "pip", "install", "requests"], "setup_environment"),
         (["../../bin/make"], "without a path"),
     ],
 )
