@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.research_plan import SearchPlan, gather_planned, is_listing, judge_results, plan_search, unsourced_names, unsourced_names_note
+from modules.research_plan import SearchPlan, as_typed, gather_planned, is_listing, judge_results, plan_search, unsourced_names, unsourced_names_note
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "tools"))
@@ -23,7 +23,7 @@ OMAHA = SearchPlan(
 
 
 def test_a_plan_is_read_from_the_models_reply_and_a_question_word_is_never_off_topic():
-    reply = json.dumps({"topic": "Cannabis in Omaha", "queries": ["cannabis dispensary Omaha", "cannabis dispensary Omaha", "Omaha menus"], "off_topic": ["lawn", "weed", "Omaha", "best"], "wants": "menus with prices"})
+    reply = json.dumps({"topic": "Cannabis in Omaha", "queries": ["cannabis dispensary Omaha", "cannabis dispensary Omaha", "Omaha menus"], "context_query": "", "off_topic": ["lawn", "weed", "Omaha", "best"], "wants": "menus with prices"})
 
     plan = plan_search("best weed in Omaha", lambda prompt, schema: reply)
 
@@ -123,6 +123,156 @@ def test_the_benchmark_scores_the_old_pipeline_without_a_model():
     assert omaha["old"]["about_another_meaning"] == 3  # what the keyword search returns for the question as typed
     assert next(row for row in rows if row["id"] == "chicago_pizza")["old"]["about_another_meaning"] == 0  # the control has nothing to filter
     assert all("new" not in row for row in rows)
+
+
+# ---- round two: the plan as the real model writes it (no off-topic words), and the result judge ----
+
+
+LAWN_PAGE = {"title": "Best 24 Weed Control Service in Omaha, NE", "snippet": "Lawn weed control and fertilization for Omaha homes.", "url": "https://lawn.example/omaha"}
+SHOP_PAGE = {"title": "Riverside Green Dispensary menu", "snippet": "Medical cannabis dispensary near Omaha: menu and prices.", "url": "https://riversidegreen.example/menu"}
+THREAD = {"title": "Where in Omaha is THCA sold? r/Omaha", "snippet": "Locals compare smoke shops that sell THCA flower.", "url": "https://forum.example/omaha-thca"}
+
+
+def _as_the_model_plans(ask):
+    """A plan like the real model's: the meaning spelled out, the off-topic list empty."""
+
+    reply = json.dumps({"topic": "Find the best cannabis in Omaha.", "queries": ["best weed in Omaha", "best cannabis dispensary in Omaha"], "context_query": "", "off_topic": [], "wants": "shops with reviews"})
+    return plan_search("Search the web for the best weed in Omaha.", lambda prompt, schema: reply if "work out what the person means" in prompt else ask(prompt, schema))
+
+
+def test_queries_that_spell_the_meaning_out_are_searched_first():
+    plan = _as_the_model_plans(lambda prompt, schema: "")
+    assert plan.queries == ["best cannabis dispensary in Omaha", "best weed in Omaha"]
+
+
+def test_the_prompts_own_example_words_are_not_taken_as_off_topic():
+    reply = json.dumps({"topic": "Lizards for sale in Austin.", "queries": ["lizard pet shop Austin"], "context_query": "", "off_topic": ["snake", "reptile", "venom", "taxidermy"], "wants": "shops"})
+    assert plan_search("Where can I buy a lizard in Austin?", lambda prompt, schema: reply).off_topic == ["taxidermy"]
+
+
+def test_the_model_is_asked_only_about_results_that_name_none_of_the_meanings_words():
+    asked = []
+
+    def judge(prompt, schema):
+        asked.append(prompt)
+        lines = [line for line in prompt.splitlines() if line[:1].isdigit() and ". " in line]
+        return json.dumps({"results": [{"about": "lawn weed control", "same": "no"} if "Lawn" in line else {"about": "THCA in Omaha", "same": "yes"} for line in lines]})
+
+    plan = _as_the_model_plans(judge)
+    outcome = gather_planned(plan, lambda query, max_results=5: [LAWN_PAGE, SHOP_PAGE, THREAD])
+
+    assert len(asked) == 1 and "Lawn weed control" in asked[0] and "THCA" in asked[0] and "Riverside" not in asked[0]
+    assert sorted(item["url"] for item in outcome["results"]) == sorted([SHOP_PAGE["url"], THREAD["url"]])
+    assert outcome["dropped"][0]["relevance"]["reason"] == "judged by the model to be about something else (lawn weed control)"
+    assert outcome["searches"][0] == {"query": "best cannabis dispensary in Omaha", "returned": 3, "kept": 2, "dropped": 1, "judged": 2, "judged_off_topic": 1}
+
+
+@pytest.mark.parametrize("reply", ["not json", json.dumps({"results": [{"about": "x", "same": "maybe"}]}), json.dumps({"results": []})])
+def test_a_judgement_that_cannot_be_used_keeps_the_results(reply):
+    plan = _as_the_model_plans(lambda prompt, schema: reply)
+    outcome = gather_planned(plan, lambda query, max_results=5: [LAWN_PAGE, SHOP_PAGE])
+
+    assert len(outcome["results"]) == 2 and not outcome["dropped"]
+    assert outcome["searches"][0]["judge"] == "unavailable: kept"
+
+
+def test_every_result_is_judged_when_the_plan_adds_no_words_of_its_own():
+    """Round two: for "a good gaming mouse" the model saw nothing ambiguous, and pest control got through."""
+
+    calls = []
+
+    def judge(prompt, schema):
+        calls.append(prompt)
+        lines = [line for line in prompt.splitlines() if line[:1].isdigit() and ". " in line]
+        return json.dumps({"results": [{"about": "rodent control" if "Rat" in line else "gaming mice", "same": "no" if "Rat" in line else "yes"} for line in lines]})
+
+    question = "Where can I buy a good gaming mouse in San Diego?"
+    plan = SearchPlan(question=question, topic=question, queries=["gaming mouse San Diego"], ask=judge)
+    found = [
+        {"title": "Mouse and Rat Removal in San Diego", "snippet": "Humane mouse trapping.", "url": "https://pest.example/"},
+        {"title": "Gaming mouse in stock, San Diego store", "snippet": "Try gaming mice before you buy.", "url": "https://shop.example/"},
+    ]
+    outcome = gather_planned(plan, lambda query, max_results=5: found)
+
+    assert not plan.sense_words and len(calls) == 1 and "Rat Removal" in calls[0] and "Gaming mouse in stock" in calls[0]
+    assert [item["url"] for item in outcome["results"]] == ["https://shop.example/"]
+
+
+# ---- the owner's "check relevant legal and availability context" (CN-QA-006) -------------------------------
+
+
+def test_the_plan_carries_a_search_for_the_law_or_availability_the_answer_depends_on():
+    reply = {"topic": "Cannabis in Omaha.", "queries": ["cannabis dispensary Omaha"], "context_query": "Nebraska cannabis law 2026", "off_topic": [], "wants": "shops"}
+    assert plan_search("best weed in Omaha", lambda prompt, schema: json.dumps(reply)).context_query == "Nebraska cannabis law 2026"
+    for copied in ("Ohio fireworks law", "cannabis dispensary Omaha", ""):
+        assert plan_search("best weed in Omaha", lambda prompt, schema: json.dumps({**reply, "context_query": copied})).context_query == ""
+
+
+def test_the_context_search_is_made_even_when_the_first_search_was_enough_and_adds_at_most_two_results():
+    searched = []
+    law = [
+        {"title": "Nebraska medical cannabis: what is legal in 2026", "snippet": "Recreational use remains illegal in Nebraska.", "url": "https://law.example/ne"},
+        {"title": "Nebraska cannabis law explained", "snippet": "Possession limits in Nebraska.", "url": "https://law.example/limits"},
+        {"title": "Cannabis law in Nebraska and Iowa", "snippet": "What changes across the river.", "url": "https://law.example/iowa"},
+        {"title": "2025 in the United States - Wikipedia", "snippet": "Events of the year.", "url": "https://wiki.example/2025"},
+    ]
+    shops = [
+        {"title": f"Cannabis dispensary {n}", "snippet": "Omaha cannabis menu", "url": f"https://shop{n}.example/"} for n in range(5)
+    ]
+
+    def search(query, max_results=5):
+        searched.append(query)
+        return law if "law" in query else shops
+
+    plan = SearchPlan(question="best weed in Omaha", topic="Cannabis in Omaha.", queries=["cannabis dispensary Omaha", "Omaha cannabis menu"], context_query="Nebraska cannabis law 2026")
+    outcome = gather_planned(plan, search)
+
+    assert searched == ["cannabis dispensary Omaha", "Nebraska cannabis law 2026"]
+    assert [item["url"] for item in outcome["results"]] == ["https://shop0.example/", "https://shop1.example/", "https://shop2.example/", "https://law.example/ne", "https://law.example/limits"]
+    assert all(item["relevance"].get("context") for item in outcome["results"][3:])
+    assert outcome["searches"][-1] == {"query": "Nebraska cannabis law 2026", "purpose": "law or availability", "returned": 4, "kept": 2, "dropped": 0}
+
+
+def test_a_failing_context_search_is_recorded_and_the_rest_is_kept():
+    def search(query, max_results=5):
+        if "law" in query:
+            raise RuntimeError("rate limited")
+        return [{"title": "Cannabis dispensary", "snippet": "Omaha cannabis menu", "url": "https://shop.example/"}]
+
+    plan = SearchPlan(question="best weed in Omaha", topic="Cannabis in Omaha.", queries=["cannabis dispensary Omaha"], context_query="Nebraska cannabis law")
+    outcome = gather_planned(plan, search, min_relevant=1)
+
+    assert [item["url"] for item in outcome["results"]] == ["https://shop.example/"]
+    assert outcome["searches"][-1]["error"] == "rate limited" and outcome["searches"][-1]["purpose"] == "law or availability"
+
+
+def test_a_plan_without_a_model_asks_nothing():
+    plan = as_typed("best pizza in Chicago")
+    outcome = gather_planned(plan, lambda query, max_results=5: [{"title": "Chicago pizza", "snippet": "deep dish", "url": "https://pizza.example/"}])
+    assert len(outcome["results"]) == 1 and outcome["searches"][0] == {"query": "best pizza in Chicago", "returned": 1, "kept": 1, "dropped": 0}
+
+
+@pytest.mark.parametrize("case_id", ["omaha_weed", "omaha_lawn_weeds"])
+def test_the_benchmark_with_a_perfect_judge_keeps_only_the_meant_sense_for_either_meaning(case_id):
+    """The plumbing, with the judge answering from the fixture's labels: either meaning of "weed"."""
+
+    case = next(item for item in bench.load() if item["id"] == case_id)
+    label = {item["title"]: item["about"] for item in case["pool"]}
+
+    def judge(prompt, schema):
+        lines = [line.split(". ", 1)[1] for line in prompt.splitlines() if line[:1].isdigit() and ". " in line]
+        titles = [next(title for title in label if line.startswith(title)) for line in lines]
+        return json.dumps({"results": [{"about": title, "same": "yes" if label[title] == "asked" else "no"} for title in titles]})
+
+    topic = "Find the best cannabis in Omaha." if case_id == "omaha_weed" else "How do I remove weeds from my lawn in Omaha?"
+    queries = ["best cannabis dispensary in Omaha"] if case_id == "omaha_weed" else ["weed removal services Omaha", "lawn care companies Omaha"]
+
+    def planner(question):
+        return SearchPlan(question=question, topic=topic, queries=queries, ask=judge)
+
+    row = bench.run_case(case, planner)
+
+    assert row["new"]["about_another_meaning"] == 0 and row["new"]["dropped_wrongly"] == 0 and row["new"]["about_what_was_asked"] >= 2
 
 
 def test_the_benchmark_with_a_perfect_planner_drops_every_off_topic_result_and_keeps_the_rest():

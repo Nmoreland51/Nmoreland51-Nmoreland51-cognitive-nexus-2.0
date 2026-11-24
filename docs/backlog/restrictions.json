@@ -1952,7 +1952,7 @@
   "modules/data_stores.py": "A description of what the agent's database holds, for the Your data panel.",
   "modules/file_utils.py": "A comment about Windows file locking.",
   "modules/profile_store.py": "A comment about error handling when forgetting a fact.",
-  "modules/research_plan.py": "Decides which search results the model reads: results about another meaning of the question's words are dropped (lawn care for a question about cannabis). A quality control on sources, not a limit on what may be asked or answered; the setting plan_web_search switches the planning off.",
+  "modules/research_plan.py": "Decides which search results the model reads: results about another meaning of the question's words are dropped (lawn care for a question about cannabis), either because they carry words of that other meaning or because the model, asked about a result that names nothing of the meant sense, says it is about something else. A quality control on sources, not a limit on what may be asked or answered: the meaning is the asker's, and the judge is told only what the person means. The setting plan_web_search switches the planning and the judging off.",
   "tools/agent_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/audit_ledger.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/behavior_check.py": "A development tool. It measures or checks; it does not run in the app.",

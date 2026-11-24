@@ -88,6 +88,23 @@ BRIEF_WEB_SUMMARY_OPTIONS = {"temperature": 0.0, "num_predict": 160, "num_ctx": 
 FULL_WEB_SUMMARY_OPTIONS = {"temperature": 0.25, "num_predict": 480, "num_ctx": 4096}
 
 
+_ANSWER_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'’-]*")
+
+
+def length_note(answer: str, requested: Any) -> str:
+    """A note for an answer that the model ended outside the length asked for, or "" when it kept to it."""
+
+    if not requested:
+        return ""
+    low, high = int(requested[0]), int(requested[1])
+    written = len(_ANSWER_WORD.findall(answer or ""))
+    if low <= written <= high:
+        return ""
+    if written < low:
+        return f"\n\n[About {written} words, fewer than the {low} to {high} you asked for. The model ended here by itself; nothing in the app shortened it. Ask for more if you want it longer.]"
+    return f"\n\n[About {written} words, more than the {low} to {high} you asked for. The model wrote this much by itself; the app does not cut answers.]"
+
+
 def _elapsed_ms(started: float, ended: float | None = None) -> float:
     """Return elapsed milliseconds rounded for diagnostics."""
 
@@ -601,7 +618,11 @@ class NexusCore:
         tuned["top_k"] = min(int(tuned.get("top_k", 40) or 40), 30 if mode == "fast" else 20)
         tuned["top_p"] = min(float(tuned.get("top_p", 0.9) or 0.9), 0.85 if mode == "fast" else 0.75)
         tuned["repeat_last_n"] = min(int(tuned.get("repeat_last_n", 128) or 128), 96 if mode == "fast" else 64)
-        tuned["num_batch"] = max(int(tuned.get("num_batch", 0) or 0), 256 if mode == "fast" else 512)
+        # No load-time option here (num_batch, num_thread and the like). "Fast" used to send
+        # num_batch 256 while the content-rule check, the search plan, the result judge and the web
+        # answer send none, and Ollama reloads the model whenever such an option changes ("runner
+        # options changed" in its log, about 4 s each time here; measured 2026-11-24).
+        tuned.pop("num_batch", None)
         return tuned
 
     def _uses_slow_startup_ollama_model(self, model: str) -> bool:
@@ -1663,6 +1684,9 @@ class NexusCore:
         visible_stream_started = False
         social_presence_turn = self._is_social_presence_turn(plan)
         suppress_provider_stream = social_presence_turn
+        # A short conversational reply has stock phrases taken out once it is complete
+        # (_repair_social_presence_answer), so its start is held back as before.
+        early_start = not self._is_backchannel_turn(plan)
         for chunk in self.provider_router.stream(request):
             if first_provider_chunk_at is None:
                 first_provider_chunk_at = time.perf_counter()
@@ -1678,7 +1702,7 @@ class NexusCore:
                     continue
                 # Hold back only while the text could still be the prompt's own scaffolding. It used to
                 # wait for 160 characters, about eight seconds at this machine's 5 tokens a second.
-                if len(guard_buffer) >= 160 or "\n" in guard_buffer or (len(guard_buffer) >= 24 and not self._could_be_scaffolding(guard_buffer)):
+                if len(guard_buffer) >= 160 or "\n" in guard_buffer or (early_start and len(guard_buffer) >= 24 and not self._could_be_scaffolding(guard_buffer)):
                     visible_stream_started = True
                     provider_visible_chunks.append(guard_buffer)
                     chunks.append(guard_buffer)
@@ -1727,6 +1751,14 @@ class NexusCore:
             chunks.append(note)
             yield note
             answer += note
+        elif answer and not answer.startswith("Fallback:"):
+            # A length the owner asked for and the model did not keep to is said, not left silent
+            # (CN-QA-002): the model ended there by itself, and nothing in the app cut or padded it.
+            note = length_note(answer, plan.diagnostics.get("requested_words"))
+            if note:
+                chunks.append(note)
+                yield note
+                answer += note
         audited_answer = self._audit_answer(
             answer,
             label="chat",

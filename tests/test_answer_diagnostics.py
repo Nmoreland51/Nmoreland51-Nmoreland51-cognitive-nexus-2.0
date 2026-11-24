@@ -33,3 +33,23 @@ def test_a_calculation_an_unclear_check_and_a_web_answer_are_described():
     web = {row["What"]: row["Value"] for row in answer_rows({"provider": "web_research", "search_plan": {"source": "model", "queries": ["cannabis dispensary Omaha", "Omaha cannabis prices"]}})}
     assert web["Search plan"] == "model: cannabis dispensary Omaha; Omaha cannabis prices"
     assert answer_rows({}) == [] and answer_rows(None) == []
+
+
+def test_a_web_answer_shows_what_was_searched_judged_and_left_out():
+    rows = answer_rows(
+        {
+            "provider": "web_research",
+            "search_plan": {"source": "model", "question": "best weed in Omaha", "topic": "The best cannabis in Omaha.", "queries": ["best cannabis dispensary in Omaha"]},
+            "searches": [
+                {"query": "best cannabis dispensary in Omaha", "returned": 5, "kept": 3, "dropped": 2, "judged": 2, "judged_off_topic": 2},
+                {"query": "Nebraska cannabis law", "purpose": "law or availability", "returned": 0, "kept": 0, "dropped": 0, "error": "rate limited"},
+            ],
+            "dropped_results": [{"title": "Best 24 Weed Control Service in Omaha", "url": "https://lawn.example/", "reason": "judged by the model to be about something else (lawn weed control)"}],
+        }
+    )
+    shown = [(row["What"], row["Value"]) for row in rows]
+
+    assert ("Taken to mean", "The best cannabis in Omaha.") in shown
+    assert ("Search", "best cannabis dispensary in Omaha: 5 found, 3 kept, 2 dropped, 2 judged by the model") in shown
+    assert ("Search for law or availability", "Nebraska cannabis law: failed (rate limited)") in shown
+    assert ("Left out", "Best 24 Weed Control Service in Omaha: judged by the model to be about something else (lawn weed control)") in shown

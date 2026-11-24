@@ -67,6 +67,19 @@ def answer_rows(last_provider: dict[str, Any] | None, last_rule: dict[str, Any] 
     plan = dict(meta.get("search_plan") or {})
     if plan:
         rows.append({"What": "Search plan", "Value": f"{plan.get('source')}: " + "; ".join(plan.get("queries") or [])})
+        if plan.get("topic") and plan.get("topic") != plan.get("question"):
+            rows.append({"What": "Taken to mean", "Value": str(plan["topic"])})
+    for search in meta.get("searches") or []:
+        label = "Search for law or availability" if search.get("purpose") else "Search"
+        if search.get("error"):
+            value = f"{search.get('query')}: failed ({search['error']})"
+        else:
+            value = f"{search.get('query')}: {search.get('returned', 0)} found, {search.get('kept', 0)} kept, {search.get('dropped', 0)} dropped"
+            if search.get("judged"):
+                value += f", {search['judged']} judged by the model" + (" (no answer usable: kept)" if search.get("judge") else "")
+        rows.append({"What": label, "Value": value})
+    for item in (meta.get("dropped_results") or [])[:6]:
+        rows.append({"What": "Left out", "Value": f"{str(item.get('title') or item.get('url') or '')[:90]}: {item.get('reason', '')}"})
     return rows
 
 

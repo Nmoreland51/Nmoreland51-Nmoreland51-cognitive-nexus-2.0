@@ -46,8 +46,22 @@ _WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'’-]*")
 _NUMBER = re.compile(r"-?\$?\d[\d,]*(?:\.\d+)?")
 
 
+_APP_NOTE = re.compile(r"\n\n\[[^\[\]]*\]\s*$")
+
+
 def words(text: str) -> int:
     return len(_WORD.findall(text or ""))
+
+
+def model_text(text: str) -> str:
+    """The answer without the notes the app puts under it ("[Stopped at ...]", "[About 114 words ...]")."""
+
+    text = (text or "").rstrip()
+    while True:
+        stripped = _APP_NOTE.sub("", text).rstrip()
+        if stripped == text:
+            return text
+        text = stripped
 
 
 def ends_complete(text: str) -> bool:
@@ -152,15 +166,16 @@ def run_length(cases: list[dict[str, Any]], model: str, url: str, direct: bool) 
             chunks.append(chunk)
         total = time.perf_counter() - started
         text = "".join(chunks).strip()
+        body = model_text(text)  # the model's words only, without the app's notes under them
         throughput = dict(getattr(core.provider_router, "_last_ollama_throughput", {}) or {})
         meta = dict(core.last_provider_result or {})
         row = {
             "id": case["id"],
             "low": case["low"],
             "high": case["high"],
-            "words": words(text),
-            "within": case["low"] <= words(text) <= case["high"],
-            "ends_complete": ends_complete(text),
+            "words": words(body),
+            "within": case["low"] <= words(body) <= case["high"],
+            "ends_complete": ends_complete(body),
             "stopped_because": throughput.get("done_reason", ""),
             "output_tokens": throughput.get("eval_count", 0),
             "token_limit_sent": meta.get("planned_tokens") or meta.get("num_predict") or "",
@@ -168,7 +183,7 @@ def run_length(cases: list[dict[str, Any]], model: str, url: str, direct: bool) 
             "first_word_seconds": round(first or total, 1),
             "total_seconds": round(total, 1),
             "provider": meta.get("provider", ""),
-            "notes_shown": [line for line in text.splitlines() if line.startswith(("Stopped", "Note", "This answer", "The answer stopped", "Cut off"))][:3],
+            "notes_shown": [line for line in text.splitlines() if line.lstrip("[").startswith(("Stopped", "About", "Note", "This answer", "The answer stopped", "The answer was cut off", "Cut off"))][:3],
         }
         if direct:
             row["direct_ollama"] = _direct(url, model, case["message"])
@@ -305,15 +320,16 @@ def summarize(report: dict[str, Any]) -> dict[str, Any]:
             row["id"]: {"first_word_app": row["app"]["first_word_seconds"], "first_word_ollama_alone": row["direct"]["first_word_seconds"], "overhead": row["first_word_overhead_seconds"], "tokens_per_second_app": row["app"]["tokens_per_second"], "tokens_per_second_alone": row["direct"]["tokens_per_second"]}
             for row in profile
         }
-    arithmetic = report.get("arithmetic") or []
-    if arithmetic:
-        summary["arithmetic"] = {
-            "answers": len(arithmetic),
-            "right": sum(row["right"] for row in arithmetic),
-            "wrong": sorted({f"{row['id']} -> {row['value']}" for row in arithmetic if not row["right"]}),
-            "by": {name: sum(row["produced_by"] == name for row in arithmetic) for name in sorted({row["produced_by"] for row in arithmetic})},
-            "median_seconds": sorted(row["seconds"] for row in arithmetic)[len(arithmetic) // 2],
-        }
+    for key in ("arithmetic", "arithmetic_heldout"):
+        arithmetic = report.get(key) or []
+        if arithmetic:
+            summary[key] = {
+                "answers": len(arithmetic),
+                "right": sum(row["right"] for row in arithmetic),
+                "wrong": sorted({f"{row['id']} -> {row['value']}" for row in arithmetic if not row["right"]}),
+                "by": {name: sum(row["produced_by"] == name for row in arithmetic) for name in sorted({row["produced_by"] for row in arithmetic})},
+                "median_seconds": sorted(row["seconds"] for row in arithmetic)[len(arithmetic) // 2],
+            }
     return summary
 
 
@@ -322,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default="dolphin3:8b")
     parser.add_argument("--ollama-url", default="http://localhost:11434")
     parser.add_argument("--root", type=Path, default=HERE, help="the checkout whose code is measured (default: this one)")
-    parser.add_argument("--only", nargs="+", choices=("content", "length", "arithmetic", "profile"), default=["content", "length", "arithmetic"])
+    parser.add_argument("--only", nargs="+", choices=("content", "length", "arithmetic", "arithmetic_heldout", "profile"), default=["content", "length", "arithmetic"])
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--no-direct", action="store_true", help="do not send the length requests straight to Ollama as well")
     parser.add_argument("--save", type=Path, default=None)
@@ -347,6 +363,8 @@ def main(argv: list[str] | None = None) -> int:
         report["content"] = run_content(cases["content"], args.model, args.ollama_url)
     if "arithmetic" in args.only:
         report["arithmetic"] = run_arithmetic(cases["arithmetic"], args.model, args.ollama_url, args.trials)
+    if "arithmetic_heldout" in args.only:
+        report["arithmetic_heldout"] = run_arithmetic(cases["arithmetic_heldout"], args.model, args.ollama_url, args.trials)
     if "length" in args.only:
         report["length"] = run_length(cases["length"], args.model, args.ollama_url, direct=not args.no_direct)
     if "profile" in args.only:

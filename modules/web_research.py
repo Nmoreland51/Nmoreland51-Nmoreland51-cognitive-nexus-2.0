@@ -751,8 +751,9 @@ Fresh web results (newer than your training data):
 Answer the question in 2-3 short sentences using only these web results. Include dates or
 version numbers when relevant. Name a business, product or place only if it appears in the results
 above. Do not list sources or URLs; the app shows them. If the results do not contain the answer,
-begin with "The web results do not say" and name what is missing; do not offer other facts in its
-place.
+begin with "The web results do not say" and name what is missing. Then add, in one or two
+sentences, what the results do say that bears on the question, naming the result each point comes
+from; if they say nothing that bears on it, stop there.
 """
 
 

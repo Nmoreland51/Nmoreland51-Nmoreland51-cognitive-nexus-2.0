@@ -77,16 +77,20 @@ def run_case(case: dict[str, Any], planner) -> dict[str, Any]:
         planned_seconds = round(time.perf_counter() - started, 1)
         if plan.source != "model":
             plan.queries = [case["typed"]]
+        started = time.perf_counter()
         outcome = gather_planned(plan, search, max_results=5)
+        gathered_seconds = round(time.perf_counter() - started, 1)
         new_sources = outcome["results"]
         row["new"] = {
             **score(new_sources),
             "titles": [item["title"] for item in new_sources],
-            "dropped": [item["title"] for item in outcome["dropped"]],
+            "dropped": [f"{item['title']} ({item['relevance']['reason']})" for item in outcome["dropped"]],
             "dropped_wrongly": sum(item["about"] == "asked" for item in outcome["dropped"]),
             "searches": len(outcome["searches"]),
+            "judged_by_model": sum(int(step.get("judged", 0)) for step in outcome["searches"]),
             "plan": plan.to_dict(),
             "plan_seconds": planned_seconds,
+            "search_and_judge_seconds": gathered_seconds,
         }
     return row
 
@@ -109,7 +113,9 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
             if side == "new":
                 part[side]["relevant_results_dropped"] = sum(item["dropped_wrongly"] for item in have)
                 part[side]["searches"] = sum(item["searches"] for item in have)
+                part[side]["results_judged_by_model"] = sum(item.get("judged_by_model", 0) for item in have)
                 part[side]["median_plan_seconds"] = statistics.median(item["plan_seconds"] for item in have)
+                part[side]["median_search_and_judge_seconds"] = statistics.median(item.get("search_and_judge_seconds", 0.0) for item in have)
         summary[name] = part
     return summary
 
@@ -132,16 +138,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default="dolphin3:8b")
     parser.add_argument("--ollama-url", default="http://localhost:11434")
     parser.add_argument("--as-typed", action="store_true", help="only the old pipeline (no model)")
+    parser.add_argument("--sets", nargs="+", default=None, help="only these sets (dev, heldout, heldout2)")
     parser.add_argument("--save", type=Path, default=None)
     args = parser.parse_args(argv)
     planner = None if args.as_typed else model_planner(args.model, args.ollama_url.rstrip("/"))
     rows = []
     for case in load():
+        if args.sets and case["set"] not in args.sets:
+            continue
         row = run_case(case, planner)
         rows.append(row)
         line = f"{row['set']:<8} {row['id']:<16} old: {row['old']['about_another_meaning']} off-topic of {row['old']['sources']}"
         if "new" in row:
-            line += f"  new: {row['new']['about_another_meaning']} off-topic of {row['new']['sources']}, {row['new']['dropped_wrongly']} relevant dropped, {row['new']['searches']} searches, plan {row['new']['plan_seconds']}s"
+            line += (
+                f"  new: {row['new']['about_another_meaning']} off-topic of {row['new']['sources']}, {row['new']['dropped_wrongly']} relevant dropped, "
+                f"{row['new']['searches']} searches, {row['new']['judged_by_model']} judged, plan {row['new']['plan_seconds']}s, search and judge {row['new']['search_and_judge_seconds']}s"
+            )
         print(line, flush=True)
     summary = summarize(rows)
     print(json.dumps(summary, indent=1))

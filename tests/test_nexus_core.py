@@ -316,7 +316,8 @@ class NexusCoreTests(unittest.TestCase):
         # 2048 is the smallest window the router ever requests, so that is what turbo gets.
         self.assertLessEqual(captured["options"]["num_ctx"], 2048)
         self.assertLessEqual(captured["options"]["num_predict"], 220)
-        self.assertEqual(captured["options"]["num_batch"], 512)
+        # A load-time option: sending one the other calls do not send made Ollama reload the model.
+        self.assertNotIn("num_batch", captured["options"])
         self.assertEqual(captured["options"]["top_k"], 20)
         self.assertEqual(core.last_provider_result["throughput"]["mode"], "turbo")
         self.assertEqual(core.last_provider_result["throughput"]["provider_tokens_per_second"], 96.5)

@@ -158,6 +158,19 @@ def test_the_fast_profile_no_longer_cuts_a_requested_length():
     assert core._apply_throughput_profile({"num_predict": plain.max_tokens}, {"throughput_mode": "fast"}, plain)["num_predict"] <= 384  # unchanged without a stated length
 
 
+@pytest.mark.parametrize("mode", ["balanced", "fast", "turbo"])
+def test_no_speed_profile_sends_a_load_time_option_that_the_other_calls_do_not(mode):
+    """CN-QA-007: "Fast" sent num_batch 256 and nothing else did, so Ollama reloaded the model between a
+    content-rule check or a search plan and the answer ("runner options changed", about 4 s each)."""
+
+    core = NexusCore()
+    plan = plan_response(user_message="Tell me a story about a fox.", messages=[], route_category="general_chat", settings={"auto_precision_mode": True})
+
+    tuned = core._apply_throughput_profile({"num_predict": plan.max_tokens, "num_ctx": 2048}, {"throughput_mode": mode}, plan)
+
+    assert not {"num_batch", "num_thread", "num_gpu", "use_mmap", "use_mlock"} & set(tuned)
+
+
 def test_the_compact_answer_rules_give_way_to_a_stated_length():
     core = NexusCore()
     asked = plan_response(user_message=CASES["length"][3]["message"], messages=[], route_category="general_chat", settings={"auto_precision_mode": True})
@@ -228,6 +241,48 @@ def test_an_answer_that_finished_carries_no_such_note():
 
     assert "Stopped at the output limit" not in answer and core.last_provider_result["stopped_because"] == "stop"
     assert core.last_provider_result["partial"] is False
+
+
+def test_an_answer_the_model_ended_short_of_the_asked_length_says_so_and_whose_it_is():
+    """CN-QA-002: a shortfall is said, and attributed to the model; the app neither cuts nor pads the text."""
+
+    core = stand_in_core("A complete short answer.", "stop")
+
+    answer = core.generate_chat_response("Write a 150-word story about a dog who learns to surf.", [], chat_settings())
+
+    assert answer.startswith("A complete short answer.")
+    assert answer.endswith("[About 4 words, fewer than the 135 to 165 you asked for. The model ended here by itself; nothing in the app shortened it. Ask for more if you want it longer.]")
+
+
+def test_an_answer_over_the_asked_length_says_so_and_is_not_cut():
+    story = " ".join(["word"] * 200) + "."
+    core = stand_in_core(story, "stop")
+
+    answer = core.generate_chat_response("Write a 150-word story about a dog who learns to surf.", [], chat_settings())
+
+    assert answer.startswith(story) and "more than the 135 to 165 you asked for" in answer
+
+
+def test_an_answer_within_the_asked_length_or_without_one_carries_no_length_note():
+    assert "[About" not in stand_in_core(" ".join(["word"] * 150) + ".", "stop").generate_chat_response("Write a 150-word story about a dog who learns to surf.", [], chat_settings())
+    assert "[About" not in stand_in_core("A short answer.", "stop").generate_chat_response("Tell me a story about a fox.", [], chat_settings())
+
+
+def test_a_cut_off_answer_gets_the_cut_off_note_only():
+    core = stand_in_core("The ship shuddered as Jack reached for the panel, but Jack was focused", "length")
+    answer = core.generate_chat_response(CASES["length"][5]["message"], [], chat_settings())
+    assert "[Stopped at the output limit of" in answer and "[About" not in answer
+
+
+def test_the_length_measurement_counts_the_models_words_only():
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+    import quality_check
+
+    noted = "The end.\n\n[About 2 words, fewer than the 135 to 165 you asked for. The model ended here by itself; nothing in the app shortened it. Ask for more if you want it longer.]"
+    assert quality_check.model_text(noted) == "The end." and quality_check.model_text("No notes.") == "No notes."
+    assert quality_check.model_text('Cut mid\n\n[Stopped at the output limit of 384 tokens before the answer was finished. Say "continue" for the rest.]') == "Cut mid"
 
 
 # ---- CN-QA-005: arithmetic ---------------------------------------------------------------------------------
@@ -328,3 +383,38 @@ def test_an_ordinary_answer_starts_showing_after_a_few_words():
 @pytest.mark.parametrize(("text", "could"), [("User req", True), ("Response plan: x", True), ("Intent: creative", True), ("The ship shuddered as", False), ("Here is a story about", False)])
 def test_text_that_could_still_be_scaffolding_is_held_back(text, could):
     assert NexusCore()._could_be_scaffolding(text) is could
+
+
+# ---- QA-10 and QA-12: an answer that breaks off, or a model that runs out of time -------------------------------
+
+
+@pytest.mark.parametrize(
+    ("failure", "reason"),
+    [
+        (RuntimeError("Ollama model 'stand-in' stopped before finishing its answer."), "stopped before finishing its answer"),
+        (__import__("requests").ReadTimeout("Read timed out. (read timeout=600)"), "no reply arrived before the time limit"),
+    ],
+    ids=["interrupted", "timeout"],
+)
+def test_an_answer_that_breaks_off_keeps_its_text_and_says_why(failure, reason):
+    from modules.answer_meta import answer_meta, describe_answer
+    from modules.provider_router import ProviderRouter
+
+    router = ProviderRouter({"provider_order": ["ollama", "fallback"], "ollama_url": "http://127.0.0.1:9"})
+
+    def broken(request, info, model=""):
+        yield "The ship shuddered as Jack reached for the"
+        raise failure
+
+    router._stream_ollama = broken  # type: ignore[method-assign]
+    router.detect_provider = lambda name: SimpleNamespace(available=True, models=["stand-in"], message="", base_url="", name=name)  # type: ignore[method-assign]
+    router._resolve_model = lambda request, info: ("stand-in", "")  # type: ignore[method-assign]
+    core = NexusCore()
+    core.provider_router = router
+    router.generate_or_raise = lambda request: SimpleNamespace(text="NO")  # type: ignore[method-assign]
+
+    answer = core.generate_chat_response("Tell me a story about a ship.", [], chat_settings())
+
+    assert answer.startswith("The ship shuddered as Jack reached for the") and "[The answer was cut off:" in answer and reason in answer
+    assert core.last_provider_result["partial"] is True and core.last_provider_result["success"] is False
+    assert "stopped part-way through this answer" in describe_answer(answer_meta(core.last_provider_result))
