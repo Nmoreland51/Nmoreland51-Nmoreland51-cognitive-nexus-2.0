@@ -679,10 +679,11 @@
   "tests": "tests/test_backup.py; tests/test_ingest.py::test_backup_takes_a_consistent_copy_of_the_live_database_and_restores_it; tests/test_profile_store.py; tests/test_knowledge_store.py; tests/test_file_utils.py."
  },
  "117": {
-  "commits": "ce2c584",
-  "evidence": "CI runs pip-audit against the pinned dependency set on every push (no known vulnerabilities on 2026-11-23). Downloads are not hash-verified and model downloads (Ollama, Hugging Face) are not signature-checked.",
+  "commits": "ce2c584, 676b70c",
+  "evidence": "CI runs pip-audit against the pinned dependency set on every push. The local picture model is fetched at a fixed revision (451f4fe1, the one tested here; a revision is a commit, which fixes the files and their contents), so a change pushed to the model's repository is not picked up unseen (676b70c, tests/test_image_download.py). Ollama checks the digest of each model layer it pulls; the app never pulls a model itself. Not done: the packages installed for a coding task come from PyPI as ready-built wheels without hash pinning (agent/environment.py), and nothing here is signature-checked.",
+  "needs": "Hash-pinned requirement files (pip --require-hashes) for the coding agent's task environments, and a decision on what to do with a repository whose requirements carry no hashes.",
   "status": "PARTIAL",
-  "tests": "CI 'checks' job; tools/run_checks.py --audit."
+  "tests": "CI 'checks' job; tools/run_checks.py --audit; tests/test_image_download.py"
  },
  "118": {
   "commits": "854e55c",

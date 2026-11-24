@@ -107,6 +107,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **112** (PARTIAL): Encryption of the live files is planned for the security phase. Until then, full-disk encryption (BitLocker) protects them.
 - **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 - **115** (PARTIAL): A hostile-document set for uploaded files, measured the same way.
+- **117** (PARTIAL): Hash-pinned requirement files (pip --require-hashes) for the coding agent's task environments, and a decision on what to do with a repository whose requirements carry no hashes.
 - **126** (PARTIAL): An OpenAI or Anthropic key for the cloud half.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
@@ -1387,9 +1388,10 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Use dependency vulnerability scanning and signed/trusted download processes.
 
-- **Evidence:** CI runs pip-audit against the pinned dependency set on every push (no known vulnerabilities on 2026-11-23). Downloads are not hash-verified and model downloads (Ollama, Hugging Face) are not signature-checked.
-- **Tests:** CI 'checks' job; tools/run_checks.py --audit.
-- **Commits:** ce2c584
+- **Evidence:** CI runs pip-audit against the pinned dependency set on every push. The local picture model is fetched at a fixed revision (451f4fe1, the one tested here; a revision is a commit, which fixes the files and their contents), so a change pushed to the model's repository is not picked up unseen (676b70c, tests/test_image_download.py). Ollama checks the digest of each model layer it pulls; the app never pulls a model itself. Not done: the packages installed for a coding task come from PyPI as ready-built wheels without hash pinning (agent/environment.py), and nothing here is signature-checked.
+- **Tests:** CI 'checks' job; tools/run_checks.py --audit; tests/test_image_download.py
+- **Commits:** ce2c584, 676b70c
+- **Needs:** Hash-pinned requirement files (pip --require-hashes) for the coding agent's task environments, and a decision on what to do with a repository whose requirements carry no hashes.
 
 ### 118 · P0 · recommended · COMPLETE
 
