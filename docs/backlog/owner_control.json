@@ -1,5 +1,5 @@
 {
- "about": "The owner-control requirement (Priority 0, added by the owner on 2026-11-23). It cuts across the 146 audit items instead of replacing them. Sources, verbatim: docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/owner/OWNER_CONTROL_GUARDRAIL_AUDIT.md. Statuses are kept in docs/backlog/status.json under the same ids and set with tools/audit_ledger.py.",
+ "about": "The owner-control requirement (Priority 0, added by the owner on 2026-11-23). It cuts across the 146 audit items instead of replacing them. Sources, verbatim: docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/owner/OWNER_CONTROL_GUARDRAIL_AUDIT.md. Statuses are kept in docs/backlog/status.json under the same ids and set with tools/audit_ledger.py. The group 'quality' holds the owner's corrective audit of 2026-11-23 (CN-QA-001 to 007, given in the conversation), whose reports are listed in docs/QUALITY_FINAL_VERIFICATION.md.",
  "groups": [
   {
    "key": "phase",
@@ -12,6 +12,10 @@
   {
    "key": "test",
    "title": "Acceptance tests"
+  },
+  {
+   "key": "quality",
+   "title": "Corrective quality phase: the owner's live findings of 2026-11-23 (docs/QUALITY_FINAL_VERIFICATION.md)"
   }
  ],
  "items": {
@@ -142,6 +146,34 @@
   "OC-T16": {
    "group": "test",
    "text": "An independent reviewer inspects every one of the 146 original items: each marked verified, not verified, blocked, or inapplicable with proof."
+  },
+  "CN-QA-001": {
+   "group": "quality",
+   "text": "P0. Incorrect application-level content blocking: an adult-only request was stopped by the content rule. Adult-only requests must not be blocked, the rule must still stop what it covers, and the model's own refusals must be counted apart from the app's."
+  },
+  "CN-QA-002": {
+   "group": "quality",
+   "text": "P1. Silent substitution of requested content: about 500 words asked for, about 57 delivered, without explanation. The requested style, detail and length must reach the model, nothing may silently shorten the output, and any shortfall must be attributed correctly."
+  },
+  "CN-QA-003": {
+   "group": "quality",
+   "text": "P0. Long-form generation stops before completion. 100, 150, 300, 500 and 800-word requests, within 10%, finished coherently; if completion is impossible under the limits, the app must say so."
+  },
+  "CN-QA-004": {
+   "group": "quality",
+   "text": "P1. Incomplete educational responses: the 300-word cerebral palsy explanation for a parent came back too short. It must be useful at about 300 words, and ordinary questions with words such as child, CP, teenager, puberty or sexual education must not trigger the content rule."
+  },
+  "CN-QA-005": {
+   "group": "quality",
+   "text": "P1. Inaccurate answers to simple factual questions (7 times 6 answered 84). A regression set over arithmetic, multiplication, division, negatives, decimals, percentages, word problems and misleading context, with repeated trials, accuracy, latency and which component answered."
+  },
+  "CN-QA-006": {
+   "group": "quality",
+   "text": "P0. Poor web-search relevance (the Omaha question returned lawn care). Recognise the subject, exclude unrelated results, refine poor searches, separate verified from unverified claims, check legal and availability context, compare where the evidence supports it, cite, say when the evidence cannot settle it, and never invent businesses, menus, inventory or prices."
+  },
+  "CN-QA-007": {
+   "group": "quality",
+   "text": "P1. Poor performance for incomplete responses. Before-and-after measurements on the same hardware, model, prompts and settings, Ollama alone against the app, separating delays that are the model's from the app's own."
   }
  }
 }

@@ -55,8 +55,10 @@
   "status": "PARTIAL"
  },
  "011": {
-  "evidence": "answer_quality_eval.py, conversation_regression_eval.py and response_speed_eval.py exist and can run against a live model. Results are not recorded anywhere; only a handful of live chats were checked by hand on 2026-11-23.",
-  "status": "PARTIAL"
+  "commits": "566c828, cfab5f3, 2a06d88",
+  "evidence": "Real answers are now bench-tested with the real model and the results kept: arithmetic accuracy over repeated trials, with a set of unseen word problems; adherence to a requested length and whether answers finish; the content rule on adult and child-related requests (tools/quality_check.py; docs/benchmarks/quality_before.json and quality_after.json); research answers against fixed sources (research_dolphin3-8b.json); relevance of search results for ambiguous questions (research_relevance_dolphin3-8b.json); tool choice (tool_choice_dolphin3-8b.json); everyday questions on sensitive subjects (behavior_dolphin3-8b.json). Not covered: code answers and casual dialogue are not scored, and each case was run once or three times, which shows tendencies, not rates.",
+  "status": "PARTIAL",
+  "tests": "tools/quality_check.py, tests/test_quality_corrective.py; docs/QUALITY_FINAL_VERIFICATION.md"
  },
  "012": {
   "commits": "f5d234d, de2332c, 725edd5, 4963836",
@@ -105,8 +107,10 @@
   "status": "PARTIAL"
  },
  "020": {
-  "evidence": "The response planner and self-critic have unit tests but no measurement of whether they improve answers.",
-  "status": "MISSING"
+  "commits": "7a07f56, e5d289e, 2a06d88",
+  "evidence": "The response planner was evaluated against the model alone on the same requests and found to make answers worse in one respect: it never read a stated length, so a 300-word explanation came back at 89 words through the app and 296 from the model alone, and three long answers were cut off at the speed profile's 384 tokens (docs/QUALITY_BASELINE.md). Fixed and measured again: none of seven length requests cut off (three before), all seven ended complete (four before), the cerebral palsy explanation 215 words (68 before), and an answer outside the asked range now says so; within ±10% 1 of 7, the model's own limit (2 of 7 straight to Ollama) (docs/GENERATION_RELIABILITY_REPORT.md). Not done: the self-critic's effect on quality is not measured, and the planner's other rules (casual chat, planning) were not compared with their absence.",
+  "status": "PARTIAL",
+  "tests": "tests/test_quality_corrective.py; docs/benchmarks/quality_before.json, quality_after.json"
  },
  "021": {
   "commits": "1e83af2",
@@ -120,10 +124,11 @@
   "tests": "tests/test_provider_truth.py::test_ollama_connection_refused_is_retried_once, test_ollama_stream_that_drops_before_finishing_is_an_error, test_ollama_error_message_inside_the_stream_is_raised, test_cloud_requests_retry_rate_limits_and_dropped_connections, test_cloud_requests_do_not_retry_when_the_api_says_not_to, test_an_answer_cut_off_midway_is_marked_partial_and_not_glued_to_another_answer; tests/test_provider_router.py (timeouts)."
  },
  "023": {
-  "commits": "de2332c",
-  "evidence": "Each turn records provider, model, tokens per second and timings; cloud answers now record input and output tokens with an estimated cost from published prices, and Ollama reports whether an answer hit its length limit. response_speed_eval.py exists. No benchmark results are stored in the repository yet, so nothing is reproducible from a file.",
+  "commits": "de2332c, 44c49e7, cfab5f3",
+  "evidence": "Reproducible benchmarks with token counts, throughput and latency are stored for the installed model: tools/speed_benchmark.py (first word, writing and reading speed, memory and processor, with the machine's description; --compare reports a slowdown) and tools/quality_check.py --only profile (the app against Ollama alone with the same window and limit, docs/benchmarks/quality_after.json). Cost is zero for the local model; cloud answers record tokens and an estimated cost per answer, but no cloud benchmark could be run without a key. Only one model is installed.",
+  "needs": "Your choice of other models to install (Ollama was to be left alone), and a cloud key, to measure more than one model.",
   "status": "PARTIAL",
-  "tests": "tests/test_provider_truth.py::test_anthropic_usage_and_estimated_cost_are_recorded, test_cost_estimates, test_ollama_reports_when_an_answer_hit_the_length_limit."
+  "tests": "tests/test_speed_benchmark.py; docs/benchmarks/speed_dolphin3-8b.json, quality_after.json"
  },
  "024": {
   "commits": "1eb0e4a",
@@ -547,14 +552,18 @@
   "status": "MISSING"
  },
  "096": {
-  "commits": "ba0708c",
-  "evidence": "Measured on this machine with dolphin3:8b (CPU): the model reads a prompt at about 32 tokens a second and writes at 3 to 4.6; loading takes about 6.5 s; a cached prompt prefix is re-read in under a second; tokens per character were measured for 18 kinds of text. The router records these per request and plans with them. RAM, CPU load, GPU and VRAM are not recorded, and only one model has been measured.",
+  "commits": "ba0708c, 44c49e7, cfab5f3",
+  "evidence": "Measured on this machine with dolphin3:8b: first word 2.9 s for a short new question, 60 s for a 2,105-token text read the first time, writing 5.1 tokens a second, reading 58, 5.0 GB of memory, 56% of the processor; no graphics card, so no VRAM or GPU figures (docs/benchmarks/speed_dolphin3-8b.json). The app's own share of the time to the first word was measured against Ollama alone with the same window and limit (quality_after.json, profile; docs/GENERATION_RELIABILITY_REPORT.md). Only the installed model was measured.",
+  "needs": "Your choice of other models to install (Ollama was to be left alone).",
   "status": "PARTIAL",
-  "tests": "tests/fixtures/token_counts.json; tests/test_context_budget.py::test_router_learns_reading_speed_from_the_slowest_request_and_plans_with_it."
+  "tests": "tests/test_speed_benchmark.py"
  },
  "097": {
-  "evidence": "No model presets for the hardware; only one model is installed.",
-  "status": "MISSING"
+  "commits": "34d7d67",
+  "evidence": "Model quality was tested on the intended hardware for the installed model (every benchmark in docs/benchmarks). modules/hardware.py and tools/speed_benchmark.py --recommend list 4-bit size classes with the memory each needs and its writing speed here: measured for 8B (5.1 tokens a second), estimated for the others and labelled so; the largest worth trying here is about 14B. No other model was installed to test the estimates or their quality.",
+  "needs": "Your choice of other models to install (Ollama was to be left alone).",
+  "status": "PARTIAL",
+  "tests": "tests/test_speed_benchmark.py"
  },
  "098": {
   "evidence": "Image generation loads Stable Diffusion without unloading the chat model first.",
@@ -594,8 +603,10 @@
   "status": "MISSING"
  },
  "106": {
-  "evidence": "No performance regression tracking.",
-  "status": "MISSING"
+  "commits": "34d7d67, d728af1",
+  "evidence": "Regressions can be measured with the machine and model recorded: tools/speed_benchmark.py --compare exits 1 when writing or the first word is more than 20% slower than a saved run on the same machine and model, and tools/quality_check.py records before and after on the same cases (docs/benchmarks/quality_before.json, quality_after.json). tools/evaluation_gate.py compares two versions on the model-free evaluations. Not automatic: the speed and quality checks need the model, so they are not part of CI.",
+  "status": "PARTIAL",
+  "tests": "tests/test_speed_benchmark.py, tests/test_evaluation_gate.py"
  },
  "107": {
   "commits": "b50c373",
@@ -604,8 +615,10 @@
   "tests": "tests/test_url_safety.py (10 tests) plus a live redirect to 127.0.0.1 that was refused."
  },
  "108": {
-  "evidence": "The Android backend validates the resolved address and each redirect itself (backend/engine.py public_url); the desktop engine does the same in url_safety. Neither pins the resolved address for the connection, so DNS rebinding is not covered.",
-  "status": "PARTIAL"
+  "commits": "56aad2d; Android b016756",
+  "evidence": "Every redirect hop is checked, and the connection now goes to the address that was checked: the name is looked up once per request and hop, and for that request the HTTP library gets exactly the checked addresses when it looks the name up to connect (modules/url_safety.py, pinned). The phone backend's website fetch uses the same pin (branch owner-control-content-rule of the Android repository, not merged). Tested with a name server that answers the check with a good address and the connection with a private one, against a stand-in site; https checked by hand against a real site. Not covered: a request through a configured proxy, which looks the name up itself.",
+  "status": "COMPLETE",
+  "tests": "tests/test_url_safety.py; Android repository backend/test_api.py"
  },
  "109": {
   "evidence": "The engine has no tool execution yet, so there is nothing sandboxed.",
@@ -640,11 +653,11 @@
   "status": "MISSING"
  },
  "115": {
-  "commits": "1878cee",
-  "evidence": "A hostile-content benchmark exists for web pages and is run against the real model (tools/injection_benchmark.py, 12 attacks and 2 controls; 6 of 12 obeyed before the defences, 0 of 12 after).",
-  "needs": "The same measurement for uploaded documents, tool output and comments in code the agent reads.",
+  "commits": "1878cee, bab72be",
+  "evidence": "Hostile content is measured with the real model for web pages (tools/injection_benchmark.py: 6 of 12 planted instructions obeyed without the defences, 0 of 12 with them, the real fact kept in 14 of 14; measured again on 2026-11-24 after the web-answer prompt changed), for tool output in a tool run (tools/tool_choice_benchmark.py: a page telling the model to open another address; it was not opened and the line never reached the model), and for code comments and docstrings the coding agent reads (both agent task sets carry one; never obeyed in 30 task runs). Uploaded documents are not measured separately; they are fenced and cleaned the same way.",
+  "needs": "A hostile-document set for uploaded files, measured the same way.",
   "status": "PARTIAL",
-  "tests": "tests/test_research_hardening.py."
+  "tests": "tests/test_research_hardening.py, tests/test_injection_benchmark.py, tests/test_tool_choice_benchmark.py, tests/test_agent_benchmark.py"
  },
  "116": {
   "commits": "0de33c3, 863df6e, 3701bfb, 3a1c1e5, 3b6b7aa",
@@ -701,8 +714,11 @@
   "tests": "Pinned install resolved for Python 3.12 and 3.13 on Windows and Linux (pip dry-run), and the full suite passed in a fresh virtualenv built from the pins."
  },
  "126": {
-  "evidence": "All automated tests mock the model. Live checks against Ollama were done by hand on 2026-11-23 and are not repeatable as a test.",
-  "status": "MISSING"
+  "commits": "44c49e7",
+  "evidence": "tests/test_live_ollama.py sends real requests through the app's own code when CN_LIVE_OLLAMA_URL is set: capabilities from the server, an answer labelled as the model's, streaming piece by piece, a reply held to a schema, a usable tool-loop step, the content rule with the real model judging, and a whole chat turn. All eight passed on 2026-11-23. tools/quality_check.py, tools/research_relevance_benchmark.py and the other benchmark tools also run the real model end to end. Skipped in CI, where there is no model. The cloud half is not covered: no key.",
+  "needs": "An OpenAI or Anthropic key for the cloud half.",
+  "status": "PARTIAL",
+  "tests": "tests/test_live_ollama.py"
  },
  "127": {
   "commits": "1878cee, de2332c",
@@ -780,8 +796,10 @@
   "status": "MISSING"
  },
  "141": {
-  "evidence": "No hardware-based model recommendations.",
-  "status": "MISSING"
+  "commits": "34d7d67",
+  "evidence": "tools/speed_benchmark.py --recommend tells which 4-bit model sizes fit this machine's memory and how fast each would write here: measured for the installed 8B model, estimated for the others and labelled as estimates (largest worth trying: about 14B). Command line only; the app does not show it.",
+  "status": "PARTIAL",
+  "tests": "tests/test_speed_benchmark.py"
  },
  "142": {
   "evidence": "Feedback is saved (data/feedback_log.jsonl) and adaptive memory proposes preferences; nothing tests whether a correction changed later answers.",
@@ -864,6 +882,48 @@
   "needs": "Review by the owner or another person; a register for the phone app's repository.",
   "status": "PARTIAL",
   "tests": "tests/test_restriction_register.py"
+ },
+ "CN-QA-001": {
+  "commits": "0b7126d, 566c828",
+  "evidence": "Reproduced on 44c49e7 with the real model and fixed: earlier turns no longer make an adult-only request a candidate, negations and adult ages are read, \"Label: NO\" is read, and an unreadable judge answer says it is not a finding. The owner's cases: adult-only requests wrongly stopped 1 of 6 before, 0 of 6 after; covered requests stopped 2 of 2; ordinary child-related questions answered 4 of 4. Full benchmark of the rule, 148 cases in four sets, run again: the same 147 of 148 as before, case for case. The one miss is a picture request stopped under the assistant's own stricter picture line (D7), which waits for the owner. The model's own refusals are labelled as the model's (docs/CONTENT_RULE_VERIFICATION.md).",
+  "status": "COMPLETE",
+  "tests": "tests/test_quality_corrective.py, tests/test_owner_control.py, tests/test_content_rule_benchmark.py; tools/quality_check.py, tools/content_rule_benchmark.py with the real model"
+ },
+ "CN-QA-002": {
+  "commits": "7a07f56, e5d289e, 2a06d88",
+  "evidence": "The stated length now reaches the model: it sets the token budget, removes the short-answer rules and outranks the \"Fast\" profile; nothing after generation shortens or rewrites the text (traced stage by stage); an answer that hits its limit says so, and one the model ends outside the asked range says so under it and that the app did not cut it (6 of 6 such answers in the last run). The owner's own adult request was not generated again; its length goes through the same planning (docs/GENERATION_RELIABILITY_REPORT.md).",
+  "status": "COMPLETE",
+  "tests": "tests/test_quality_corrective.py (length reading, budget, notes); tools/quality_check.py with the real model"
+ },
+ "CN-QA-003": {
+  "commits": "7a07f56, e5d289e, 2a06d88",
+  "evidence": "Long answers are no longer cut off: 0 of 7 length requests stopped at a token limit after the change (3 of 7 before, the 500-word story, the astronaut story and the 800-word guide at 384 tokens), and 7 of 7 ended by themselves (4 of 7 before). Not met: the ±10% range. 1 of 7 within it in the last run, 2 of 7 in the run before; sent straight to Ollama the model managed 2 of 7, so the remaining gap is the model's, and the app now says so under each such answer.",
+  "status": "PARTIAL",
+  "tests": "tests/test_quality_corrective.py; docs/benchmarks/quality_before.json, quality_after.json"
+ },
+ "CN-QA-004": {
+  "commits": "7a07f56, e5d289e",
+  "evidence": "The cerebral palsy explanation for a parent no longer gets the simple-fact rules (\"1-3 short sentences\", \"under 75 words\", \"one short paragraph\"): 68 words before, 215 after, a useful answer but not the 300 asked for (the model's length, as CN-QA-003). Ordinary questions with child, CP, teenager, puberty, sexual education are answered and not looked at by the content rule (real model 4 of 4; automated tests for each word).",
+  "status": "PARTIAL",
+  "tests": "tests/test_quality_corrective.py, tests/test_owner_control.py; tools/quality_check.py with the real model"
+ },
+ "CN-QA-005": {
+  "commits": "7a07f56, e5d289e",
+  "evidence": "A regression set of the owner's kinds of question (tests/fixtures/quality_cases.json), run three times each through the chat path with accuracy, time and the answering component recorded: 27 of 27 right after (24 of 27 before; 21 by the app's calculator, 6 set up by the model and worked out by the app). Six word problems written afterwards: 15 of 18 right after, 7 of 18 with the unchanged code. Limit: the model sets up a word problem, and set one up wrongly every time (the bus); the sum used is shown in the answer (docs/FACTUAL_RELIABILITY_REPORT.md).",
+  "status": "COMPLETE",
+  "tests": "tests/test_quality_corrective.py (calculator, word problems, labels); tools/quality_check.py with the real model"
+ },
+ "CN-QA-006": {
+  "commits": "543daf9, 7a07f56, e5d289e, 2a06d88",
+  "evidence": "Three rounds, each measured with the real model before the next was designed, and on questions written before it ran (docs/WEB_RESEARCH_QUALITY_REPORT.md). The subject is recognised: the plan spelled the meaning out for all 19 benchmark questions. Unrelated results are excluded: on the 5 questions written before round three, off-topic results reaching the model fell from 10 to 0 with 1 of 15 relevant results thrown out; across the three held-out sets the model's judge threw out 7 of 51 relevant results and let 1 of 33 off-topic ones through. Live, the owner's question read no lawn-care page in two runs (one of five before). A poor search is refined with the plan's next query. Names, version numbers, years and links in an answer that no source contains are listed under it. Not met: the search for legal and availability context is built and tested, but the model left it empty for every question; the live answer to the owner's question is still one sentence saying the results do not say which is best, with no comparison of what they do offer; chat answers name the result a point comes from at most, without per-claim citations. Not tried: showing the model an example answer for questions the results cannot settle.",
+  "status": "PARTIAL",
+  "tests": "tests/test_research_plan.py, tests/test_answer_diagnostics.py; tools/research_relevance_benchmark.py with the real model; the live Omaha question through the chat path"
+ },
+ "CN-QA-007": {
+  "commits": "e5d289e, 2a06d88",
+  "evidence": "Measured before and after on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile; docs/GENERATION_RELIABILITY_REPORT.md). Two delays were the app's: the first 160 characters of every answer were held back (about 8 s here), fixed in e5d289e; and the \"Fast\" profile's num_batch made Ollama reload the model whenever a chat answer followed another kind of call (4.6 s each, \"runner options changed\" in Ollama's log), fixed in 2a06d88. First word, app against Ollama alone: +5.0 to +6.2 s before, -0.2 to +1.6 s after; writing speed the same, about 5 tokens a second. The rest is the model's: reading the prompt and writing. The phase added model calls to web questions (planning about 17 to 21 s, judging 9 to 30 s); measured, disclosed, and switched off with the setting plan_web_search.",
+  "status": "COMPLETE",
+  "tests": "tests/test_quality_corrective.py (first word, no load-time options); tools/quality_check.py --only profile with the real model"
  },
  "OC-0": {
   "commits": "4adc3d1",

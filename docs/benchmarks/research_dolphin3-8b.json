@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-11-23",
+  "measured_at": "2026-11-24",
   "ranking": {
     "cases": 9,
     "answering_page_first": 7,
@@ -114,7 +114,7 @@
     "said_so": 1,
     "answers_with_something_outside_their_sources": 0,
     "of_those_the_app_warned_about": 0,
-    "mean_seconds": 18.7,
+    "mean_seconds": 25.6,
     "rows": [
       {
         "id": "tidewater_version",
@@ -122,9 +122,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 27.8,
-        "prompt": "928d1b18f2feb7b4",
-        "answer": "The latest stable release of Tidewater is version 4.2, published on 3 March 2026. The previous release, version 4.1, came out in October 2025 and remains supported until 2027.\n\nNote: none of the pages state when they were published, so this may not be the current situation."
+        "seconds": 29.2,
+        "prompt": "89190f405fc20b8d",
+        "answer": "The latest stable release of Tidewater is version 4.2, published on 3 March 2026. The previous release, 4.1, came out in October 2025 and remains supported until 2027.\n\nNote: none of the pages state when they were published, so this may not be the current situation."
       },
       {
         "id": "harbor_battery",
@@ -132,9 +132,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 18.5,
-        "prompt": "85939dc937630829",
-        "answer": "The Harbor H2 wireless headphones have a battery life of 31 hours on one charge with noise cancelling on. The ear cups are deep and stay comfortable through a long flight."
+        "seconds": 21.4,
+        "prompt": "3a814758ec70b18f",
+        "answer": "The web results do not say how long the Harbor H2 headphone battery lasts. However, they mention that the Harbor H2 ran for 31 hours on one charge with noise cancelling on."
       },
       {
         "id": "larkspur_bridge",
@@ -142,9 +142,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 14.6,
-        "prompt": "72befb3a7765d101",
-        "answer": "The Larkspur bridge opened to traffic in 1962 after four years of construction."
+        "seconds": 23.8,
+        "prompt": "8d070a29c980b81d",
+        "answer": "The Larkspur bridge opened to traffic in 1962 after four years of construction. The repainting of the Larkspur bridge is expected to begin in spring and take five months. Cyclists will be diverted to the upstream footbridge."
       },
       {
         "id": "osterhaven_mayor",
@@ -152,9 +152,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 23.2,
-        "prompt": "775d709a76fb23cc",
-        "answer": "The web results do not say who the current mayor of Osterhaven is. However, from 2010 to 2018, Tomas Reik served as the mayor, and as of January 2025, Ilse Brandt took office after winning the November 2024 election."
+        "seconds": 22.5,
+        "prompt": "2d1f651032c26b7b",
+        "answer": "The web results do not say who the current mayor of Osterhaven is. However, they mention that Mayor Ilse Brandt took office in January 2025 after winning the November 2024 election."
       },
       {
         "id": "rye_loaf",
@@ -162,9 +162,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 18.4,
-        "prompt": "c511a678a54a17b0",
-        "answer": "The Hollin rye loaf should be baked at 220 degrees Celsius for 15 minutes, then the oven should be lowered to 190 degrees Celsius for another 35 minutes."
+        "seconds": 30.8,
+        "prompt": "3d75ae4c9261037d",
+        "answer": "The Hollin rye loaf should be baked at 220 degrees Celsius for 15 minutes, then the oven should be lowered to 190 for another 35 minutes. The web results do not say what temperature to bake the Hollin rye loaf at. The web results suggest baking the Hollin rye loaf at 220 degrees Celsius for 15 minutes, then lowering the oven to 190 for another 35 minutes."
       },
       {
         "id": "aster_hall",
@@ -172,9 +172,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 16.0,
-        "prompt": "576cbf59307ba64f",
-        "answer": "The Aster concert hall has 1,840 seats across three levels in its main auditorium. The building was designed around an adjustable acoustic canopy above the stage."
+        "seconds": 25.0,
+        "prompt": "79387bf10156e1c5",
+        "answer": "The Aster concert hall has 1,840 seats across three levels. The building was designed around an adjustable acoustic canopy above the stage. The nearest car park to the Aster concert hall is under the market square."
       },
       {
         "id": "brightline_recall",
@@ -182,8 +182,8 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 19.8,
-        "prompt": "035c242e1354708d",
+        "seconds": 25.9,
+        "prompt": "9bf52edcb81933a6",
         "answer": "Brightline is recalling the BH-200 and BH-300 heaters made between January and June 2025 because the thermostat can stick. Owners should stop using the heater and contact Brightline for a free replacement. No other models are affected."
       },
       {
@@ -192,9 +192,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 20.5,
-        "prompt": "c0b214ccc4d8c93e",
-        "answer": "The Quillfeather sync server listens on port 8472 by default. This information is mentioned in the Quillfeather docs. The web results do not say which version of Quillfeather this applies to."
+        "seconds": 28.7,
+        "prompt": "03b56849bbecbf87",
+        "answer": "The Quillfeather sync server listens on port 8472 by default. This information is mentioned in the Quillfeather docs. The Quillfeather changelog states that version 7.3 added end-to-end encrypted sync."
       },
       {
         "id": "pinewood_linux",
@@ -202,9 +202,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 18.1,
-        "prompt": "dae37caf3b0618bd",
-        "answer": "The Pinewood P3 supports Linux starting with firmware 2.1, which allows it to work with CUPS without extra drivers. The web results do not say when firmware 2.1 was released."
+        "seconds": 26.9,
+        "prompt": "291113c7d2efa899",
+        "answer": "The Pinewood P3 printer does work with Linux. Linux support for the Pinewood P3 arrived with firmware 2.1, which allows it to work with CUPS without extra drivers. The Pinewood P3 is a compact laser printer for home offices."
       },
       {
         "id": "kestrel_price",
@@ -212,9 +212,9 @@
         "outside_sources": [],
         "app_warned": false,
         "said_so": false,
-        "seconds": 18.9,
-        "prompt": "12571c9062ab557a",
-        "answer": "The Kestrel K9 weighs 249 grams with its battery. The Kestrel K9 flew for 34 minutes in calm air in our test. The Kestrel K9 weighs 249 grams with its battery."
+        "seconds": 26.6,
+        "prompt": "102cdbb5b4f3303b",
+        "answer": "The Kestrel K9 weighs 249 grams with its battery. It folds to the size of a paperback and has obstacle sensors facing forward and down. The Kestrel K9 flew for 34 minutes in calm air in our test."
       },
       {
         "id": "vellmar_founder",
@@ -222,9 +222,9 @@
         "outside_sources": [],
         "app_warned": false,
         "said_so": false,
-        "seconds": 17.8,
-        "prompt": "9d4cbfddcee59886",
-        "answer": "Vellmar Shipping was founded in 1887 in Osterhaven. It began with two coastal steamers and moved into container traffic in the 1970s. The company now runs eleven vessels."
+        "seconds": 20.9,
+        "prompt": "3f8ea7f7b50bbaac",
+        "answer": "Vellmar Shipping was founded in 1887 in Osterhaven. It began with two coastal steamers and now runs eleven vessels."
       },
       {
         "id": "saltmarsh_population",
@@ -232,9 +232,9 @@
         "outside_sources": [],
         "app_warned": false,
         "said_so": true,
-        "seconds": 11.0,
-        "prompt": "750c1fc71463b020",
-        "answer": "The web results do not say the population of Saltmarsh."
+        "seconds": 25.9,
+        "prompt": "eea15d269b4a2829",
+        "answer": "The web results do not say the population of Saltmarsh. Saltmarsh is a village on the estuary, known for its lighthouse and its Thursday market. The Saltmarsh lighthouse was built in 1854 and is open to visitors in summer."
       }
     ]
   },
@@ -245,7 +245,7 @@
     "said_so": 0,
     "answers_with_something_outside_their_sources": 0,
     "of_those_the_app_warned_about": 0,
-    "mean_seconds": 74.4,
+    "mean_seconds": 85.0,
     "rows": [
       {
         "id": "tidewater_version",
@@ -253,9 +253,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 72.6,
+        "seconds": 85.5,
         "prompt": "530a2995f302239a",
-        "answer": "Direct answer: The latest version of the Tidewater database is 4.2, released on 3 March 2026.\n\nKey findings: \n- Tidewater 4.2 is the latest stable release, adding online index rebuilds and a faster write-ahead log.\n- The previous release, 4.1, came out in October 2025 and remains supported until 2027.\n- Most of the advice for tuning Tidewater 3.8 also applies to later releases.\n\nSource list:\n1. Tidewater release notes - https://tidewater.example/releases\n2. Tuning Tidewater for write-heavy loads - https://dbnotes.example/tidewater-tuning\n\nUncertainty or limitations: None.\n\nSuggested next steps: \n- If you are currently using Tidewater 3.6, you may want to consider upgrading to the latest version, 4.2, for the new features and performance improvements.\n- Before upgrading, ensure that you have a maintenance window available for the upgrade process, as your database is 200 GB.\n- Consult the Tidewater release notes and tuning guide for more information on the upgrade process and any necessary configuration changes.\n\nNote: none of the pages state when they were published, so this may not be the current situation."
+        "answer": "Direct answer: The latest version of the Tidewater database is 4.2.\n\nKey findings: \n- Tidewater 4.2 is the latest stable release, published on 3 March 2026.\n- It adds online index rebuilds and a faster write-ahead log.\n- The previous release, 4.1, came out in October 2025 and remains supported until 2027.\n\nSource list:\n1. Tidewater release notes - https://tidewater.example/releases\n2. Scraped page 2: Tidewater release notes - https://tidewater.example/releases\n\nUncertainty or limitations: \n- There is no information about whether direct upgrades from Tidewater 3.6 to 4.2 are possible without a dump and restore.\n\nSuggested next steps: \n- Check if a direct upgrade from Tidewater 3.6 to 4.2 is possible without a dump and restore.\n- If not, consider upgrading in steps, such as from 3.6 to 3.8, and then to 4.2.\n- Ensure that the maintenance window is sufficient for the upgrade process.\n\nNot found in the sources above: Check, Ensure. Check these before relying on them.\n\nNote: none of the pages state when they were published, so this may not be the current situation."
       },
       {
         "id": "harbor_battery",
@@ -263,9 +263,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 66.3,
+        "seconds": 64.2,
         "prompt": "e14a5698afc07d36",
-        "answer": "Direct answer: The Harbor H2 wireless headphones' battery lasts approximately 31 hours on a single charge with noise cancelling on.\n\nKey findings: \n- The Harbor H2 headphones ran for 31 hours on one charge with noise cancelling on in a test.\n- Charging from empty takes about two hours over USB-C.\n- The ear cups are deep and stay comfortable through a long flight.\n\nSource list:\n1. Harbor H2 review: quiet, comfortable, long-lived - https://audiobench.example/reviews/harbor-h2\n2. Harbor H1 long-term review - https://audiobench.example/reviews/harbor-h1\n\nUncertainty or limitations: \n- There is no information about the battery life when noise cancelling is turned off.\n- The Harbor H1's battery life is mentioned for context, but it is not the focus of the answer.\n\nSuggested next steps: \n- If you want to know the battery life with noise cancelling turned off, you may need to contact the manufacturer or look for a review that tests this scenario.\n- For more information about the Harbor H2 headphones, you can visit the Soundshelf store page or read more reviews on the audiobench.example website."
+        "answer": "1. Direct answer: The Harbor H2 headphone battery lasts approximately 31 hours on one charge with noise cancelling on.\n\n2. Key findings: The research indicates that the Harbor H2 wireless headphones have a long battery life, with a test running for 31 hours on one charge. The charging time is about two hours over USB-C.\n\n3. Source list:\n   - Soundshelf store: https://soundshelf.example/harbor-h2\n   - Audiobench reviews: https://audiobench.example/reviews/harbor-h2\n\n4. Uncertainty or limitations: There is no information on how the battery life changes with different usage patterns or environmental factors.\n\n5. Suggested next steps: If you want to know more about the battery life of the Harbor H2 headphones in different conditions, you may consider reaching out to the manufacturer or conducting further tests."
       },
       {
         "id": "larkspur_bridge",
@@ -273,9 +273,9 @@
         "outside_sources": [],
         "app_warned": false,
         "correct": true,
-        "seconds": 84.3,
+        "seconds": 105.4,
         "prompt": "9a8157543fabbe98",
-        "answer": "Direct answer: The Larkspur bridge opened to traffic in 1962.\n\nKey findings:\n- The Larkspur bridge was approved for repainting, with work expected to take five months and close one lane at a time.\n- Cyclists will be diverted to the upstream footbridge during the repainting.\n- A ferry service began at the Larkspur crossing in 1931, carrying up to forty cars an hour at its peak.\n- The ferry house still stands on the east bank and is now a cafe.\n- The Larkspur bridge carries four lanes and a footpath on each side.\n- More than six hundred runners finished this year's Larkspur bridge run.\n\nSource list:\n1. Larkspur bridge repainting to begin in spring - https://larkspurnews.example/bridge-repainting\n2. The ferry at the Larkspur crossing - https://riverhistory.example/larkspur-ferry\n3. Larkspur bridge - history - https://riverhistory.example/larkspur-bridge\n4. Larkspur bridge run: 10K results - https://runclub.example/larkspur-10k\n\nUncertainty or limitations: There is no information about when the repainting of the Larkspur bridge will begin or when it is expected to be completed.\n\nSuggested next steps: If you need more information about the repainting of the Larkspur bridge, you may want to contact the local council or check for updates on the Larkspur news website."
+        "answer": "Direct answer: The Larkspur bridge opened to traffic in 1962.\n\nKey findings:\n- The Larkspur bridge was approved for repainting, with work expected to take five months and close one lane at a time.\n- Cyclists will be diverted to the upstream footbridge during the repainting.\n- A ferry service began at the Larkspur crossing in 1931 and carried up to forty cars an hour at its peak.\n- The ferry house still stands on the east bank and is now a cafe.\n- The Larkspur bridge carries four lanes and a footpath on each side.\n- More than six hundred runners finished this year's Larkspur bridge run.\n\nSource list:\n1. Larkspur bridge repainting to begin in spring - https://larkspurnews.example/bridge-repainting\n2. The ferry at the Larkspur crossing - https://riverhistory.example/larkspur-ferry\n3. Larkspur bridge - history - https://riverhistory.example/larkspur-bridge\n4. Larkspur bridge run: 10K results - https://runclub.example/larkspur-10k\n\nUncertainty or limitations:\n- The context does not mention when the repainting project will start, only that it is expected to begin in the spring.\n- The context does not mention when the ferry service started or stopped.\n\nSuggested next steps:\n- If more specific information about the repainting project's start date is needed, check local news sources or contact the Larkspur council.\n- If more information about the ferry service's history is needed, check historical records or contact local history organizations."
       }
     ]
   }

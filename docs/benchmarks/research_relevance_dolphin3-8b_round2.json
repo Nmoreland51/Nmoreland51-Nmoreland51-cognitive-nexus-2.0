@@ -1,0 +1,763 @@
+{
+ "measured_at": "2026-11-24",
+ "model": "dolphin3:8b",
+ "summary": {
+  "dev": {
+   "questions": 2,
+   "old": {
+    "results_about_another_meaning": 5,
+    "results_about_what_was_asked": 5,
+    "mean_share_relevant": 0.5,
+    "questions_with_no_relevant_result": 0
+   },
+   "new": {
+    "results_about_another_meaning": 1,
+    "results_about_what_was_asked": 6,
+    "mean_share_relevant": 0.88,
+    "questions_with_no_relevant_result": 0,
+    "relevant_results_dropped": 0,
+    "searches": 2,
+    "results_judged_by_model": 6,
+    "median_plan_seconds": 16.5,
+    "median_search_and_judge_seconds": 23.15
+   }
+  },
+  "heldout": {
+   "questions": 6,
+   "old": {
+    "results_about_another_meaning": 11,
+    "results_about_what_was_asked": 18,
+    "mean_share_relevant": 0.63,
+    "questions_with_no_relevant_result": 0
+   },
+   "new": {
+    "results_about_another_meaning": 0,
+    "results_about_what_was_asked": 16,
+    "mean_share_relevant": 1.0,
+    "questions_with_no_relevant_result": 0,
+    "relevant_results_dropped": 2,
+    "searches": 8,
+    "results_judged_by_model": 21,
+    "median_plan_seconds": 20.05,
+    "median_search_and_judge_seconds": 21.7
+   }
+  },
+  "heldout2": {
+   "questions": 6,
+   "old": {
+    "results_about_another_meaning": 12,
+    "results_about_what_was_asked": 18,
+    "mean_share_relevant": 0.6,
+    "questions_with_no_relevant_result": 0
+   },
+   "new": {
+    "results_about_another_meaning": 6,
+    "results_about_what_was_asked": 16,
+    "mean_share_relevant": 0.78,
+    "questions_with_no_relevant_result": 0,
+    "relevant_results_dropped": 0,
+    "searches": 6,
+    "results_judged_by_model": 10,
+    "median_plan_seconds": 18.75,
+    "median_search_and_judge_seconds": 8.6
+   }
+  }
+ },
+ "rows": [
+  {
+   "id": "omaha_weed",
+   "set": "dev",
+   "question": "Search the web for the best weed in Omaha.",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 3,
+    "share_relevant": 0.4,
+    "titles": [
+     "Best 24 Weed Control Service in Omaha, NE",
+     "Common Omaha Lawn Weeds and How to Handle Them",
+     "Best Weed Killer for Lawns 2026",
+     "Top 10 Best Cannabis Dispensaries in Omaha, NE",
+     "Nebraska medical cannabis: what is legal in 2026"
+    ]
+   },
+   "new": {
+    "sources": 4,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 1,
+    "share_relevant": 0.75,
+    "titles": [
+     "Nebraska medical cannabis: what is legal in 2026",
+     "Riverside Green Dispensary, Council Bluffs: menu and prices",
+     "Top 10 Best Cannabis Dispensaries in Omaha, NE",
+     "Best 24 Weed Control Service in Omaha, NE"
+    ],
+    "dropped": [
+     "Common Omaha Lawn Weeds and How to Handle Them (judged by the model to be about something else (information about common lawn weeds in Omaha and how to handle them))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 2,
+    "plan": {
+     "question": "Search the web for the best weed in Omaha.",
+     "topic": "Find the best cannabis in Omaha.",
+     "queries": [
+      "best cannabis dispensary in Omaha",
+      "top-rated cannabis shop in Omaha"
+     ],
+     "off_topic": [],
+     "wants": "information about cannabis shops with reviews and ratings.",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 16.9,
+    "search_and_judge_seconds": 13.8
+   }
+  },
+  {
+   "id": "omaha_lawn_weeds",
+   "set": "dev",
+   "question": "How do I get rid of the weeds in my lawn in Omaha?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Common Omaha Lawn Weeds and How to Handle Them",
+     "Best 24 Weed Control Service in Omaha, NE",
+     "Best Weed Killer for Lawns 2026",
+     "Top 10 Best Cannabis Dispensaries in Omaha, NE",
+     "Nebraska medical cannabis: what is legal in 2026"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Common Omaha Lawn Weeds and How to Handle Them",
+     "Best Weed Killer for Lawns 2026",
+     "Best 24 Weed Control Service in Omaha, NE"
+    ],
+    "dropped": [
+     "Nebraska medical cannabis: what is legal in 2026 (judged by the model to be about something else (Nebraska medical cannabis: what is legal in 2026: Nebraska voters approved med))",
+     "Top 10 Best Cannabis Dispensaries in Omaha, NE (judged by the model to be about something else (Top 10 Best Cannabis Dispensaries in Omaha, NE: Find dispensaries near Omaha w))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 4,
+    "plan": {
+     "question": "How do I get rid of the weeds in my lawn in Omaha?",
+     "topic": "How do I remove weeds from my lawn in Omaha?",
+     "queries": [
+      "weed removal services Omaha",
+      "lawn care companies Omaha",
+      "weed control products Omaha"
+     ],
+     "off_topic": [],
+     "wants": "contact information for lawn care services or product reviews",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 16.1,
+    "search_and_judge_seconds": 32.5
+   }
+  },
+  {
+   "id": "denver_jaguar",
+   "set": "heldout",
+   "question": "Where can I buy a jaguar in Denver?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 3,
+    "share_relevant": 0.4,
+    "titles": [
+     "Jaguars at the Denver Zoo",
+     "Jacksonville Jaguars at Denver Broncos: buy tickets",
+     "Mile High Jaguar Land Rover Denver - new and used Jaguar cars",
+     "Used Jaguar for sale in Denver, CO",
+     "Jaguar facts: the big cat of the Americas"
+    ]
+   },
+   "new": {
+    "sources": 2,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Mile High Jaguar Land Rover Denver - new and used Jaguar cars",
+     "Used Jaguar for sale in Denver, CO"
+    ],
+    "dropped": [
+     "Jaguars at the Denver Zoo (judged by the model to be about something else (information about jaguars at the Denver Zoo))",
+     "Jacksonville Jaguars at Denver Broncos: buy tickets (judged by the model to be about something else (Jacksonville Jaguars playing against Denver Broncos))",
+     "Jaguar facts: the big cat of the Americas (judged by the model to be about something else (facts about jaguars as big cats in the Americas))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 2,
+    "judged_by_model": 4,
+    "plan": {
+     "question": "Where can I buy a jaguar in Denver?",
+     "topic": "Where can I buy a jaguar car in Denver?",
+     "queries": [
+      "jaguar car dealership Denver",
+      "where to buy a jaguar in Denver"
+     ],
+     "off_topic": [],
+     "wants": "listings with prices and contact information",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 20.5,
+    "search_and_judge_seconds": 22.5
+   }
+  },
+  {
+   "id": "houston_crane",
+   "set": "heldout",
+   "question": "Search for the best crane rental in Houston.",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Bayou Lift Crane Rental Houston - mobile cranes",
+     "Best crane rental companies in Houston, TX",
+     "Whooping crane tours near Houston",
+     "How much does crane rental cost in 2026?",
+     "Sandhill crane migration in Texas"
+    ]
+   },
+   "new": {
+    "sources": 2,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Bayou Lift Crane Rental Houston - mobile cranes",
+     "Best crane rental companies in Houston, TX"
+    ],
+    "dropped": [
+     "How much does crane rental cost in 2026? (judged by the model to be about something else (How much does crane rental cost in 2026?))",
+     "Whooping crane tours near Houston (judged by the model to be about something else (Whooping crane tours near Houston))",
+     "Sandhill crane migration in Texas (judged by the model to be about something else (Information about sandhill crane migration in Texas))"
+    ],
+    "dropped_wrongly": 1,
+    "searches": 2,
+    "judged_by_model": 4,
+    "plan": {
+     "question": "Search for the best crane rental in Houston.",
+     "topic": "Find the top-rated crane rental company in Houston.",
+     "queries": [
+      "top-rated heavy machinery rental companies in Houston",
+      "best crane rental services in Houston"
+     ],
+     "off_topic": [],
+     "wants": "Listings with reviews, prices, and contact information.",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 21.3,
+    "search_and_judge_seconds": 27.0
+   }
+  },
+  {
+   "id": "boston_mercury",
+   "set": "heldout",
+   "question": "How much mercury is in the tuna sold in Boston?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Study finds mercury in Boston supermarket tuna",
+     "Mercury Marine outboard engines - Boston dealer",
+     "See Mercury in the evening sky over Boston",
+     "Mercury levels in commercial fish and shellfish",
+     "How much tuna is safe to eat?"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Study finds mercury in Boston supermarket tuna",
+     "Mercury levels in commercial fish and shellfish",
+     "How much tuna is safe to eat?"
+    ],
+    "dropped": [
+     "Mercury Marine outboard engines - Boston dealer (judged by the model to be about something else (outboard engines for sale))",
+     "See Mercury in the evening sky over Boston (judged by the model to be about something else (planet visible in the sky))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 3,
+    "plan": {
+     "question": "How much mercury is in the tuna sold in Boston?",
+     "topic": "The amount of mercury in canned tuna sold in Boston.",
+     "queries": [
+      "Mercury levels in canned tuna in Boston",
+      "Boston canned tuna mercury content"
+     ],
+     "off_topic": [],
+     "wants": "Information about the mercury content in canned tuna sold in Boston.",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 21.2,
+    "search_and_judge_seconds": 17.1
+   }
+  },
+  {
+   "id": "seattle_apple",
+   "set": "heldout",
+   "question": "Where can I get cheap apple repair in Seattle?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Apple Store, University Village: Genius Bar repairs",
+     "Apple tree pruning and care in Seattle",
+     "Apple orchards near Seattle: pick your own",
+     "Emerald Fix - iPhone and MacBook repair Seattle",
+     "Cheapest iPhone screen repair in Seattle, compared"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Apple Store, University Village: Genius Bar repairs",
+     "Emerald Fix - iPhone and MacBook repair Seattle",
+     "Cheapest iPhone screen repair in Seattle, compared"
+    ],
+    "dropped": [
+     "Apple tree pruning and care in Seattle (judged by the model to be about something else (Apple tree pruning and care in Seattle: Arborists for apple tree pruning, disea))",
+     "Apple orchards near Seattle: pick your own (judged by the model to be about something else (Apple orchards near Seattle: pick your own: Pick your own apples at orchards wi))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 4,
+    "plan": {
+     "question": "Where can I get cheap apple repair in Seattle?",
+     "topic": "Where can I find affordable Apple repair services in Seattle?",
+     "queries": [
+      "Apple repair services in Seattle",
+      "cheap Apple repair shops in Seattle"
+     ],
+     "off_topic": [],
+     "wants": "listings with dates and prices",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 19.2,
+    "search_and_judge_seconds": 30.5
+   }
+  },
+  {
+   "id": "nashville_bass",
+   "set": "heldout",
+   "question": "Find the best bass lessons in Nashville.",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Music City Bass Studio - bass guitar lessons",
+     "Bass fishing guides on Percy Priest Lake",
+     "Nashville bass fishing report",
+     "Best bass guitar teachers in Nashville, TN",
+     "How to choose a bass guitar teacher"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Music City Bass Studio - bass guitar lessons",
+     "How to choose a bass guitar teacher",
+     "Best bass guitar teachers in Nashville, TN"
+    ],
+    "dropped": [
+     "Bass fishing guides on Percy Priest Lake (judged by the model to be about something else (Guided largemouth and smallmouth bass fishing trips near Nashville.))",
+     "Nashville bass fishing report (judged by the model to be about something else (This week's largemouth bass fishing report for lakes around Nashville.))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 2,
+    "plan": {
+     "question": "Find the best bass lessons in Nashville.",
+     "topic": "Bass music lessons in Nashville",
+     "queries": [
+      "Music lessons for bass guitar in Nashville",
+      "Bass guitar lessons in Nashville"
+     ],
+     "off_topic": [],
+     "wants": "Listings of bass music lessons with dates and prices",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 19.6,
+    "search_and_judge_seconds": 15.6
+   }
+  },
+  {
+   "id": "chicago_pizza",
+   "set": "heldout",
+   "question": "What is the best pizza in Chicago?",
+   "old": {
+    "sources": 4,
+    "about_what_was_asked": 4,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "The 15 best pizza places in Chicago",
+     "Lakeshore Deep Dish - menu",
+     "Tavern-style pizza: Chicago's other pizza",
+     "Best pizza in Chicago, Reddit thread"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "The 15 best pizza places in Chicago",
+     "Tavern-style pizza: Chicago's other pizza",
+     "Best pizza in Chicago, Reddit thread"
+    ],
+    "dropped": [
+     "Lakeshore Deep Dish - menu (judged by the model to be about something else (Lakeshore Deep Dish menu))"
+    ],
+    "dropped_wrongly": 1,
+    "searches": 1,
+    "judged_by_model": 4,
+    "plan": {
+     "question": "What is the best pizza in Chicago?",
+     "topic": "What is the best pizza in Chicago?",
+     "queries": [
+      "best pizza restaurants in Chicago",
+      "top-rated pizza places in Chicago"
+     ],
+     "off_topic": [],
+     "wants": "restaurant reviews with ratings",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 18.6,
+    "search_and_judge_seconds": 20.9
+   }
+  },
+  {
+   "id": "sandiego_mouse",
+   "set": "heldout2",
+   "question": "Where can I buy a good gaming mouse in San Diego?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 3,
+    "share_relevant": 0.4,
+    "titles": [
+     "Mouse and Rat Removal in San Diego",
+     "Pixel Forge Computers, Kearny Mesa: peripherals",
+     "Where to try gaming mice in person in San Diego? r/sandiego",
+     "Deer mouse and hantavirus: what San Diego residents should know",
+     "Why mice move indoors in San Diego in the fall"
+    ]
+   },
+   "new": {
+    "sources": 5,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 3,
+    "share_relevant": 0.4,
+    "titles": [
+     "Pixel Forge Computers, Kearny Mesa: peripherals",
+     "Where to try gaming mice in person in San Diego? r/sandiego",
+     "Mouse and Rat Removal in San Diego",
+     "Deer mouse and hantavirus: what San Diego residents should know",
+     "Why mice move indoors in San Diego in the fall"
+    ],
+    "dropped": [],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 0,
+    "plan": {
+     "question": "Where can I buy a good gaming mouse in San Diego?",
+     "topic": "Where can I buy a gaming mouse in San Diego?",
+     "queries": [
+      "gaming mouse stores in San Diego",
+      "where to buy gaming mouse in San Diego"
+     ],
+     "off_topic": [],
+     "wants": "store listings with prices",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 20.2,
+    "search_and_judge_seconds": 0.0
+   }
+  },
+  {
+   "id": "louisville_bat",
+   "set": "heldout2",
+   "question": "Where can I get my bat fixed in Louisville?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 3,
+    "share_relevant": 0.4,
+    "titles": [
+     "Bat Removal and Exclusion, Louisville KY",
+     "Derby City Sports Repair: bats, gloves and cleats",
+     "Bat found in the house? What Louisville residents should do",
+     "Bats of Kentucky: species guide",
+     "Cracked wooden bat? What can and cannot be repaired"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 1,
+    "share_relevant": 0.67,
+    "titles": [
+     "Derby City Sports Repair: bats, gloves and cleats",
+     "Bat Removal and Exclusion, Louisville KY",
+     "Cracked wooden bat? What can and cannot be repaired"
+    ],
+    "dropped": [
+     "Bat found in the house? What Louisville residents should do (judged by the model to be about something else (Bat removal and exclusion services in Louisville))",
+     "Bats of Kentucky: species guide (judged by the model to be about something else (Information about bats in Kentucky))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 3,
+    "plan": {
+     "question": "Where can I get my bat fixed in Louisville?",
+     "topic": "Where can I get my baseball bat repaired in Louisville?",
+     "queries": [
+      "baseball bat repair Louisville",
+      "bat repair shops Louisville"
+     ],
+     "off_topic": [],
+     "wants": "business listings with contact information",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 18.5,
+    "search_and_judge_seconds": 17.2
+   }
+  },
+  {
+   "id": "pittsburgh_bridge",
+   "set": "heldout2",
+   "question": "Where can I get a dental bridge in Pittsburgh?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Rivers College of Dentistry patient clinic",
+     "Pittsburgh's bridges: a walking tour of the City of Bridges",
+     "Dental bridges vs implants: costs and what to expect",
+     "Three Rivers Family Dentistry: crowns and bridges",
+     "Duplicate bridge clubs in Pittsburgh"
+    ]
+   },
+   "new": {
+    "sources": 2,
+    "about_what_was_asked": 2,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Three Rivers Family Dentistry: crowns and bridges",
+     "Rivers College of Dentistry patient clinic"
+    ],
+    "dropped": [
+     "Pittsburgh's bridges: a walking tour of the City of Bridges (judged by the model to be about something else (a walking tour of the City of Bridges))",
+     "Duplicate bridge clubs in Pittsburgh (judged by the model to be about something else (where to play duplicate bridge))",
+     "Bridge closures this week in Allegheny County (judged by the model to be about something else (lane restrictions on the Fort Pitt Bridge and the Liberty Bridge))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 4,
+    "plan": {
+     "question": "Where can I get a dental bridge in Pittsburgh?",
+     "topic": "Where can I get a dental bridge in Pittsburgh?",
+     "queries": [
+      "dentist bridge work Pittsburgh",
+      "dental bridge Pittsburgh"
+     ],
+     "off_topic": [],
+     "wants": "listings with dates and prices",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 19.0,
+    "search_and_judge_seconds": 23.7
+   }
+  },
+  {
+   "id": "phoenix_pitcher",
+   "set": "heldout2",
+   "question": "Where can I buy a glass pitcher for lemonade in Phoenix?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Sonoran Kitchen Supply: glass pitchers and drink dispensers",
+     "The best pitchers for iced tea and lemonade",
+     "Thrift stores in Phoenix with good glassware",
+     "Phoenix pitcher returns from the injured list",
+     "Autumn baseball in the desert: top pitching prospects"
+    ]
+   },
+   "new": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Sonoran Kitchen Supply: glass pitchers and drink dispensers",
+     "The best pitchers for iced tea and lemonade",
+     "Thrift stores in Phoenix with good glassware",
+     "Phoenix pitcher returns from the injured list",
+     "Autumn baseball in the desert: top pitching prospects"
+    ],
+    "dropped": [],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 0,
+    "plan": {
+     "question": "Where can I buy a glass pitcher for lemonade in Phoenix?",
+     "topic": "Where can I buy a glass pitcher for lemonade in Phoenix?",
+     "queries": [
+      "glass pitchers for lemonade in Phoenix",
+      "where to buy glass pitchers in Phoenix"
+     ],
+     "off_topic": [],
+     "wants": "store listings with product details",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 19.8,
+    "search_and_judge_seconds": 0.0
+   }
+  },
+  {
+   "id": "miami_salsa",
+   "set": "heldout2",
+   "question": "Where can I take salsa lessons in Miami?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 2,
+    "share_relevant": 0.6,
+    "titles": [
+     "Where to go salsa dancing in Miami",
+     "Best salsa and chips in Miami, ranked",
+     "Ritmo Studio Miami: beginner salsa classes",
+     "Fresh salsa recipe: pico de gallo in ten minutes",
+     "Salsa dancing for beginners: the basic step"
+    ]
+   },
+   "new": {
+    "sources": 3,
+    "about_what_was_asked": 3,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Where to go salsa dancing in Miami",
+     "Ritmo Studio Miami: beginner salsa classes",
+     "Salsa dancing for beginners: the basic step"
+    ],
+    "dropped": [
+     "Best salsa and chips in Miami, ranked (judged by the model to be about something else (ranked Mexican restaurants in Miami for salsa))",
+     "Fresh salsa recipe: pico de gallo in ten minutes (judged by the model to be about something else (quick and easy salsa recipe))"
+    ],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 3,
+    "plan": {
+     "question": "Where can I take salsa lessons in Miami?",
+     "topic": "Where can I take salsa dance lessons in Miami?",
+     "queries": [
+      "salsa dance lessons Miami",
+      "salsa classes Miami"
+     ],
+     "off_topic": [],
+     "wants": "class schedules with prices",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 18.3,
+    "search_and_judge_seconds": 18.3
+   }
+  },
+  {
+   "id": "minneapolis_canoe",
+   "set": "heldout2",
+   "question": "Where can I rent a canoe in Minneapolis?",
+   "old": {
+    "sources": 5,
+    "about_what_was_asked": 5,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Lake Calhoun Paddle Rentals: canoes and kayaks",
+     "Paddling the Minneapolis Chain of Lakes",
+     "Mississippi River canoe trips from Minneapolis",
+     "Canoe rental prices in the Twin Cities",
+     "Choosing your first canoe"
+    ]
+   },
+   "new": {
+    "sources": 4,
+    "about_what_was_asked": 4,
+    "about_another_meaning": 0,
+    "share_relevant": 1.0,
+    "titles": [
+     "Lake Calhoun Paddle Rentals: canoes and kayaks",
+     "Paddling the Minneapolis Chain of Lakes",
+     "Mississippi River canoe trips from Minneapolis",
+     "Canoe rental prices in the Twin Cities"
+    ],
+    "dropped": [],
+    "dropped_wrongly": 0,
+    "searches": 1,
+    "judged_by_model": 0,
+    "plan": {
+     "question": "Where can I rent a canoe in Minneapolis?",
+     "topic": "Where can I rent a canoe in Minneapolis?",
+     "queries": [
+      "kayak rental Minneapolis",
+      "canoe rental Minneapolis"
+     ],
+     "off_topic": [],
+     "wants": "business listings with contact information",
+     "source": "model",
+     "note": ""
+    },
+    "plan_seconds": 17.8,
+    "search_and_judge_seconds": 0.0
+   }
+  }
+ ]
+}

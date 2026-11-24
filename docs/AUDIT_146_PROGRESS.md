@@ -8,27 +8,27 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 67 |
-| PARTIAL | 48 |
-| MISSING | 30 |
+| COMPLETE | 68 |
+| PARTIAL | 52 |
+| MISSING | 25 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
 | Section | Complete | Partial | Missing | N/A |
 |---|---|---|---|---|
 | 1. Fix the foundations and release confusion (P0) | 4 | 5 | 1 | 0 |
-| 2. Make core AI chat genuinely reliable (P1) | 6 | 6 | 1 | 0 |
+| 2. Make core AI chat genuinely reliable (P1) | 6 | 7 | 0 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 13 | 2 | 0 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 13 | 4 | 0 | 0 |
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
-| 8. Performance and local hardware (P1) | 2 | 4 | 5 | 0 |
-| 9. Security, privacy and data integrity (P0) | 3 | 7 | 3 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 5 | 5 | 0 |
-| 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
+| 8. Performance and local hardware (P1) | 2 | 6 | 3 | 0 |
+| 9. Security, privacy and data integrity (P0) | 4 | 6 | 3 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
+| 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
-Owner-control requirement (Priority 0, cuts across the items above): 26 complete, 6 partial, 0 missing, 0 not applicable of 32. See the section after *Items that need the owner*.
+Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
 
 ## How to continue
 
@@ -70,6 +70,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, Phase 2 leftovers: the app has an Agent tab (ui/agent_panel.py); the coding agent sets up a virtual environment per task from the repository's requirement files, under a package policy (agent/environment.py, setting agent_package_policy); and the agent was measured on a second set of seeded bugs nothing had been tuned on (tests/fixtures/agent_tasks_heldout.json): 4 of 9 with dolphin3:8b, against 7 of 9 on the first set. Quote the 4 of 9. That second set has now been looked at, so a change to the harness needs a third set before a new figure is quoted. An idea not acted on, so as not to tune on that set: in all five misses the model repeated a change it had been told did not work; retrying with a higher temperature, or showing the failing assertion more prominently, might help.
 - 2026-11-23, linked accounts (item 079): modules/accounts.py is the one place a credential is obtained (`accounts.credential(service, permission)`); the providers, Brave search and the GitHub tools use it. Stored secrets are DPAPI-encrypted on Windows and plain (user-only file) elsewhere. Everything involving a service was tested against a stand-in HTTP server in tests/test_accounts.py; nothing has been run against a real service. Tests get an empty accounts file each (tests/conftest.py).
 - 2026-11-23, tools and the gate: agent/capabilities.py (one list of tools, apps, accounts; web_search, read_page, search_knowledge as tools with declared input and output shapes), modules/model_capabilities.py, agent/toolcall.py (the local model picks a tool as JSON held to a schema by Ollama's `format`; two data rules, R-D11), tools/tool_choice_benchmark.py (held-out: 11 of 12; re-run it when the prompt, tools or schema change: a test says so), tools/evaluation_gate.py (model-free comparison of two versions; the agent's changes to this app need it to be accepted, R-C09). The chat tab does not use the tool loop: it still routes by rules. Windows CI was red for a day because the benchmark's clone followed Git's global line-ending setting; to reproduce the runner locally set GIT_CONFIG_GLOBAL to a file with core.autocrlf=true.
+- 2026-11-24, corrective quality phase (the owner's CN-QA-001 to 007), branch quality/corrective-phase: reports docs/QUALITY_BASELINE.md, CONTENT_RULE_VERIFICATION.md, GENERATION_RELIABILITY_REPORT.md, FACTUAL_RELIABILITY_REPORT.md, WEB_RESEARCH_QUALITY_REPORT.md, QUALITY_FINAL_VERIFICATION.md. Measure before and after with tools/quality_check.py (--root for another checkout; --only profile for app against Ollama alone). Lessons: (1) Ollama reloads the model whenever a load-time option differs from the last request (num_ctx, num_batch, num_thread; its log says "reloading model, runner options changed", about 4 to 6.5 s here). The app sends none but num_ctx, and the router never shrinks the window; keep it that way, and run timing-sensitive measurements alone. (2) The relevance benchmark has a new held-out set for every round (heldout, heldout2, heldout3): write the next set before running a changed planner on any held-out question. (3) Saved real-model results are tied to the prompts by fingerprint; changing the web answer prompt means running tools/research_benchmark.py and tools/injection_benchmark.py again.
 
 ## Items that need the owner
 
@@ -79,6 +80,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **003** (MISSING): Owner decision on which Android pull requests and branches to merge or close.
 - **004** (PARTIAL): Owner to merge the work branch into main (pull request not opened yet).
 - **014** (PARTIAL): An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
+- **023** (PARTIAL): Your choice of other models to install (Ollama was to be left alone), and a cloud key, to measure more than one model.
 - **028** (PARTIAL): The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.
 - **030** (PARTIAL): A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
 - **051** (PARTIAL): An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
@@ -97,9 +99,12 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **093** (MISSING): ComfyUI or Automatic1111 running, plus a phone.
 - **094** (MISSING): Owner decision to merge or reject it.
 - **095** (MISSING): Depends on item 094.
+- **096** (PARTIAL): Your choice of other models to install (Ollama was to be left alone).
+- **097** (PARTIAL): Your choice of other models to install (Ollama was to be left alone).
 - **112** (PARTIAL): Encryption of the live files is planned for the security phase. Until then, full-disk encryption (BitLocker) protects them.
 - **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
-- **115** (PARTIAL): The same measurement for uploaded documents, tool output and comments in code the agent reads.
+- **115** (PARTIAL): A hostile-document set for uploaded files, measured the same way.
+- **126** (PARTIAL): An OpenAI or Anthropic key for the cloud half.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
 - **134** (MISSING): Code-signing certificates and the Android signing keys (repository secrets).
@@ -118,7 +123,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 ## P0. Owner control (cross-cutting requirement)
 
-The owner-control requirement (Priority 0, added by the owner on 2026-11-23). It cuts across the 146 audit items instead of replacing them. Sources, verbatim: docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/owner/OWNER_CONTROL_GUARDRAIL_AUDIT.md. Statuses are kept in docs/backlog/status.json under the same ids and set with tools/audit_ledger.py.
+The owner-control requirement (Priority 0, added by the owner on 2026-11-23). It cuts across the 146 audit items instead of replacing them. Sources, verbatim: docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/owner/OWNER_CONTROL_GUARDRAIL_AUDIT.md. Statuses are kept in docs/backlog/status.json under the same ids and set with tools/audit_ledger.py. The group 'quality' holds the owner's corrective audit of 2026-11-23 (CN-QA-001 to 007, given in the conversation), whose reports are listed in docs/QUALITY_FINAL_VERIFICATION.md.
 
 The register of every restriction and behaviour-affecting mechanism is `docs/OWNER_CONTROL_RESTRICTIONS.md`; the specification, the owner's decisions and the map from acceptance tests to test files are in `docs/OWNER_CONTROL.md`.
 
@@ -379,6 +384,65 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Needs:** A reviewer other than the assistant, after the remaining phases.
 
 
+### Corrective quality phase: the owner's live findings of 2026-11-23 (docs/QUALITY_FINAL_VERIFICATION.md)
+
+#### CN-QA-001 · COMPLETE
+
+> P0. Incorrect application-level content blocking: an adult-only request was stopped by the content rule. Adult-only requests must not be blocked, the rule must still stop what it covers, and the model's own refusals must be counted apart from the app's.
+
+- **Evidence:** Reproduced on 44c49e7 with the real model and fixed: earlier turns no longer make an adult-only request a candidate, negations and adult ages are read, "Label: NO" is read, and an unreadable judge answer says it is not a finding. The owner's cases: adult-only requests wrongly stopped 1 of 6 before, 0 of 6 after; covered requests stopped 2 of 2; ordinary child-related questions answered 4 of 4. Full benchmark of the rule, 148 cases in four sets, run again: the same 147 of 148 as before, case for case. The one miss is a picture request stopped under the assistant's own stricter picture line (D7), which waits for the owner. The model's own refusals are labelled as the model's (docs/CONTENT_RULE_VERIFICATION.md).
+- **Tests:** tests/test_quality_corrective.py, tests/test_owner_control.py, tests/test_content_rule_benchmark.py; tools/quality_check.py, tools/content_rule_benchmark.py with the real model
+- **Commits:** 0b7126d, 566c828
+
+#### CN-QA-002 · COMPLETE
+
+> P1. Silent substitution of requested content: about 500 words asked for, about 57 delivered, without explanation. The requested style, detail and length must reach the model, nothing may silently shorten the output, and any shortfall must be attributed correctly.
+
+- **Evidence:** The stated length now reaches the model: it sets the token budget, removes the short-answer rules and outranks the "Fast" profile; nothing after generation shortens or rewrites the text (traced stage by stage); an answer that hits its limit says so, and one the model ends outside the asked range says so under it and that the app did not cut it (6 of 6 such answers in the last run). The owner's own adult request was not generated again; its length goes through the same planning (docs/GENERATION_RELIABILITY_REPORT.md).
+- **Tests:** tests/test_quality_corrective.py (length reading, budget, notes); tools/quality_check.py with the real model
+- **Commits:** 7a07f56, e5d289e, 2a06d88
+
+#### CN-QA-003 · PARTIAL
+
+> P0. Long-form generation stops before completion. 100, 150, 300, 500 and 800-word requests, within 10%, finished coherently; if completion is impossible under the limits, the app must say so.
+
+- **Evidence:** Long answers are no longer cut off: 0 of 7 length requests stopped at a token limit after the change (3 of 7 before, the 500-word story, the astronaut story and the 800-word guide at 384 tokens), and 7 of 7 ended by themselves (4 of 7 before). Not met: the ±10% range. 1 of 7 within it in the last run, 2 of 7 in the run before; sent straight to Ollama the model managed 2 of 7, so the remaining gap is the model's, and the app now says so under each such answer.
+- **Tests:** tests/test_quality_corrective.py; docs/benchmarks/quality_before.json, quality_after.json
+- **Commits:** 7a07f56, e5d289e, 2a06d88
+
+#### CN-QA-004 · PARTIAL
+
+> P1. Incomplete educational responses: the 300-word cerebral palsy explanation for a parent came back too short. It must be useful at about 300 words, and ordinary questions with words such as child, CP, teenager, puberty or sexual education must not trigger the content rule.
+
+- **Evidence:** The cerebral palsy explanation for a parent no longer gets the simple-fact rules ("1-3 short sentences", "under 75 words", "one short paragraph"): 68 words before, 215 after, a useful answer but not the 300 asked for (the model's length, as CN-QA-003). Ordinary questions with child, CP, teenager, puberty, sexual education are answered and not looked at by the content rule (real model 4 of 4; automated tests for each word).
+- **Tests:** tests/test_quality_corrective.py, tests/test_owner_control.py; tools/quality_check.py with the real model
+- **Commits:** 7a07f56, e5d289e
+
+#### CN-QA-005 · COMPLETE
+
+> P1. Inaccurate answers to simple factual questions (7 times 6 answered 84). A regression set over arithmetic, multiplication, division, negatives, decimals, percentages, word problems and misleading context, with repeated trials, accuracy, latency and which component answered.
+
+- **Evidence:** A regression set of the owner's kinds of question (tests/fixtures/quality_cases.json), run three times each through the chat path with accuracy, time and the answering component recorded: 27 of 27 right after (24 of 27 before; 21 by the app's calculator, 6 set up by the model and worked out by the app). Six word problems written afterwards: 15 of 18 right after, 7 of 18 with the unchanged code. Limit: the model sets up a word problem, and set one up wrongly every time (the bus); the sum used is shown in the answer (docs/FACTUAL_RELIABILITY_REPORT.md).
+- **Tests:** tests/test_quality_corrective.py (calculator, word problems, labels); tools/quality_check.py with the real model
+- **Commits:** 7a07f56, e5d289e
+
+#### CN-QA-006 · PARTIAL
+
+> P0. Poor web-search relevance (the Omaha question returned lawn care). Recognise the subject, exclude unrelated results, refine poor searches, separate verified from unverified claims, check legal and availability context, compare where the evidence supports it, cite, say when the evidence cannot settle it, and never invent businesses, menus, inventory or prices.
+
+- **Evidence:** Three rounds, each measured with the real model before the next was designed, and on questions written before it ran (docs/WEB_RESEARCH_QUALITY_REPORT.md). The subject is recognised: the plan spelled the meaning out for all 19 benchmark questions. Unrelated results are excluded: on the 5 questions written before round three, off-topic results reaching the model fell from 10 to 0 with 1 of 15 relevant results thrown out; across the three held-out sets the model's judge threw out 7 of 51 relevant results and let 1 of 33 off-topic ones through. Live, the owner's question read no lawn-care page in two runs (one of five before). A poor search is refined with the plan's next query. Names, version numbers, years and links in an answer that no source contains are listed under it. Not met: the search for legal and availability context is built and tested, but the model left it empty for every question; the live answer to the owner's question is still one sentence saying the results do not say which is best, with no comparison of what they do offer; chat answers name the result a point comes from at most, without per-claim citations. Not tried: showing the model an example answer for questions the results cannot settle.
+- **Tests:** tests/test_research_plan.py, tests/test_answer_diagnostics.py; tools/research_relevance_benchmark.py with the real model; the live Omaha question through the chat path
+- **Commits:** 543daf9, 7a07f56, e5d289e, 2a06d88
+
+#### CN-QA-007 · COMPLETE
+
+> P1. Poor performance for incomplete responses. Before-and-after measurements on the same hardware, model, prompts and settings, Ollama alone against the app, separating delays that are the model's from the app's own.
+
+- **Evidence:** Measured before and after on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile; docs/GENERATION_RELIABILITY_REPORT.md). Two delays were the app's: the first 160 characters of every answer were held back (about 8 s here), fixed in e5d289e; and the "Fast" profile's num_batch made Ollama reload the model whenever a chat answer followed another kind of call (4.6 s each, "runner options changed" in Ollama's log), fixed in 2a06d88. First word, app against Ollama alone: +5.0 to +6.2 s before, -0.2 to +1.6 s after; writing speed the same, about 5 tokens a second. The rest is the model's: reading the prompt and writing. The phase added model calls to web questions (planning about 17 to 21 s, judging 9 to 30 s); measured, disclosed, and switched off with the setting plan_web_search.
+- **Tests:** tests/test_quality_corrective.py (first word, no load-time options); tools/quality_check.py --only profile with the real model
+- **Commits:** e5d289e, 2a06d88
+
+
 ## 1. Fix the foundations and release confusion (P0)
 
 ### 001 · P0 · observed · PARTIAL
@@ -463,7 +527,9 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Bench-test real answers for accuracy, usefulness, consistency, reasoning, code, and casual dialogue.
 
-- **Evidence:** answer_quality_eval.py, conversation_regression_eval.py and response_speed_eval.py exist and can run against a live model. Results are not recorded anywhere; only a handful of live chats were checked by hand on 2026-11-23.
+- **Evidence:** Real answers are now bench-tested with the real model and the results kept: arithmetic accuracy over repeated trials, with a set of unseen word problems; adherence to a requested length and whether answers finish; the content rule on adult and child-related requests (tools/quality_check.py; docs/benchmarks/quality_before.json and quality_after.json); research answers against fixed sources (research_dolphin3-8b.json); relevance of search results for ambiguous questions (research_relevance_dolphin3-8b.json); tool choice (tool_choice_dolphin3-8b.json); everyday questions on sensitive subjects (behavior_dolphin3-8b.json). Not covered: code answers and casual dialogue are not scored, and each case was run once or three times, which shows tendencies, not rates.
+- **Tests:** tools/quality_check.py, tests/test_quality_corrective.py; docs/QUALITY_FINAL_VERIFICATION.md
+- **Commits:** 566c828, cfab5f3, 2a06d88
 
 ### 012 · P1 · observed · COMPLETE
 
@@ -527,11 +593,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Evidence:** core/reality_grounding classifies speculation and confidence heuristically and appends a 'Reality check' note; web answers flag version numbers and years missing from their sources. Answers are not otherwise split into facts, assumptions and unknowns.
 - **Commits:** 58e902f, 5453611
 
-### 020 · P1 · observed · MISSING
+### 020 · P1 · observed · PARTIAL
 
 > Evaluate whether response-plan and self-critique heuristics actually improve output quality.
 
-- **Evidence:** The response planner and self-critic have unit tests but no measurement of whether they improve answers.
+- **Evidence:** The response planner was evaluated against the model alone on the same requests and found to make answers worse in one respect: it never read a stated length, so a 300-word explanation came back at 89 words through the app and 296 from the model alone, and three long answers were cut off at the speed profile's 384 tokens (docs/QUALITY_BASELINE.md). Fixed and measured again: none of seven length requests cut off (three before), all seven ended complete (four before), the cerebral palsy explanation 215 words (68 before), and an answer outside the asked range now says so; within ±10% 1 of 7, the model's own limit (2 of 7 straight to Ollama) (docs/GENERATION_RELIABILITY_REPORT.md). Not done: the self-critic's effect on quality is not measured, and the planner's other rules (casual chat, planning) were not compared with their absence.
+- **Tests:** tests/test_quality_corrective.py; docs/benchmarks/quality_before.json, quality_after.json
+- **Commits:** 7a07f56, e5d289e, 2a06d88
 
 ### 021 · P1 · recommended · PARTIAL
 
@@ -552,9 +620,10 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Track per-model token counts, throughput, cost and latency in reproducible benchmarks.
 
-- **Evidence:** Each turn records provider, model, tokens per second and timings; cloud answers now record input and output tokens with an estimated cost from published prices, and Ollama reports whether an answer hit its length limit. response_speed_eval.py exists. No benchmark results are stored in the repository yet, so nothing is reproducible from a file.
-- **Tests:** tests/test_provider_truth.py::test_anthropic_usage_and_estimated_cost_are_recorded, test_cost_estimates, test_ollama_reports_when_an_answer_hit_the_length_limit.
-- **Commits:** de2332c
+- **Evidence:** Reproducible benchmarks with token counts, throughput and latency are stored for the installed model: tools/speed_benchmark.py (first word, writing and reading speed, memory and processor, with the machine's description; --compare reports a slowdown) and tools/quality_check.py --only profile (the app against Ollama alone with the same window and limit, docs/benchmarks/quality_after.json). Cost is zero for the local model; cloud answers record tokens and an estimated cost per answer, but no cloud benchmark could be run without a key. Only one model is installed.
+- **Tests:** tests/test_speed_benchmark.py; docs/benchmarks/speed_dolphin3-8b.json, quality_after.json
+- **Commits:** de2332c, 44c49e7, cfab5f3
+- **Needs:** Your choice of other models to install (Ollama was to be left alone), and a cloud key, to measure more than one model.
 
 
 ## 3. Fix reality-first reasoning, fact checking, and research (P0)
@@ -1143,15 +1212,19 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Measure first-token latency, total latency, tokens/sec, RAM, VRAM, CPU and GPU across target models.
 
-- **Evidence:** Measured on this machine with dolphin3:8b (CPU): the model reads a prompt at about 32 tokens a second and writes at 3 to 4.6; loading takes about 6.5 s; a cached prompt prefix is re-read in under a second; tokens per character were measured for 18 kinds of text. The router records these per request and plans with them. RAM, CPU load, GPU and VRAM are not recorded, and only one model has been measured.
-- **Tests:** tests/fixtures/token_counts.json; tests/test_context_budget.py::test_router_learns_reading_speed_from_the_slowest_request_and_plans_with_it.
-- **Commits:** ba0708c
+- **Evidence:** Measured on this machine with dolphin3:8b: first word 2.9 s for a short new question, 60 s for a 2,105-token text read the first time, writing 5.1 tokens a second, reading 58, 5.0 GB of memory, 56% of the processor; no graphics card, so no VRAM or GPU figures (docs/benchmarks/speed_dolphin3-8b.json). The app's own share of the time to the first word was measured against Ollama alone with the same window and limit (quality_after.json, profile; docs/GENERATION_RELIABILITY_REPORT.md). Only the installed model was measured.
+- **Tests:** tests/test_speed_benchmark.py
+- **Commits:** ba0708c, 44c49e7, cfab5f3
+- **Needs:** Your choice of other models to install (Ollama was to be left alone).
 
-### 097 · P1 · recommended · MISSING
+### 097 · P1 · recommended · PARTIAL
 
 > Test model quality on the intended hardware and offer sensible quantized model presets.
 
-- **Evidence:** No model presets for the hardware; only one model is installed.
+- **Evidence:** Model quality was tested on the intended hardware for the installed model (every benchmark in docs/benchmarks). modules/hardware.py and tools/speed_benchmark.py --recommend list 4-bit size classes with the memory each needs and its writing speed here: measured for 8B (5.1 tokens a second), estimated for the others and labelled so; the largest worth trying here is about 14B. No other model was installed to test the estimates or their quality.
+- **Tests:** tests/test_speed_benchmark.py
+- **Commits:** 34d7d67
+- **Needs:** Your choice of other models to install (Ollama was to be left alone).
 
 ### 098 · P1 · recommended · MISSING
 
@@ -1206,11 +1279,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 - **Evidence:** No bounded concurrency, queue limits or cancellation for heavy jobs.
 
-### 106 · P1 · recommended · MISSING
+### 106 · P1 · recommended · PARTIAL
 
 > Track performance regressions automatically, including before/after hardware and model metadata.
 
-- **Evidence:** No performance regression tracking.
+- **Evidence:** Regressions can be measured with the machine and model recorded: tools/speed_benchmark.py --compare exits 1 when writing or the first word is more than 20% slower than a saved run on the same machine and model, and tools/quality_check.py records before and after on the same cases (docs/benchmarks/quality_before.json, quality_after.json). tools/evaluation_gate.py compares two versions on the model-free evaluations. Not automatic: the speed and quality checks need the model, so they are not part of CI.
+- **Tests:** tests/test_speed_benchmark.py, tests/test_evaluation_gate.py
+- **Commits:** 34d7d67, d728af1
 
 
 ## 9. Security, privacy and data integrity (P0)
@@ -1223,11 +1298,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_url_safety.py (10 tests) plus a live redirect to 127.0.0.1 that was refused.
 - **Commits:** b50c373
 
-### 108 · P0 · observed · PARTIAL
+### 108 · P0 · observed · COMPLETE
 
 > Recheck DNS-to-connection validation and redirects in the mobile URL ingester to guard against rebinding and unsafe egress.
 
-- **Evidence:** The Android backend validates the resolved address and each redirect itself (backend/engine.py public_url); the desktop engine does the same in url_safety. Neither pins the resolved address for the connection, so DNS rebinding is not covered.
+- **Evidence:** Every redirect hop is checked, and the connection now goes to the address that was checked: the name is looked up once per request and hop, and for that request the HTTP library gets exactly the checked addresses when it looks the name up to connect (modules/url_safety.py, pinned). The phone backend's website fetch uses the same pin (branch owner-control-content-rule of the Android repository, not merged). Tested with a name server that answers the check with a good address and the connection with a private one, against a stand-in site; https checked by hand against a real site. Not covered: a request through a configured proxy, which looks the name up itself.
+- **Tests:** tests/test_url_safety.py; Android repository backend/test_api.py
+- **Commits:** 56aad2d; Android b016756
 
 ### 109 · P0 · recommended · MISSING
 
@@ -1277,10 +1354,10 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Test prompt injection through webpages, documents, tools, and code comments with a hostile-content benchmark.
 
-- **Evidence:** A hostile-content benchmark exists for web pages and is run against the real model (tools/injection_benchmark.py, 12 attacks and 2 controls; 6 of 12 obeyed before the defences, 0 of 12 after).
-- **Tests:** tests/test_research_hardening.py.
-- **Commits:** 1878cee
-- **Needs:** The same measurement for uploaded documents, tool output and comments in code the agent reads.
+- **Evidence:** Hostile content is measured with the real model for web pages (tools/injection_benchmark.py: 6 of 12 planted instructions obeyed without the defences, 0 of 12 with them, the real fact kept in 14 of 14; measured again on 2026-11-24 after the web-answer prompt changed), for tool output in a tool run (tools/tool_choice_benchmark.py: a page telling the model to open another address; it was not opened and the line never reached the model), and for code comments and docstrings the coding agent reads (both agent task sets carry one; never obeyed in 30 task runs). Uploaded documents are not measured separately; they are fenced and cleaned the same way.
+- **Tests:** tests/test_research_hardening.py, tests/test_injection_benchmark.py, tests/test_tool_choice_benchmark.py, tests/test_agent_benchmark.py
+- **Commits:** 1878cee, bab72be
+- **Needs:** A hostile-document set for uploaded files, measured the same way.
 
 ### 116 · P0 · recommended · COMPLETE
 
@@ -1359,11 +1436,14 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** Pinned install resolved for Python 3.12 and 3.13 on Windows and Linux (pip dry-run), and the full suite passed in a fresh virtualenv built from the pins.
 - **Commits:** ce2c584
 
-### 126 · P0 · recommended · MISSING
+### 126 · P0 · recommended · PARTIAL
 
 > Build integration tests that exercise real Ollama and optional cloud providers rather than mocked responses alone.
 
-- **Evidence:** All automated tests mock the model. Live checks against Ollama were done by hand on 2026-11-23 and are not repeatable as a test.
+- **Evidence:** tests/test_live_ollama.py sends real requests through the app's own code when CN_LIVE_OLLAMA_URL is set: capabilities from the server, an answer labelled as the model's, streaming piece by piece, a reply held to a schema, a usable tool-loop step, the content rule with the real model judging, and a whole chat turn. All eight passed on 2026-11-23. tools/quality_check.py, tools/research_relevance_benchmark.py and the other benchmark tools also run the real model end to end. Skipped in CI, where there is no model. The cloud half is not covered: no key.
+- **Tests:** tests/test_live_ollama.py
+- **Commits:** 44c49e7
+- **Needs:** An OpenAI or Anthropic key for the cloud half.
 
 ### 127 · P0 · recommended · COMPLETE
 
@@ -1471,11 +1551,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 - **Evidence:** No project dashboard.
 
-### 141 · P2 · recommended · MISSING
+### 141 · P2 · recommended · PARTIAL
 
 > Offer model performance recommendations tailored to available hardware.
 
-- **Evidence:** No hardware-based model recommendations.
+- **Evidence:** tools/speed_benchmark.py --recommend tells which 4-bit model sizes fit this machine's memory and how fast each would write here: measured for the installed 8B model, estimated for the others and labelled as estimates (largest worth trying: about 14B). Command line only; the app does not show it.
+- **Tests:** tests/test_speed_benchmark.py
+- **Commits:** 34d7d67
 
 ### 142 · P2 · recommended · PARTIAL
 

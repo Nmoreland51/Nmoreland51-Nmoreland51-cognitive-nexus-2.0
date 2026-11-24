@@ -48,7 +48,8 @@ the answer should contain and a marker that appears in the answer only if the mo
 real model answers each page twice: with the page pasted into the prompt as the app used to do, and with
 the prompt the app builds now.
 
-Measured on 2026-11-23 with `dolphin3:8b` (CPU only, Ollama 0.40.17):
+Measured on 2026-11-23 with `dolphin3:8b` (CPU only, Ollama 0.40.17), and again on 2026-11-24 with the answer
+prompt of the corrective phase, with the same result:
 
 | | Page text pasted in (before) | Lines aimed at a model removed, the rest fenced (now) |
 |---|---|---|
@@ -74,6 +75,9 @@ python tools/injection_benchmark.py --model dolphin3:8b --mode off --save docs/b
 | Remove and mark (default) | lines aimed at an AI are removed, the rest is fenced | 0 of 12 | 14 of 14 |
 | Mark only | everything is fenced, nothing removed | 6 of 12 | 14 of 14 |
 | No handling | page text pasted in | 7 of 12 | 14 of 14 |
+
+These three were measured with the answer prompt of 2026-11-23; only the default setting was measured again
+with the prompt of the corrective phase.
 
 With this model, marking text as untrusted does almost nothing by itself; it is taking the lines out that
 works. The app shows these numbers next to the setting, and `tests/test_owner_control.py` fails if the
@@ -238,7 +242,16 @@ Measured on 2026-11-23 with `dolphin3:8b`:
 The weak spot is the last-but-three row: asked for a price or a founder that the pages do not give, this
 model recites what the pages do say (the weight, the founding year) instead of saying the answer is
 missing. It invents nothing, but it does not answer the question either. A stricter instruction in the
-prompt did not change that (measured before and after: 1 of 3 both times). In the fixture the answering page
+prompt did not change that (measured before and after: 1 of 3 both times).
+
+**Measured again on 2026-11-24** with the answer prompt of the corrective phase, which says what is meant,
+names only businesses, products and places that are in the results, and, when the results do not answer,
+says so and then what they do say (instead of "do not offer other facts in its place"): chat answers right
+9 of 9, nothing from outside the sources in 12 of 12, said so 1 of 3 (the one that does now adds what the
+pages say), full answers 3 of 3. One case, the battery life of the Harbor H2, flips between runs and small changes of wording even at
+temperature 0: wrong in the run with this phase's first wording (8 of 9), right when that wording was run
+again by itself, wrong once with the old wording in the same check, and right with the final wording.
+The times, 26 s and 85 s, were measured with the test suite running alongside at low priority. In the fixture the answering page
 is deliberately not always first, so "7 of 9" is about the app's scoring, not about any search engine.
 
 `tests/test_research_benchmark.py` runs the ranking and excerpt checks on every push, re-judges the saved
@@ -394,6 +407,80 @@ came out not worse, or with a stated reason (`agent/coder.py`). `tests/test_eval
 real on a copy of this repository: a commit that stops the removal of planted lines is reported as worse, and
 emptying the fixture that measures it does not help.
 
+## The owner's quality findings (`quality_before.json`, `quality_after.json`)
+
+```
+python tools/quality_check.py --root <checkout of 44c49e7> --save docs/benchmarks/quality_before.json
+python tools/quality_check.py --no-direct --save docs/benchmarks/quality_after.json
+python tools/quality_check.py --only profile                 # the app against Ollama alone, same window and limit
+python tools/quality_check.py --only arithmetic_heldout      # six word problems written after the fix
+```
+
+The owner's live findings of 2026-11-23 (CN-QA-001 to 005, 007), as cases in
+`tests/fixtures/quality_cases.json` written before any fix and run the same way before and after: the
+content rule with the real model judging (stage, terms found, the judge's raw answers), arithmetic asked
+three times each, and requests with a stated length through the app's whole chat path with its default
+settings, also sent straight to Ollama. `--root` measures another checkout with this one's cases, so the
+"before" is the unchanged code. Lengths count the model's words only, not the notes the app puts under an
+answer. The results are discussed in `docs/QUALITY_BASELINE.md`, `docs/CONTENT_RULE_VERIFICATION.md`,
+`docs/GENERATION_RELIABILITY_REPORT.md`, `docs/FACTUAL_RELIABILITY_REPORT.md` and, all together, in
+`docs/QUALITY_FINAL_VERIFICATION.md`.
+
+Measured with `dolphin3:8b`, the app's default settings ("Fast", Auto Precision), on `44c49e7` (before) and
+after every change of the phase (`quality_after.json` records which run each part comes from):
+
+| | Before | After |
+|---|---|---|
+| Adult-only requests wrongly stopped by the content rule (the owner's 6) | 1 | **0** |
+| Requests the rule covers, stopped | 2 of 2 | 2 of 2 |
+| Ordinary questions about children, puberty, sex education, a teenager, answered | 4 of 4 | 4 of 4 |
+| Length requests cut off at a token limit (7) | 3 | **0** |
+| Length requests ended complete | 4 of 7 | **7 of 7** |
+| Within the asked range, ±10% | 0 of 7 | 1 of 7 (2 of 7 in an earlier run; 2 of 7 straight to Ollama) |
+| Arithmetic, the owner's set (9 questions × 3) | 24 of 27 | **27 of 27** |
+| Word problems written after the fix (6 × 3) | 7 of 18 | **15 of 18** |
+| First word, length requests through the app (median) | 16.2 s | **6.9 s** |
+| First word, app against Ollama alone with the same settings | +5.0 to +6.2 s (a reload each time) | **−0.2 to +1.6 s** |
+
+Before the change the "Fast" profile sent a load-time option (`num_batch`) that no other call sent, so
+Ollama reloaded the model between calls; the before-figures for the first word include that.
+The model is not exact about length either way: the remaining misses are the model's (2 of 7 within range
+with nothing added).
+
+## Which search results reach the model (`research_relevance_*.json`)
+
+```
+python tools/research_relevance_benchmark.py --save docs/benchmarks/research_relevance_dolphin3-8b.json
+python tools/research_relevance_benchmark.py --as-typed      # the old search only, no model
+```
+
+Ambiguous local questions ("the best weed in Omaha", "a jaguar in Denver", "a dental bridge in
+Pittsburgh") with a fixed pool of made-up results each, some about what was asked and some about another
+meaning of a word in the question (`tests/fixtures/research_relevance_benchmark.json`). The search engine is
+simulated: it ranks the pool by how many of the query's words a result contains, as a keyword search does.
+Old: the question's words searched as typed, the first five results passed on. New: the real model plans
+the search and judges doubtful results (`modules/research_plan.py`). Counted: results about another meaning
+that reach the model, relevant results dropped, searches, seconds.
+
+Measured with `dolphin3:8b` on 2026-11-24, in three rounds; each held-out set was written before the round it
+measures ran on any held-out question. Results about another meaning that reached the model (and relevant
+results wrongly thrown out):
+
+| Set | Questions | Searched as typed | Round one | Round two | Round three |
+|---|---|---|---|---|---|
+| dev: the owner's Omaha question | 1 | 3 of 5 | 3 | 1 | 1 |
+| dev: the same results, the other meaning | 1 | 2 of 5 | | 0 | 0 |
+| heldout, written before round one | 6 | 11 | 11 (0) | 0 (2) | 0 (2) |
+| heldout2, written before round two | 6 | 12 | | 6 (0) | 1 (4) |
+| heldout3, written before round three | 5 | 10 | | | **0 (1)** |
+
+Round one: the model spelled the meaning out correctly but wrote no other-meaning words, so nothing was
+dropped. Round two: the model judges results that name nothing of the meant sense. Round three: it judges
+every result when the plan adds no words of its own, and the plan may name a search for legal or
+availability context (the model left that empty for all 19 questions). `research_relevance_dolphin3-8b_round2.json`
+keeps round two; `research_relevance_dolphin3-8b.json` is round three. Details and the live runs of the owner's
+question: `docs/WEB_RESEARCH_QUALITY_REPORT.md`.
+
 ## Speed on this machine (`speed_*.json`)
 
 ```
@@ -453,7 +540,9 @@ Found while writing them:
 - **Chat can get simple facts wrong because it samples.** The first version of the chat test asked "What is 7
   times 6?". Through the app the model answered 84, 42 and 42 in three tries; asked directly at temperature
   0 it answers 42. Chat sends a temperature of 0.35 to 0.7, which suits writing and is a risk for short
-  factual questions. Not changed yet: lowering it changes every answer and needs measuring first.
+  factual questions. Changed in the corrective phase: plain arithmetic is worked out by the app, word problems
+  are set up by the model and worked out by the app, and short factual questions are sampled at 0.1 (see
+  "The owner's quality findings" above).
 - The first run had two failures that were the tests' own fault: they pointed the app at the test suite's
   closed model address. The content-rule test failed safe: a judge that cannot be reached stops the request.
   The test now also checks that the model really judged.

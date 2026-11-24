@@ -23,7 +23,7 @@ BENCHMARKS = ROOT / "docs" / "benchmarks"
 
 # Why an item that is not complete is not complete. Everything not listed here simply has not
 # been finished: nothing outside this machine or this work is missing for it.
-NEEDS_THE_OWNER = {"001", "003", "004", "072", "094", "095", "113", "129", "135", "136", "145", "146"}
+NEEDS_THE_OWNER = {"001", "003", "004", "023", "072", "094", "095", "096", "097", "113", "129", "135", "136", "145", "146"}
 NEEDS_WHAT_THIS_MACHINE_LACKS = {
     "014": "an OpenAI or Anthropic API key",
     "051": "an OCR engine",
@@ -39,6 +39,7 @@ NEEDS_WHAT_THIS_MACHINE_LACKS = {
     "092": "an Android phone, or an emulator and a JDK",
     "093": "ComfyUI or Automatic1111 running, and a phone",
     "128": "an Android phone, or an emulator and a JDK",
+    "126": "an OpenAI or Anthropic key for the cloud half",
     "134": "code-signing certificates and Android signing keys",
 }
 
@@ -97,9 +98,28 @@ def measurements() -> list[tuple[str, str, str]]:
 
     def research(data: dict[str, Any]) -> str:
         chat = data["chat_answers"]
+        outside = chat["answers_with_something_outside_their_sources"]
         return (
-            f"Questions the sources answer: {chat['correct']} of {chat['answerable']} right, nothing added from outside the sources. "
-            f"Questions they do not answer: it said so in {chat['said_so']} of {chat['unanswerable']}"
+            f"Questions the sources answer: {chat['correct']} of {chat['answerable']} right, "
+            + ("nothing added from outside the sources. " if not outside else f"{outside} of {chat['answerable'] + chat['unanswerable']} with something from outside the sources. ")
+            + f"Questions they do not answer: it said so in {chat['said_so']} of {chat['unanswerable']}"
+        )
+
+    def quality(data: dict[str, Any]) -> str:
+        s = data["summary"]
+        length, unseen, content = s["length"], s["arithmetic_heldout"], s["content"]
+        return (
+            f"Ordinary requests wrongly stopped by the content rule {content['ordinary_wrongly_stopped']} of {content['ordinary']}; "
+            f"answers cut off {length['stopped_at_the_token_limit']} of {length['requests']}, within the asked length {length['within_range']} of {length['requests']}; "
+            f"word problems written afterwards {unseen['right']} of {unseen['answers']} right"
+        )
+
+    def relevance(data: dict[str, Any]) -> str:
+        unseen = data["summary"]["heldout3"]
+        dropped = unseen["new"]["relevant_results_dropped"]
+        return (
+            f"Unseen ambiguous questions: {unseen['new']['results_about_another_meaning']} results about another meaning reached the model "
+            f"({unseen['old']['results_about_another_meaning']} when searched as typed); {dropped} relevant result{'' if dropped == 1 else 's'} wrongly dropped"
         )
 
     def stance(data: dict[str, Any]) -> str:
@@ -135,6 +155,8 @@ def measurements() -> list[tuple[str, str, str]]:
     add("behavior_dolphin3-8b.json", behaviour, "Legitimate questions are not stopped")
     add("injection_dolphin3-8b.json", injection, "Instructions hidden in web pages")
     add("research_dolphin3-8b.json", research, "Research answers from fixed sources")
+    add("research_relevance_dolphin3-8b.json", relevance, "Which web results reach the model")
+    add("quality_after.json", quality, "Your live findings of 2026-11-23, after the corrective phase")
     add("stance.json", stance, "Claim check: what a passage says about a claim")
     add("retrieval_all-minilm.json", retrieval, "Search in your own documents")
     add("agent_heldout_dolphin3-8b.json", agent, "Coding agent, tasks it was never tuned on")
@@ -169,7 +191,7 @@ NEEDS_YOU = """\
 - **The picture rule is stricter than yours.** You asked for one content rule. For pictures the app also refuses anything that would show a person under 18 nude or undressed, whatever the scene (a baby in a bath, for example). That line is mine, not yours; it is marked as mine wherever it appears (`docs/OWNER_CONTROL.md`, D7). One ordinary request in the tests is wrongly refused because of it.
 - **Two defaults were chosen without your answer:** the coding agent works alone but asks before it publishes anything (D5), and impossible things are answered in full and labelled rather than held back (D6). Both are settings in Settings, Behaviour.
 - **Sixteen private files are still in the repository and its history** (chat history, a profile, images), from before this work. Removing them for good means rewriting history and a forced push. I have not done it: it needs your go-ahead.
-- **Nothing is merged.** All of this is on the branch `fix/chat-speed-web-search-images`. Opening the pull request, merging it into `main`, tagging a release and changing branch protection are yours.
+- **Nothing is merged.** The audit work is on the branch `fix/chat-speed-web-search-images`; the corrective quality phase is on `quality/corrective-phase`, offered to it as a draft pull request. Merging either, merging into `main`, tagging a release and changing branch protection are yours.
 - **The phone repository has one new branch,** `owner-control-content-rule`, with one fix. Its open pull requests and branches are untouched and still need your decision.
 - **I installed one thing into Ollama:** the 45 MB search model `all-minilm`. `ollama rm all-minilm` removes it; search in your documents then falls back to keywords.
 - **Decisions the audit leaves to you:** which repository is the main one; whether the default product is an assistant, a research tool, a coding agent or all three; whether you want voice, picture input or several agents; whether you want the assistant to drive a browser.
@@ -178,6 +200,10 @@ NEEDS_YOU = """\
 
 NOT_TO_OVERTRUST = """\
 - **The coding agent fixes under half of small bugs with this model.** Four of nine on tasks it was never tuned on. An earlier figure of seven of nine was measured on the tasks the harness had been improved against and overstated it. What does hold whatever the model does: it never reported a failure as a success and never edited the tests.
+- **The model is not exact about length.** With the app no longer cutting answers short, a requested length is passed on and nothing is cut off, but the model itself overshoots short pieces and undershoots long ones (see docs/GENERATION_RELIABILITY_REPORT.md).
+- **Word problems depend on the model setting them up.** The app works the arithmetic out exactly and shows the expression, but a wrong setup gives a wrong answer (one of six unseen problems, docs/FACTUAL_RELIABILITY_REPORT.md).
+- **Web answers to "the best ..." questions are thin.** The search now finds what you mean (no lawn care for your Omaha question), but the model still answers such a question in one sentence, that the results do not say which is best, without saying what they do offer. The search for legal or availability context is built and never runs with this model: it always leaves it empty (docs/WEB_RESEARCH_QUALITY_REPORT.md).
+- **The model's judgement of search results is sometimes wrong.** On questions it was never tuned on it threw out 7 of 51 relevant results and let 1 of 33 off-topic ones through.
 - **The model guesses when it cannot check.** In one tool run the web search was refused by a data rule and the model still stated the answer as fact. The rules control where your data goes; they do not make an 8B model careful.
 - **When the sources do not answer a question, the model usually answers anyway.** It said "the sources do not say" in one of three such questions.
 - **The claim check wrongly counts some passages as support.** Two of 47 unseen passages with the model re-reading, five without.
@@ -207,8 +233,10 @@ def build() -> str:
     counts = Counter(status[item_id]["status"] for item_id in items)
     open_items = [item_id for item_id in items if status[item_id]["status"] in {"PARTIAL", "MISSING"}]
     reasons = Counter(why_open(item_id, status[item_id]).split(" ")[0] for item_id in open_items)
-    owner_points = {key: value for key, value in status.items() if not key[:1].isdigit()}
+    owner_groups = {key: item.get("group", "") for key, item in _json(ROOT / "docs" / "backlog" / "owner_control.json")["items"].items()}
+    owner_points = {key: value for key, value in status.items() if not key[:1].isdigit() and owner_groups.get(key) != "quality"}
     owner_counts = Counter(value["status"] for value in owner_points.values())
+    quality_counts = Counter(value["status"] for key, value in status.items() if owner_groups.get(key) == "quality")
     lines = [
         "# Final verification report",
         "",
@@ -224,7 +252,9 @@ def build() -> str:
         f"- **{reasons['needs']} need something this computer does not have**: a phone, an API key or token, Docker, an OCR engine, signing certificates.",
         f"- **{reasons['not']} are simply not finished.** Nothing outside is missing for them; there was not time.",
         "",
-        f"Your own instructions on control of the assistant (32 points, in `docs/owner/`): {owner_counts['COMPLETE']} complete, {owner_counts['PARTIAL']} partly done.",
+        f"Your own instructions on control of the assistant ({len(owner_points)} points, in `docs/owner/`): {owner_counts['COMPLETE']} complete, {owner_counts['PARTIAL']} partly done.",
+        "",
+        f"Your seven live findings of 2026-11-23 (CN-QA-001 to 007, `docs/QUALITY_FINAL_VERIFICATION.md`): {quality_counts['COMPLETE']} fixed and verified, {quality_counts['PARTIAL']} improved but not fully met, {quality_counts['MISSING']} not done.",
         "",
         "\"Complete\" means built, run, and covered by a test or a saved measurement, with its limits written next to it in the ledger. It does not mean perfect: several complete items carry limits, listed under \"Things not to over-trust\".",
         "",
