@@ -1059,7 +1059,7 @@
     },
     {
      "file": "agent/coder.py",
-     "anchor": "\"\"\"A person accepts a reviewed change. Only this marks a task done.\"\"\""
+     "anchor": "def accept(self, task_id: str, by: str, *, despite_evaluation: str = \"\") -> Task:"
     }
    ]
   },
@@ -1224,6 +1224,41 @@
     {
      "file": "agent/cli.py",
      "anchor": "def _accounts(args: argparse.Namespace) -> int:"
+    }
+   ]
+  },
+  {
+   "id": "R-C09",
+   "name": "A change to the assistant's own code is accepted only after it was measured",
+   "category": "C",
+   "status": "active",
+   "trigger": "The owner accepts a finished agent task whose repository is a copy of this app (it contains agent/coder.py, modules/behavior_policy.py and tools/evaluation_gate.py).",
+   "effect": "Accepting is refused, with the reason, unless the change was measured in full against the version it replaces and found not worse (tools/evaluation_gate.py), or the owner gives a reason for accepting it regardless, which is recorded with the task. A quick measurement does not count. A measurement of an earlier commit does not count for a later one.",
+   "owner_requested": "In general terms: the audit asked that the agent must not rewrite itself without evaluations (item 069). The mechanism was not put to the owner.",
+   "evidence": "agent/coder.py (accept, evaluate), tools/evaluation_gate.py. Run for real in tests/test_evaluation_gate.py: in a copy of this repository a commit that stops the removal of planted lines is reported as worse (12 hostile pages cleaned before, 0 after), and a second commit that empties the fixture measuring it changes nothing about that verdict, because the candidate is measured with this installation's fixtures and not its own.",
+   "origin": "Written during the 146-item audit work (November 2026), which the owner ordered.",
+   "technical_reason": "An agent that edits the code it runs on can make itself worse while its own task test passes. The owner is the one who accepts; this makes sure the owner has numbers before doing so.",
+   "affected_workflows": "Agent tasks on this app's own repository. Tasks on any other repository are accepted as before.",
+   "default_state": "On.",
+   "effective_state": "On.",
+   "alternatives": "Accept regardless, with a reason (the Agent tab's text field, or `python -m agent task accept T --by NAME --despite-evaluation \"why\"`).",
+   "configurable": "Per acceptance, by the owner. There is no setting that turns it off for good.",
+   "owner_decision": "Pending review by the owner. It is a step before the owner's own decision on a tool's work, not a rule about what may be said.",
+   "tests": "tests/test_evaluation_gate.py: test_a_change_to_the_assistants_own_code_is_not_accepted_unmeasured, test_a_full_measurement_that_is_not_worse_opens_the_way_and_a_quick_one_does_not, test_a_change_that_measured_worse_is_refused_unless_the_person_says_why, test_a_measurement_of_an_earlier_commit_does_not_count_for_a_later_one, test_any_other_repository_is_accepted_as_before; tests/test_agent_panel.py: test_a_change_to_the_assistants_own_code_needs_a_measurement_or_a_reason",
+   "regression_risk": "Low. It adds minutes to accepting a change to the app itself.",
+   "known_limitations": "The measurement needs no model, so it shows that the mechanisms still work (content rule, removal of planted lines, the agent's harness, the tool run's data rules, saved results still describing the code), not that answers got better. A repository is recognised as a copy of this app by three file names.",
+   "locations": [
+    {
+     "file": "agent/coder.py",
+     "anchor": "if changes_this_app(task.repo):"
+    },
+    {
+     "file": "agent/coder.py",
+     "anchor": "OWN_CODE = (\"agent/coder.py\", \"modules/behavior_policy.py\", \"tools/evaluation_gate.py\")"
+    },
+    {
+     "file": "agent/cli.py",
+     "anchor": "accept.add_argument(\"--despite-evaluation\", default=\"\", metavar=\"WHY\""
     }
    ]
   },
@@ -1910,6 +1945,7 @@
   "tools/behavior_check.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/check_repo_hygiene.py": "A development tool: keeps private data and secrets out of the repository. It does not run in the app.",
   "tools/content_rule_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
+  "tools/evaluation_gate.py": "Measures two versions of the app on fixed evaluations and gives a verdict. The rule that uses the verdict is in agent/coder.py (R-C09).",
   "tools/injection_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/restriction_register.py": "This register's own tool.",
   "tools/run_checks.py": "A development tool: runs every check, this register's among them. It does not run in the app.",

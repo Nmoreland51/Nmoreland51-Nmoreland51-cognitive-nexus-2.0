@@ -88,12 +88,16 @@
   "tests": "tests/test_provider_truth.py::test_local_failure_does_not_send_the_prompt_to_a_configured_cloud_provider, test_cloud_fallback_runs_when_the_saved_setting_allows_it, test_a_request_can_allow_or_forbid_cloud_fallback_regardless_of_the_saved_setting, test_a_cloud_provider_the_user_put_first_is_used_without_the_fallback_setting, test_cloud_providers_are_only_asked_for_their_own_models; tests/test_model_failure_paths.py::test_label_mentions_a_substituted_model."
  },
  "017": {
-  "evidence": "No model capability records (vision, tools, structured output, context length, streaming) exist.",
-  "status": "MISSING"
+  "commits": "5957cf1",
+  "evidence": "modules/model_capabilities.py: for a model, its context length, longest reply, and whether it streams, makes tool calls, can be held to a JSON Schema, takes pictures or produces search vectors, each with where the answer comes from. Local models: the Ollama server is asked (/api/show); checked live for the installed model (dolphin3:8b: 131,072 tokens, no tool calls, no vision, structured output yes, which the tool-choice run then confirmed in 24 of 24 replies). An older server that reports nothing gives 'not known', and 'not known' is never treated as yes. Cloud models: the provider's published figures for the models the app knows by name, marked as not checked against the live service (no key). Shown in the Agent tab and by `python -m agent model`; `ProviderRouter.capabilities()` answers for any provider. Limit: model routing does not yet choose by capability (item 015).",
+  "status": "COMPLETE",
+  "tests": "tests/test_model_capabilities.py (9 tests, including a stand-in Ollama server and the request actually sent to it)"
  },
  "018": {
-  "evidence": "No tool-calling schemas or argument validation exist in the engine.",
-  "status": "MISSING"
+  "commits": "971314c, 5957cf1",
+  "evidence": "Arguments: every tool has a JSON Schema checked before anything runs (agent/registry.py). Results: a tool may declare the shape of what it returns, and a result that does not match is recorded as a failure. Tool calling: agent/toolcall.py asks the model for one step at a time as a JSON object whose schema has one alternative per tool with that tool's own argument schema; for local models the Ollama server holds the reply to it (ProviderRequest.response_schema -> 'format'), for other providers it is asked for in words and checked. Measured with dolphin3:8b on requests the prompt was not tuned on: 12 of 12 replies usable, right tool with fitting arguments in 11 of 12 (docs/benchmarks/tool_choice_dolphin3-8b.json). Used by `python -m agent ask`. Limits: the chat tab does not use it (it still decides by rules when to search); cloud providers' own tool-call formats are not used, and nothing was run against a cloud provider.",
+  "status": "COMPLETE",
+  "tests": "tests/test_agent_toolcall.py (22 cases), tests/test_tool_choice_benchmark.py, tests/test_agent_registry.py: test_what_a_tool_returns_is_checked_against_what_it_declares, tests/test_model_capabilities.py: test_ollama_is_sent_the_schema_as_the_format_of_the_reply; real model: docs/benchmarks/tool_choice_dolphin3-8b.json"
  },
  "019": {
   "commits": "58e902f, 5453611",
@@ -396,15 +400,15 @@
   "tests": "tests/test_agent_coder.py: test_a_change_that_adds_a_secret_does_not_pass_review, test_a_reviewer_s_rejection_sends_the_change_back_once_then_a_person_decides, test_review_without_a_usable_model_verdict_still_rests_on_checks_and_tests"
  },
  "069": {
-  "evidence": "The agent can only change code through a task with a test, on a branch of its own, reviewed, never merged by itself; that applies to its own repository as to any other. Its behaviour is measured by saved benchmarks that fail in CI when the code they describe changes without a new run (agent, content rule, behaviour, injection, research, claim check). What is missing is the loop the item asks for: a way to propose a change to the agent itself, run the benchmarks before and after, and accept it only if they do not get worse.",
-  "status": "PARTIAL",
-  "tests": "tests/test_agent_benchmark.py, tests/test_content_rule_benchmark.py, tests/test_behavior_check.py"
+  "evidence": "tools/evaluation_gate.py measures two versions of the app on fixed evaluations that need no model (the content rule given a judge that is always right; removal of planted lines from hostile pages and ordinary pages left alone; the coding agent's harness on both task sets; what gets out of a tool run when the model obeys every planted line; whether the tests that tie saved real-model results to the code still pass) and gives a verdict: not worse, worse, or needs a person. The measuring code and fixtures come from the checkout the command runs in, never from the candidate, and a candidate that changes the evaluations is reported. `--record` keeps each comparison as a file in docs/evaluations (the versioned record). The coding agent cannot have a change to this app's own code accepted without a full comparison that came out not worse; the owner can accept regardless with a reason, which is recorded (agent/coder.py: evaluate, accept). Run for real on a copy of this repository in the tests: a commit that stops the removal of planted lines is reported as worse (12 hostile pages cleaned before, 0 after), and a further commit that empties the fixture changes nothing about that. Limit: it shows that the mechanisms still work, not that answers got better; that is what the model benchmarks measure, and it only checks that their saved results still describe the code.",
+  "status": "COMPLETE",
+  "tests": "tests/test_evaluation_gate.py (16 tests; three of them run the gate for real, two on a clone of this repository), tests/test_agent_panel.py: test_a_change_to_the_assistants_own_code_needs_a_measurement_or_a_reason"
  },
  "070": {
-  "commits": "6bb0b97",
-  "evidence": "agent/registry.py: every tool has a name, a JSON Schema for its arguments, a declared effect (read, write, execute, network, external) and an adapter; arguments are checked before anything runs; `python -m agent tools` prints the registry as data. It covers the coding tools and the GitHub tools. It does not cover other apps or linked accounts: there are none.",
-  "status": "PARTIAL",
-  "tests": "tests/test_agent_registry.py: test_arguments_are_checked_against_the_schema_before_anything_runs, test_the_registry_describes_itself_as_data; tests/test_agent_tools.py: test_every_tool_declares_its_effect_and_schema"
+  "commits": "6bb0b97, 5957cf1",
+  "evidence": "agent/capabilities.py: `catalogue()` lists every tool with the JSON Schema of its arguments, the JSON Schema of what it returns (where declared), its effect, what it needs (an app, or a linked account allowed for a named use) and whether it can be used right now with what is missing; every app the tools rely on, looked for on the machine (Git, Ollama and its models, the search sources, the image backends); and every linked account with how it is linked, what the owner allowed and which tools use it. It covers the coding tools, the GitHub tools and the assistant's own (web search, read a page, search the knowledge base). Run for real on this machine. Shown in the Agent tab and by `python -m agent tools`.",
+  "status": "COMPLETE",
+  "tests": "tests/test_agent_capabilities.py (11), tests/test_agent_panel.py: test_the_tab_shows_tools_apps_and_accounts, test_the_capability_list_is_three_tables_a_person_can_read; tests/test_agent_cli.py: test_capabilities_and_isolation_are_printed"
  },
  "071": {
   "commits": "6bb0b97, 1e121fe",
@@ -413,10 +417,11 @@
   "tests": "tests/test_agent_registry.py: test_the_policy_table, test_no_mode_lets_an_outside_action_run_unasked_but_the_user_can_name_one, test_an_outside_action_waits_for_a_person_and_runs_once_per_approval; tests/test_owner_control.py: test_the_agents_permissions_follow_the_owners_one_setting"
  },
  "072": {
-  "commits": "96cdb29, d23b8d8, 4f725ee",
-  "evidence": "Adapters exist for files, Git, GitHub and fetching a public page (watch jobs). There is no web navigation, browser automation or computer-use adapter.",
+  "commits": "96cdb29, d23b8d8, 4f725ee, 5957cf1",
+  "evidence": "Adapters, each a group of tools in the registry: files, shell, git, github, environment, web, knowledge. Web navigation without a browser exists: search, read a page, and follow a link found on a page that was read (agent/capabilities.py: read_page returns the page's links; agent/toolcall.py lets a model open them). It fetches HTML and does not run JavaScript, so pages that are built in the browser come back empty. Not built: browser automation (clicking, forms, signed-in sites) and control of the desktop. Neither is installed here, and a small local model steering a signed-in browser is not something to switch on without the owner deciding it.",
+  "needs": "The owner's decision on browser automation and desktop control, and a browser automation package if wanted.",
   "status": "PARTIAL",
-  "tests": "tests/test_agent_tools.py, tests/test_agent_github.py, tests/test_agent_jobs.py: test_watching_a_page_reports_a_change_in_what_it_says_only"
+  "tests": "tests/test_agent_tools.py, tests/test_agent_github.py, tests/test_agent_capabilities.py, tests/test_agent_toolcall.py: test_a_link_on_a_page_that_was_read_can_be_followed_and_no_other_address, tests/test_agent_jobs.py: test_watching_a_page_reports_a_change_in_what_it_says_only"
  },
  "073": {
   "commits": "4f725ee",
@@ -456,6 +461,7 @@
   "tests": "tests/test_agent_panel.py: test_the_history_says_who_allowed_an_action_and_what_it_produced, test_a_task_is_given_worked_on_shown_and_accepted_through_the_tab, test_a_request_for_approval_is_decided_in_the_tab; tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal"
  },
  "079": {
+  "commits": "8d43795, bb09453, 63970c8",
   "evidence": "modules/accounts.py is the one place a credential for an outside service is obtained. Stored credentials: encrypted with the Windows Data Protection API for the signed-in user (checked on this machine: neither the text nor its base64 form is in the file, and it reads back); on other systems kept in a file only the user can read, and the app says it is not encrypted. Permissions: an account is linked with none, the owner ticks each use (GitHub: read, push, pull_request; OpenAI and Anthropic: chat; Brave Search: search; own services with their own names), and code asks for the credential for one use; without it the caller gets an error and nothing is sent. Renewal: a credential with an expiry and a refresh token is renewed before use (OAuth 2.0 refresh), including services that replace the refresh token each time; one that cannot be renewed is refused with the reason. Sign-in on the service's own page: the OAuth 2.0 device grant. Withdrawal: one permission or the whole account; unlinking deletes the secret and asks the service to cancel it where it has a revocation address, and otherwise tells the owner where to cancel it. Accounts set through environment variables keep working and can have permissions withheld. Used by the cloud providers, Brave search and the GitHub tools; the GitHub token is now sent only to GitHub hosts. Settings has a Linked accounts panel; `python -m agent accounts` does the same. The file is left out of backups, exports and snapshots and is refused on restore. Not done: every service was played by a stand-in on this machine that follows the published rules, so no real service has accepted any of it; GitHub's device sign-in needs a client id the owner registers; there is no loading of third-party plug-in code, only services the owner adds by name.",
   "needs": "A real account to try it against: a GitHub fine-grained token, or an OAuth app's client id for the sign-in.",
   "status": "PARTIAL",
