@@ -660,8 +660,10 @@
   "tests": "tests/test_repo_hygiene.py; tests/test_data_stores.py::test_home_variable_moves_everything_and_single_folders_can_be_overridden."
  },
  "114": {
-  "evidence": "No written access model. The desktop app is single-user by design and the Android backend uses one shared token.",
-  "status": "MISSING"
+  "commits": "ddc33cd",
+  "evidence": "docs/ACCESS_MODEL.md defines the single-owner model: one owner on one computer, the owner's messages never treated as untrusted, everything else outside; every way in (the app, the phone backend, python -m agent, tools/data_tool.py, the experimental fullstack-local, Ollama) with who can reach it, what it can do and what protects it; what is not protected; and what more than one user would need (none of it planned). The permissions inside the app are for actions, listed in the restriction register. Audited: tests/test_access_model.py checks the stated defaults and fails when a file starts a server the document does not list. The audit found and fixed two gaps: streamlit run app.py listened on every network interface, with no sign-in (now this computer only, .streamlit/config.toml, as run.py and the launcher already did; Streamlit's usage statistics turned off), and the fullstack-local backend accepted calls from any website (now only its own page). Register entry R-D13.",
+  "status": "COMPLETE",
+  "tests": "tests/test_access_model.py"
  },
  "115": {
   "commits": "1878cee, bab72be",

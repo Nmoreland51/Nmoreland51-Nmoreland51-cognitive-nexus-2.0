@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 73 |
+| COMPLETE | 74 |
 | PARTIAL | 52 |
-| MISSING | 20 |
+| MISSING | 19 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -24,7 +24,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
-| 9. Security, privacy and data integrity (P0) | 5 | 7 | 1 | 0 |
+| 9. Security, privacy and data integrity (P0) | 6 | 7 | 0 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
@@ -1358,11 +1358,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Commits:** 351c51d, ce2c584, 1f8628f, 3701bfb
 - **Needs:** Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 
-### 114 · P0 · observed · MISSING
+### 114 · P0 · observed · COMPLETE
 
 > Define a single-owner access model and audit permissions before considering multi-user accounts.
 
-- **Evidence:** No written access model. The desktop app is single-user by design and the Android backend uses one shared token.
+- **Evidence:** docs/ACCESS_MODEL.md defines the single-owner model: one owner on one computer, the owner's messages never treated as untrusted, everything else outside; every way in (the app, the phone backend, python -m agent, tools/data_tool.py, the experimental fullstack-local, Ollama) with who can reach it, what it can do and what protects it; what is not protected; and what more than one user would need (none of it planned). The permissions inside the app are for actions, listed in the restriction register. Audited: tests/test_access_model.py checks the stated defaults and fails when a file starts a server the document does not list. The audit found and fixed two gaps: streamlit run app.py listened on every network interface, with no sign-in (now this computer only, .streamlit/config.toml, as run.py and the launcher already did; Streamlit's usage statistics turned off), and the fullstack-local backend accepted calls from any website (now only its own page). Register entry R-D13.
+- **Tests:** tests/test_access_model.py
+- **Commits:** ddc33cd
 
 ### 115 · P0 · recommended · PARTIAL
 
