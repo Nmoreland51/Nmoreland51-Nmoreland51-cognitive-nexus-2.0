@@ -248,9 +248,13 @@ were written for.
 ## Coding agent on seeded bugs (`agent_*.json`)
 
 ```
+python tools/agent_benchmark.py --model dolphin3:8b --set heldout --save docs/benchmarks/agent_heldout_dolphin3-8b.json
 python tools/agent_benchmark.py --model dolphin3:8b --save docs/benchmarks/agent_dolphin3-8b.json
 python tools/agent_benchmark.py --reference        # the harness alone, with the fixture's own solutions
 ```
+
+**The number to quote: 4 of 9.** That is the second set (`--set heldout`), which the harness was never adjusted
+to. The first set's 7 of 9 is the set the harness was improved against.
 
 Ten small Python projects, each with a failing test (`tests/fixtures/agent_tasks.json`): a wrong operator, an
 off-by-one, a crash on empty input, a missing dictionary key, a wrong type, a missing step, a fault in a file
@@ -280,12 +284,42 @@ file's name; an edit block without its `=======` line; a fault in a file the mod
 those is now handled (`tests/test_agent_coder_tolerance.py` quotes the replies as the model wrote them). The
 two tasks still unsolved are the model's own mistakes: it wrote a wrong fix and repeated it.
 
-**How far to trust "7 of 9":** these ten tasks were also what the harness was improved against, so the figure
-is not an independent estimate, and the tasks are far smaller than real work. A second set that the harness
-has never seen is the next measurement. What the runs do establish is the part that does not depend on the
-model: in 20 task runs the harness never called a failure a success, never let the tests be edited, and handed
-the unsolvable task to a person each time.
+**How far to trust "7 of 9":** not far. These ten tasks were also what the harness was improved against, so
+the figure is not an independent estimate. The second set below is.
 
-`tests/test_agent_benchmark.py` checks on every push that each seeded bug really fails before any change, that
-the harness reaches the right outcome on all ten given a correct reply, that a model which obeys the planted
-comment gets nowhere, and that the saved run contains no false success.
+### The second set, never used for tuning (`agent_heldout_dolphin3-8b.json`)
+
+Ten more tasks of the same size (`tests/fixtures/agent_tasks_heldout.json`), written after the harness
+changes above and run once, on 2026-11-23, with nothing adjusted to them: month and day swapped, a
+comparison that should ignore case, a shared default list, cents cut off, a sort in the wrong direction, a
+missing name part printed as "None", a last short group dropped, a limit set in another file, a bug under a
+docstring telling AI models to rewrite the tests instead, and one test that contradicts itself.
+
+| | First set (tuned on) | Second set (never tuned on) |
+|---|---|---|
+| Solvable tasks solved | 7 of 9 | **4 of 9** |
+| ... at the first attempt | 6 | 4 |
+| The unsolvable task handed to a person | 1 of 1 | 1 of 1 |
+| A failure reported as a success | 0 | 0 |
+| The planted instruction obeyed | 0 | 0 |
+| Time per task | 90 s | 110 s |
+
+So on small bugs it has not seen, this agent with this 8B model fixes a little under half, and the earlier
+figure overstated it. All five failures were the model's own wrong fixes, not work the harness threw away:
+it "fixed" the shared default by making the list global, rounded to whole numbers where cents were asked for,
+returned the highest scores in ascending order, handled a missing middle name but not an empty one, and
+appended the remainder inside the loop. In all five it at some point repeated a change it had just been told
+did not work. Every task it solved, it solved at the first attempt; a second and third attempt rescued
+nothing in this run.
+
+What the two runs establish independently of the model: in 30 task runs the harness never called a failure a
+success, never let the tests be edited, did not act on either planted instruction, and handed the unsolvable
+task to a person every time.
+
+Because the second set has now been looked at, any change made to the harness from here on needs a third set
+before a new figure is quoted.
+
+`tests/test_agent_benchmark.py` checks on every push, for both sets, that each seeded bug really fails before
+any change, that the harness reaches the right outcome on every task given a correct reply, that a model
+which obeys the planted text gets nowhere, that the two sets share no task and no code, and that neither
+saved run contains a false success.

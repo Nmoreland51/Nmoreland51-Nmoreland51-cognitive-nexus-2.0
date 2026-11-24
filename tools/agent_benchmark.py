@@ -39,10 +39,13 @@ from agent.store import AgentStore  # noqa: E402
 from agent.workspace import WorkspaceManager  # noqa: E402
 
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "agent_tasks.json"
+# "dev" is the set the harness was improved against. "heldout" was written afterwards and nothing
+# was adjusted to it: its score is the one to quote.
+SETS = {"dev": FIXTURE, "heldout": REPO_ROOT / "tests" / "fixtures" / "agent_tasks_heldout.json"}
 
 
-def load_tasks(path: Path = FIXTURE) -> list[dict[str, Any]]:
-    return json.loads(path.read_text(encoding="utf-8"))["tasks"]
+def load_tasks(path: Path | str = FIXTURE) -> list[dict[str, Any]]:
+    return json.loads(Path(SETS.get(str(path), path)).read_text(encoding="utf-8"))["tasks"]
 
 
 def _git(folder: Path, *arguments: str) -> str:
@@ -156,10 +159,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--attempts", type=int, default=3)
     parser.add_argument("--seconds", type=float, default=1500.0, help="time budget per task")
     parser.add_argument("--save", type=Path, default=None)
+    parser.add_argument("--set", dest="task_set", choices=tuple(SETS), default="dev", help="dev: the tasks the harness was improved against; heldout: tasks it was never adjusted to")
     args = parser.parse_args(argv)
     if not args.model and not args.reference:
         parser.error("give --model, or --reference to run the harness with the fixture's own solutions")
-    tasks = [task for task in load_tasks() if not args.only or task["id"] in args.only]
+    tasks = [task for task in load_tasks(args.task_set) if not args.only or task["id"] in args.only]
     reviewer: Model | None = None
     router = None
     if args.model:
@@ -188,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{summary['mean_seconds_per_task']} s per task"
     )
     if args.save:
-        report = {"measured_at": time.strftime("%Y-%m-%d"), "model": "reference solutions" if args.reference else args.model, "review_model": args.review_model or "the same model", "budget": {"attempts": args.attempts, "seconds": args.seconds}, "summary": summary, "rows": rows}
+        report = {"measured_at": time.strftime("%Y-%m-%d"), "task_set": args.task_set, "model": "reference solutions" if args.reference else args.model, "review_model": args.review_model or "the same model", "budget": {"attempts": args.attempts, "seconds": args.seconds}, "summary": summary, "rows": rows}
         args.save.parent.mkdir(parents=True, exist_ok=True)
         args.save.write_bytes((json.dumps(report, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
         print(f"saved {args.save}")
