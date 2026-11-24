@@ -40,6 +40,7 @@ from modules import accounts
 from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
 from modules.file_utils import atomic_write_text
+from modules.research_plan import gather_planned, unsourced_names_note
 from modules.url_safety import safe_get
 
 try:
@@ -173,6 +174,10 @@ _RETRY_STATUS = {429, 500, 502, 503, 504}
 _HOST_SPACING_SECONDS = 0.4
 _host_lock = Lock()
 _host_last_request: dict[str, float] = {}
+# trafilatura copies an lxml tree, which is not safe from two threads: two scrapes at once aborted
+# Python 3.13 on Linux (exit 134). Found and fixed on the branch cursor/grok-failover-handoff-3f8b
+# (commit ee13bd0); the same lock is used here.
+_trafilatura_lock = Lock()
 
 
 class _ExpiringCache:
@@ -547,8 +552,9 @@ def _scrape_url_cached(url: str, timeout: int = 8) -> str:
         output.update(soup_payload)
 
         if trafilatura is not None:
-            extracted = trafilatura.extract(
-                html,
+            with _trafilatura_lock:
+                extracted = trafilatura.extract(
+                    html,
                 include_links=True,
                 include_tables=True,
                 include_comments=False,
@@ -574,7 +580,8 @@ def _published_date(html: str) -> str:
 
     if trafilatura is not None:
         try:
-            metadata = trafilatura.extract_metadata(html)
+            with _trafilatura_lock:
+                metadata = trafilatura.extract_metadata(html)
             date = getattr(metadata, "date", None) if metadata is not None else None
             if date:
                 return str(date)[:10]
@@ -722,6 +729,7 @@ def _build_brief_prompt(
     query: str,
     results: list[dict[str, Any]],
     scraped_pages: list[dict[str, Any]],
+    meaning: str = "",
 ) -> str:
     blocks = [
         f"[{idx}] {r.get('title', '')}: {_shorten(str(r.get('snippet', '')), BRIEF_SNIPPET_CHARS)}"
@@ -731,7 +739,8 @@ def _build_brief_prompt(
         if page.get("success"):
             blocks.append(f"PAGE {page.get('title') or page.get('url')}: {_relevant_excerpt(page.get('text', ''), query)}")
     context, note = _fenced_context(blocks, "web results")
-    return f"""Question: {query}
+    meant = f"\nWhat is meant: {meaning}" if meaning and meaning.strip().lower() != query.strip().lower() else ""
+    return f"""Question: {query}{meant}
 
 {untrusted_rule()}
 
@@ -740,9 +749,10 @@ Fresh web results (newer than your training data):
 {note}
 
 Answer the question in 2-3 short sentences using only these web results. Include dates or
-version numbers when relevant. Do not list sources or URLs; the app shows them. If the results
-do not contain the answer, begin with "The web results do not say" and name what is missing;
-do not offer other facts in its place.
+version numbers when relevant. Name a business, product or place only if it appears in the results
+above. Do not list sources or URLs; the app shows them. If the results do not contain the answer,
+begin with "The web results do not say" and name what is missing; do not offer other facts in its
+place.
 """
 
 
@@ -840,7 +850,7 @@ def summarize_research_result(
     if not summary:
         return "AI summarization returned no text. The pages that were found are listed below.", False
     logger.info("Research summary generated query=%r chars=%s", query, len(summary))
-    notes = unsourced_numbers_note(summary, prompt) + unlisted_links_note(summary, prompt) + staleness_note(query, scraped_pages)
+    notes = unsourced_numbers_note(summary, prompt) + unsourced_names_note(summary, prompt, query) + unlisted_links_note(summary, prompt) + staleness_note(query, scraped_pages)
     return summary + notes, True
 
 
@@ -965,10 +975,13 @@ def build_summary_prompt(
     results: list[dict[str, Any]],
     scraped_pages: list[dict[str, Any]],
     brief: bool = False,
+    meaning: str = "",
 ) -> str:
     """Prompt for summarizing research: brief chat answer or full report."""
 
-    return (_build_brief_prompt if brief else _build_research_prompt)(query, results, scraped_pages)
+    if brief:
+        return _build_brief_prompt(query, results, scraped_pages, meaning)
+    return _build_research_prompt(query, results, scraped_pages)
 
 
 def gather_research(
@@ -977,10 +990,13 @@ def gather_research(
     max_results: int = 5,
     scrape_pages: bool = True,
     brief: bool = False,
+    plan: Any = None,
 ) -> dict[str, Any]:
     """Search and scrape. Returns results, scraped pages, errors and stage timings.
 
-    brief=True (chat mode) scrapes only the top pages.
+    brief=True (chat mode) scrapes only the top pages. With a `plan` (modules/research_plan.SearchPlan)
+    the plan's queries are searched in turn, results about another meaning are dropped, and the
+    kept results are scraped in their order (research_plan.gather_planned).
     """
 
     started = time.perf_counter()
@@ -989,11 +1005,16 @@ def gather_research(
     results: list[dict[str, Any]] = []
     scraped_pages: list[dict[str, Any]] = []
 
-    try:
-        results = search_web(query, max_results=max_results)
-    except Exception as exc:
-        errors.append(f"Search failed: {exc}")
-        logger.warning("Search failed query=%r error=%s", query, exc)
+    planned = gather_planned(plan, search_web, max_results=max_results) if plan is not None else None
+    if planned is not None:
+        results = list(planned.get("results") or [])
+        errors.extend(f"Search failed for {item['query']!r}: {item['error']}" for item in planned.get("searches", []) if item.get("error"))
+    else:
+        try:
+            results = search_web(query, max_results=max_results)
+        except Exception as exc:
+            errors.append(f"Search failed: {exc}")
+            logger.warning("Search failed query=%r error=%s", query, exc)
     timings["search"] = time.perf_counter() - started
 
     if scrape_pages:
@@ -1033,7 +1054,7 @@ def gather_research(
         else:
             seen_text[fingerprint] = str(page.get("url"))
 
-    return {
+    gathered: dict[str, Any] = {
         "query": query,
         "brief": brief,
         "results": results,
@@ -1043,6 +1064,9 @@ def gather_research(
         "started": started,
         "has_sources": _has_research_sources(results, scraped_pages),
     }
+    if planned is not None:
+        gathered.update(plan=planned.get("plan"), searches=planned.get("searches", []), dropped=[{"title": item.get("title", ""), "url": item.get("url", ""), "reason": item["relevance"]["reason"]} for item in planned.get("dropped", [])])
+    return gathered
 
 
 def finish_research_session(
@@ -1115,10 +1139,13 @@ def run_research_session(
     save_to_memory: bool = True,
     ai_callback: Callable[[str], str] | None = None,
     brief: bool = False,
+    planner: Callable[[str], Any] | None = None,
 ) -> dict[str, Any]:
     """Run a full search/scrape/summarize/save session.
 
     brief=True is the chat mode: scrape only the top pages and ask for a 2-3 sentence answer.
+    planner(query) returns a modules.research_plan.SearchPlan: the query is then searched as the
+    plan says, off-topic results are dropped and a poor first search is refined.
     """
 
     settings = {
@@ -1129,7 +1156,7 @@ def run_research_session(
         "save_to_memory": save_to_memory,
         "brief": brief,
     }
-    gathered = gather_research(query, max_results=max_results, scrape_pages=scrape_pages, brief=brief)
+    gathered = gather_research(query, max_results=max_results, scrape_pages=scrape_pages, brief=brief, plan=planner(query) if planner is not None else None)
     summary_started = time.perf_counter()
     if summarize_with_ai:
         summary, generated = summarize_research_result(
