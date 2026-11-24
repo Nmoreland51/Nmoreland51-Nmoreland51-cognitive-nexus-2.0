@@ -75,5 +75,7 @@ jobs:
         run: python tools/audit_ledger.py check
       - name: Restriction register describes the code as it is
         run: python tools/restriction_register.py check
+      - name: Final verification report says what the ledger and the saved results say
+        run: python tools/final_report.py check
       - name: Known vulnerabilities in the pinned dependencies
         run: python -m pip_audit -r requirements/constraints.txt --no-deps --disable-pip --progress-spinner off

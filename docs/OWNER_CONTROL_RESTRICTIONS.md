@@ -1364,6 +1364,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `tools/check_repo_hygiene.py` | 1 | - | A development tool: keeps private data and secrets out of the repository. It does not run in the app. |
 | `tools/content_rule_benchmark.py` | 11 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/evaluation_gate.py` | 13 | - | Measures two versions of the app on fixed evaluations and gives a verdict. The rule that uses the verdict is in agent/coder.py (R-C09). |
+| `tools/final_report.py` | 17 | - | Writes the final verification report from the ledger, this register and the saved measurements. It describes limits; it holds none. |
 | `tools/injection_benchmark.py` | 8 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/restriction_register.py` | 24 | - | This register's own tool. |
 | `tools/run_checks.py` | 2 | - | A development tool: runs every check, this register's among them. It does not run in the app. |

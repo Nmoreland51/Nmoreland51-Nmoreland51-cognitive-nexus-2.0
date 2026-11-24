@@ -1,6 +1,6 @@
 """Run every check CI runs, locally, and report which passed.
 
-  python tools/run_checks.py            # lint, types, hygiene, ledger, restriction register, tests
+  python tools/run_checks.py            # lint, types, hygiene, ledger, restriction register, final report, tests
   python tools/run_checks.py --audit    # also scan pinned dependencies for known vulnerabilities (needs network)
   python tools/run_checks.py --fast     # skip the test suite
 """
@@ -31,6 +31,7 @@ def main() -> int:
         ("hygiene", [python, "tools/check_repo_hygiene.py"]),
         ("ledger", [python, "tools/audit_ledger.py", "check"]),
         ("register", [python, "tools/restriction_register.py", "check"]),
+        ("report", [python, "tools/final_report.py", "check"]),
     ]
     if not args.fast:
         # One worker per core when pytest-xdist is installed (it is in requirements/dev.txt).
