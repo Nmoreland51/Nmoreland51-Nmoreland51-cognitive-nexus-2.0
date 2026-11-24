@@ -1,6 +1,6 @@
 """Run every check CI runs, locally, and report which passed.
 
-  python tools/run_checks.py            # lint, types, hygiene, ledger, tests
+  python tools/run_checks.py            # lint, types, hygiene, ledger, restriction register, tests
   python tools/run_checks.py --audit    # also scan pinned dependencies for known vulnerabilities (needs network)
   python tools/run_checks.py --fast     # skip the test suite
 """
@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import subprocess
 import sys
@@ -29,9 +30,12 @@ def main() -> int:
         ("types", [python, "-m", "mypy"]),
         ("hygiene", [python, "tools/check_repo_hygiene.py"]),
         ("ledger", [python, "tools/audit_ledger.py", "check"]),
+        ("register", [python, "tools/restriction_register.py", "check"]),
     ]
     if not args.fast:
-        checks.append(("tests", [python, "-m", "pytest", "-q", "-p", "no:cacheprovider"]))
+        # One worker per core when pytest-xdist is installed (it is in requirements/dev.txt).
+        parallel = ["-n", "auto"] if importlib.util.find_spec("xdist") else []
+        checks.append(("tests", [python, "-m", "pytest", "-q", "-p", "no:cacheprovider", *parallel]))
     if args.audit:
         checks.append(
             ("audit", [python, "-m", "pip_audit", "-r", "requirements/constraints.txt", "--no-deps", "--disable-pip", "--progress-spinner", "off"])
