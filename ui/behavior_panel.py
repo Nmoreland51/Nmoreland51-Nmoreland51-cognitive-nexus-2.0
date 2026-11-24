@@ -99,9 +99,10 @@ def render_behavior_panel(
     if notice:
         st.success(notice)
 
+    if TEXT_KEY not in st.session_state:
+        st.session_state[TEXT_KEY] = policy.behavior_text
     st.text_area(
         "How the assistant should answer",
-        value=policy.behavior_text,
         height=150,
         key=TEXT_KEY,
         disabled=read_only,
