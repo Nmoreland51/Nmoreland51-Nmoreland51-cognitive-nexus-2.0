@@ -168,3 +168,35 @@ def test_the_history_says_who_allowed_an_action_and_what_it_produced(world, tmp_
     assert rows[0]["Tool"] == "send_report" and rows[0]["Can affect"] == "external" and rows[0]["Result"] == "ok"
     assert rows[0]["Approval"] == "allowed by owner" and rows[0]["Produced"] == str(made) and rows[0]["Input"] == "{}"
     assert agent_panel.action_rows([{**store.actions()[0], "approval_id": ""}])[0]["Approval"] == "not needed"
+
+
+def test_the_capability_list_is_three_tables_a_person_can_read():
+    listing = {
+        "tools": [
+            {"name": "web_search", "adapter": "web", "effect": "network", "usable": True, "missing": [], "checks_its_outcome": False, "description": "Search the web."},
+            {"name": "open_pull_request", "adapter": "github", "effect": "external", "usable": False, "missing": ["needs a GitHub account allowed for 'pull_request' (not linked)"], "checks_its_outcome": True, "description": "Open a draft pull request."},
+        ],
+        "apps": [{"key": "git", "name": "Git", "found": True, "detail": "git version 2.56", "used_for": "Checkouts."}],
+        "accounts": [
+            {"service": "github", "name": "GitHub", "linked": True, "how": "stored by this app", "permissions": ["read"], "used_by_tools": ["ci_status"], "used_for": "Publishing."},
+            {"service": "openai", "name": "OpenAI", "linked": False, "how": "", "permissions": [], "used_by_tools": [], "used_for": "Answers from OpenAI models."},
+        ],
+    }
+
+    tables = agent_panel.capability_tables(listing)
+
+    assert tables["tools"][0]["Usable now"] == "yes" and tables["tools"][1]["Usable now"] == "no: needs a GitHub account allowed for 'pull_request' (not linked)"
+    assert tables["tools"][1]["Checks its outcome"] == "yes" and tables["apps"] == [{"App": "Git", "Found": "yes", "Detail": "git version 2.56", "Used for": "Checkouts."}]
+    assert tables["accounts"][0] == {"Service": "GitHub", "Linked": "yes (stored by this app)", "May be used for": "read", "Used by": "ci_status"}
+    assert tables["accounts"][1] == {"Service": "OpenAI", "Linked": "no", "May be used for": "", "Used by": "Answers from OpenAI models."}
+
+
+def test_the_tab_shows_tools_apps_and_accounts(world):
+    app = AppTest.from_function(_panel_app, default_timeout=60).run()
+
+    assert not app.exception
+    frames = [frame.value for frame in app.dataframe]
+    assert any("Usable now" in frame.columns and "run_tests" in set(frame["Tool"]) for frame in frames)
+    assert any("App" in frame.columns and "Git" in set(frame["App"]) for frame in frames)
+    assert any("Service" in frame.columns and {"GitHub", "OpenAI", "Anthropic", "Brave Search"} <= set(frame["Service"]) for frame in frames)
+

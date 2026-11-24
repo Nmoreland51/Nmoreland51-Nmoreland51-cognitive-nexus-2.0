@@ -8,18 +8,22 @@ The same things can be done from a terminal with `python -m agent`.
 from __future__ import annotations
 
 import shlex
+import time
 from pathlib import Path
 from typing import Any, Callable
 
 import streamlit as st
 
 from agent import sandbox
+from agent.capabilities import catalogue
 from agent.coder import CodingAgent, describe
 from agent.jobs import JobQueue, Worker
 from agent.store import AgentStore, StoreError, Task
 from agent.workspace import WorkspaceError
 
 NOTICE_KEY = "agent_notice"
+CATALOGUE_KEY = "agent_catalogue"
+CATALOGUE_SECONDS = 60.0  # looking for apps contacts the model server; not on every redraw
 OWNER = "owner"
 WAITING_STATES = ("review", "escalated", "waiting_approval", "failed")
 
@@ -94,6 +98,43 @@ def action_rows(actions: list[dict[str, Any]], store: AgentStore | None = None) 
             }
         )
     return rows
+
+
+def capability_tables(listing: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
+    """The capability list as three tables for a person: tools, apps, accounts."""
+
+    return {
+        "tools": [
+            {
+                "Tool": tool["name"],
+                "Group": tool["adapter"],
+                "Can affect": tool["effect"],
+                "Usable now": "yes" if tool["usable"] else "no: " + "; ".join(tool["missing"]),
+                "Checks its outcome": "yes" if tool["checks_its_outcome"] else "",
+                "What it does": tool["description"],
+            }
+            for tool in listing["tools"]
+        ],
+        "apps": [{"App": app["name"], "Found": "yes" if app["found"] else "no", "Detail": app["detail"], "Used for": app["used_for"]} for app in listing["apps"]],
+        "accounts": [
+            {
+                "Service": entry["name"],
+                "Linked": f"yes ({entry['how']})" if entry["linked"] else "no",
+                "May be used for": ", ".join(entry["permissions"]) or ("nothing" if entry["linked"] else ""),
+                "Used by": ", ".join(entry["used_by_tools"]) or entry["used_for"],
+            }
+            for entry in listing["accounts"]
+        ],
+    }
+
+
+def _catalogue(agent: CodingAgent) -> dict[str, list[dict[str, Any]]]:
+    kept = st.session_state.get(CATALOGUE_KEY)
+    if kept and time.monotonic() - kept[0] < CATALOGUE_SECONDS:
+        return kept[1]
+    listing = catalogue(agent.registry, dict(agent.settings), look_for_image_backends=False)
+    st.session_state[CATALOGUE_KEY] = (time.monotonic(), listing)
+    return listing
 
 
 def _diff_of(agent: CodingAgent, task: Task) -> str:
@@ -261,16 +302,30 @@ def render_agent_panel(
             st.rerun()
 
     # ---- what it can do, and what holds it -----------------------------------------------------------
-    with st.expander("What it can do: every tool, and what each can affect", expanded=False):
-        st.dataframe(
-            [
-                {"Tool": tool["name"], "Group": tool["adapter"], "Can affect": tool["effect"], "Checks its outcome": "yes" if tool["checks_its_outcome"] else "", "What it does": tool["description"]}
-                for tool in build().registry.describe()
-            ],
-            hide_index=True,
-            width="stretch",
-        )
-        st.caption("What runs unasked and what waits for you is set in Settings, Behaviour, under Coding agent.")
+    with st.expander("What it can do: every tool, app and linked account", expanded=False):
+        agent = build()
+        tables = capability_tables(_catalogue(agent))
+        st.dataframe(tables["tools"], hide_index=True, width="stretch")
+        st.caption("What runs unasked and what waits for you is set in Settings, Behaviour, under Coding agent. This list describes; it grants nothing.")
+        st.markdown("**Apps the tools rely on**")
+        st.dataframe(tables["apps"], hide_index=True, width="stretch")
+        st.markdown("**Linked accounts**")
+        st.dataframe(tables["accounts"], hide_index=True, width="stretch")
+        st.caption("Accounts are linked, narrowed and unlinked in Settings, Linked accounts.")
+        router = getattr(agent.model, "router", None)
+        if router is not None:
+            from modules.model_capabilities import rows
+
+            order = [name for name in (agent.settings.get("provider_order") or []) if name != "fallback"]
+            provider = order[0] if order else "ollama"
+            model = str(getattr(agent.model, "model", "") or agent.settings.get("selected_model") or agent.settings.get(f"{provider}_model") or "")
+            if not model and provider == "ollama":
+                model = next(iter(router.detect_provider("ollama").models), "")
+            found = router.capabilities(provider, model)
+            st.markdown(f"**What the model can do** ({provider}: {model or 'none selected'}; {found.source})")
+            st.dataframe(rows(found), hide_index=True, width="stretch")
+            for note in found.notes:
+                st.caption(note)
     with st.expander("What the sandbox enforces on this machine", expanded=False):
         for key, value in sandbox.isolation_report().items():
             st.write(f"**{key}**: {value}")

@@ -15,6 +15,7 @@ import requests
 from modules import accounts
 from modules.context_budget import PROMPT_SECONDS, ContextBudget, default_max_window, plan_budget, window_for_prompt
 from modules.event_log import record_event
+from modules.model_capabilities import ModelCapabilities, capabilities as model_capabilities
 from modules.nexus_config import DEFAULT_ANTHROPIC_MODEL, load_runtime_config
 from modules.providers import FALLBACK_RESPONSE, OLLAMA_SESSION, check_ollama_status, get_ollama_base_url
 from modules.token_estimate import estimate_tokens
@@ -48,6 +49,10 @@ class ProviderRequest:
     max_tokens: int = 512
     # None = use the configured allow_cloud_fallback setting.
     allow_cloud_fallback: bool | None = None
+    # A JSON Schema the reply must match. Ollama holds the model's output to it (the "format"
+    # field: the reply always parses). Other providers are asked for it in the prompt, which is a
+    # request and not a guarantee: whoever reads the reply must still check it.
+    response_schema: dict[str, Any] | None = None
 
 
 @dataclass
@@ -145,6 +150,17 @@ def _is_openai_model(name: str) -> bool:
     """True for names OpenAI serves; a local model called "orca-mini" must not be sent there."""
 
     return bool(re.match(r"^(gpt-|chatgpt-|o\d)", str(name or "")))
+
+
+def _prompt_with_schema(request: "ProviderRequest") -> str:
+    """The prompt, with the wanted reply shape spelled out, for providers that cannot be held to a schema here."""
+
+    if not request.response_schema:
+        return request.prompt
+    return (
+        f"{request.prompt}\n\nReply with one JSON object that matches this JSON Schema, and nothing else, no code fence:\n"
+        f"{json.dumps(request.response_schema, ensure_ascii=False)}"
+    )
 
 
 def _cloud_model(provider: str, requested: str, info: "ProviderInfo") -> str:
@@ -274,6 +290,11 @@ class ProviderRouter:
             return None
         self._model_windows[model] = window
         return window
+
+    def capabilities(self, provider: str, model: str) -> ModelCapabilities:
+        """What a model can do (context length, tool calls, structured output, vision), and where that is known from."""
+
+        return model_capabilities(provider, model, ollama_url=str(self.config.get("ollama_url") or get_ollama_base_url()), session=OLLAMA_SESSION)
 
     def max_window(self) -> int:
         """Largest window to request on this machine (setting ollama_max_num_ctx, else by memory)."""
@@ -701,6 +722,8 @@ class ProviderRouter:
             "stream": True,
             "keep_alive": str(self.config.get("ollama_keep_alive", OLLAMA_DEFAULT_KEEP_ALIVE)),
         }
+        if request.response_schema:
+            payload["format"] = request.response_schema
         options = dict(request.options or {})
         if options.get("keep_alive"):
             payload["keep_alive"] = str(options.pop("keep_alive"))
@@ -847,7 +870,7 @@ class ProviderRouter:
         model = _cloud_model("openai", request.model, info)
         payload = {
             "model": model,
-            "input": request.prompt,
+            "input": _prompt_with_schema(request),
             "instructions": request.system_prompt or None,
             "max_output_tokens": int(request.max_tokens or request.options.get("num_predict", 512)),
         }
@@ -891,7 +914,7 @@ class ProviderRouter:
         base: dict[str, Any] = {
             "model": model,
             "max_tokens": max(int(request.max_tokens or 0), ANTHROPIC_MAX_TOKENS),
-            "messages": [{"role": "user", "content": request.prompt}],
+            "messages": [{"role": "user", "content": _prompt_with_schema(request)}],
         }
         if request.system_prompt:
             base["system"] = request.system_prompt
@@ -938,13 +961,14 @@ class ProviderRouter:
             from transformers import pipeline
 
             self._hf_pipeline = pipeline("text-generation", model=info.models[0])
+        prompt = _prompt_with_schema(request)
         result = self._hf_pipeline(
-            request.prompt,
+            prompt,
             max_new_tokens=int(request.max_tokens or request.options.get("num_predict", 256)),
             do_sample=True,
             temperature=float(request.options.get("temperature", 0.7)),
         )
         if isinstance(result, list) and result:
             text = str(result[0].get("generated_text", ""))
-            return text.removeprefix(request.prompt).strip() or text.strip()
+            return text.removeprefix(prompt).strip() or text.strip()
         return FALLBACK_RESPONSE

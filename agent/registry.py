@@ -98,6 +98,10 @@ class Tool:
     # JSON Schema of the data a successful call returns. A result that does not match is a failure:
     # whatever reads the data next (a model, the app) is promised this shape.
     returns: dict[str, Any] | None = None
+    # What must be there for the tool to work at all, for the capability list (agent/capabilities.py):
+    # "app:git", "account:github:pull_request" (a linked account allowed for that use), "search".
+    # It is a description. The check that counts is made when the tool runs.
+    needs: tuple[str, ...] = ()
 
     def summary(self, arguments: dict[str, Any]) -> str:
         if self.summarize is not None:
@@ -165,6 +169,7 @@ class ToolRegistry:
                 "checks_its_outcome": tool.verify is not None,
                 "parameters": tool.parameters,
                 "returns": tool.returns,
+                "needs": list(tool.needs),
             }
             for tool in sorted(self._tools.values(), key=lambda item: (item.adapter, item.name))
             if (effects is None or tool.effect in effects) and (adapters is None or tool.adapter in adapters)

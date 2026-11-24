@@ -9,6 +9,7 @@ of the harness that must not depend on what a model happens to write.
 from __future__ import annotations
 
 import time
+import inspect
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
@@ -32,6 +33,18 @@ class Model(Protocol):
     def complete(self, prompt: str, *, max_tokens: int = 700, temperature: float = 0.0) -> ModelReply: ...
 
 
+def complete_as(model: Model, prompt: str, schema: dict[str, Any], *, max_tokens: int = 300, temperature: float = 0.0) -> ModelReply:
+    """Ask for a reply that matches a JSON Schema.
+
+    A model that can be held to a schema (RouterModel with a local model) is; any other is asked
+    in words. Either way the caller checks the reply: only the first is a guarantee that it parses.
+    """
+
+    if "schema" in inspect.signature(model.complete).parameters:
+        return model.complete(prompt, max_tokens=max_tokens, temperature=temperature, schema=schema)  # type: ignore[call-arg]
+    return model.complete(prompt, max_tokens=max_tokens, temperature=temperature)
+
+
 class RouterModel:
     """A model reached through modules/provider_router.ProviderRouter."""
 
@@ -43,7 +56,7 @@ class RouterModel:
         self.allow_cloud = allow_cloud
         self.name = model or "default model"
 
-    def complete(self, prompt: str, *, max_tokens: int = 700, temperature: float = 0.0) -> ModelReply:
+    def complete(self, prompt: str, *, max_tokens: int = 700, temperature: float = 0.0, schema: dict[str, Any] | None = None) -> ModelReply:
         from modules.provider_router import ProviderRequest
 
         started = time.perf_counter()
@@ -56,6 +69,7 @@ class RouterModel:
                 max_tokens=int(max_tokens),
                 timeout=1800.0,
                 allow_cloud_fallback=self.allow_cloud,
+                response_schema=schema,
             )
         )
         usage = dict(getattr(self.router, "_last_cloud_usage", {}) or {}) if result.provider in {"openai", "anthropic"} else {}

@@ -366,14 +366,15 @@ def register_github_tools(registry: ToolRegistry) -> ToolRegistry:
 
     text = {"type": "string"}
     registry.register(Tool("push_branch", "Push the task's own branch to the repository's remote. Never forces, never touches another branch.",
-                           schema({"remote": text}), "external", push_branch, adapter="github", verify=_push_done,
+                           schema({"remote": text}), "external", push_branch, adapter="github", verify=_push_done, needs=("app:git",),
                            summarize=lambda a: f"push the task's branch to {a.get('remote', 'origin')}"))  # fmt: skip
     registry.register(Tool("open_pull_request", "Open a draft pull request for the task's branch, with the test evidence and how to undo it.",
                            schema({"title": text, "base": text, "draft": {"type": "boolean"}}), "external", open_pull_request, adapter="github",
-                           verify=_pull_request_done, summarize=lambda a: "open a pull request for the task's branch"))  # fmt: skip
-    registry.register(Tool("ci_status", "Read the CI check results for the task's commit.", schema({}), "network", ci_status, adapter="github", repeatable=True))
-    registry.register(Tool("read_issue", "Read an issue of the repository.", schema({"number": {"type": "integer", "minimum": 1}}, ("number",)), "network", read_issue, adapter="github", repeatable=True))
-    registry.register(Tool("latest_release", "Read the repository's latest published release.", schema({}), "network", latest_release, adapter="github", repeatable=True))
+                           verify=_pull_request_done, needs=("account:github:pull_request",), summarize=lambda a: "open a pull request for the task's branch"))  # fmt: skip
+    reading = ("account:github:read",)
+    registry.register(Tool("ci_status", "Read the CI check results for the task's commit.", schema({}), "network", ci_status, adapter="github", repeatable=True, needs=reading))
+    registry.register(Tool("read_issue", "Read an issue of the repository.", schema({"number": {"type": "integer", "minimum": 1}}, ("number",)), "network", read_issue, adapter="github", repeatable=True, needs=reading))
+    registry.register(Tool("latest_release", "Read the repository's latest published release.", schema({}), "network", latest_release, adapter="github", repeatable=True, needs=reading))
     return registry
 
 

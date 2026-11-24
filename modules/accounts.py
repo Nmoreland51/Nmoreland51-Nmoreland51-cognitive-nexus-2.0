@@ -144,6 +144,8 @@ def _windows() -> bool:
 def _dpapi(data: bytes, *, protect: bool) -> bytes:
     """Encrypt or decrypt with the Windows Data Protection API, bound to the signed-in Windows user."""
 
+    if sys.platform != "win32":
+        raise AccountError("The Windows Data Protection API is only there on Windows.")
     import ctypes
     from ctypes import wintypes
 
@@ -154,8 +156,8 @@ def _dpapi(data: bytes, *, protect: bool) -> bytes:
         buffer = ctypes.create_string_buffer(content, len(content))
         return Blob(len(content), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char))), buffer
 
-    crypt32 = ctypes.windll.crypt32  # type: ignore[attr-defined]
-    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    crypt32 = ctypes.windll.crypt32
+    kernel32 = ctypes.windll.kernel32
     kernel32.LocalFree.argtypes = [ctypes.c_void_p]
     source, _keep_source = blob(data)
     # Mixed into the key so another program's DPAPI call does not decrypt this by accident.

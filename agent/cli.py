@@ -19,7 +19,9 @@
     python -m agent job cancel JOB | job retry JOB | schedule remove ID
     python -m agent worker                   run background jobs until stopped with Ctrl+C
 
-    python -m agent tools                    every capability, with what it can affect
+    python -m agent tools                    every tool, app and linked account, and what is missing for each tool
+    python -m agent model [--model NAME]     what the model can do: context length, tool calls, structured output, vision
+    python -m agent ask "QUESTION"           answer with the web and knowledge tools; every call is in the history
     python -m agent sandbox                  what the operating system enforces here
 
     python -m agent accounts                 linked accounts and what each may be used for
@@ -42,12 +44,15 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from agent import sandbox
+from agent import sandbox, toolcall
+from agent.approvals import ApprovalPolicy
+from agent.capabilities import catalogue, register_assistant_tools, summary
 from agent.coder import CodingAgent, default_agent, describe
 from agent.github import publish, register_github_tools
 from agent.handlers import default_handlers
 from agent.jobs import JobQueue, Worker
 from agent.model import RouterModel
+from agent.registry import ToolContext
 from agent.store import AgentStore, StoreError
 from agent.workspace import WorkspaceError
 from modules import accounts
@@ -76,6 +81,7 @@ def build_agent(store: AgentStore, model_name: str = "", settings: dict[str, Any
     model = RouterModel(ProviderRouter(config), model=model_name or str(merged.get("agent_model") or ""), provider_order=list(merged.get("provider_order") or []), num_ctx=int(merged.get("agent_num_ctx") or 4096))
     agent = default_agent(store, model, settings=merged)
     register_github_tools(agent.registry)
+    register_assistant_tools(agent.registry)
     return agent
 
 
@@ -154,6 +160,14 @@ def main(argv: list[str] | None = None) -> int:
     watch.add_argument("--phrase", default="")
     for name in ("jobs", "schedules", "notices", "tools", "sandbox"):
         sub.add_parser(name)
+    about_model = sub.add_parser("model")
+    about_model.add_argument("--model", default="")
+    about_model.add_argument("--provider", default="")
+    ask = sub.add_parser("ask")
+    ask.add_argument("question")
+    ask.add_argument("--model", default="")
+    ask.add_argument("--steps", type=int, default=4)
+    ask.add_argument("--network-after-notes", action="store_true", help="allow searching the web after your own notes were read in the same run")
     job = sub.add_parser("job").add_subparsers(dest="action", required=True)
     for name in ("cancel", "retry"):
         job.add_parser(name).add_argument("job")
@@ -186,6 +200,46 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     finally:
         store.close()
+
+
+def _model(args: argparse.Namespace) -> int:
+    """What the model can do, and where that is known from."""
+
+    from modules.model_capabilities import rows
+    from modules.nexus_config import load_runtime_config
+    from modules.provider_router import ProviderRouter
+
+    settings = load_runtime_config()
+    router = ProviderRouter(settings)
+    order = [name for name in (settings.get("provider_order") or []) if name != "fallback"]
+    provider = args.provider or (order[0] if order else "ollama")
+    model = args.model or str(settings.get("agent_model") or settings.get("selected_model") or settings.get(f"{provider}_model") or "")
+    if not model and provider == "ollama":
+        model = next(iter(router.detect_provider("ollama").models), "")
+    found = router.capabilities(provider, model)
+    print(f"{provider}: {model or '(no model)'}   [{found.source}]")
+    for row in rows(found):
+        print(f"  {row['What']:<18} {row['Value']}")
+    for note in found.notes:
+        print(f"  Note: {note}")
+    return 0
+
+
+def _ask(args: argparse.Namespace, store: AgentStore, agent: CodingAgent) -> int:
+    """Answer a question, letting the model use the tools that read. Nothing here can change anything."""
+
+    context = ToolContext(store=store, policy=ApprovalPolicy.from_settings(agent.settings), session="ask", settings=dict(agent.settings))
+    outcome = toolcall.ask(agent.model, agent.registry, context, args.question, max_steps=args.steps, private_then_network=args.network_after_notes)
+    for number, step in enumerate(outcome.steps, 1):
+        print(f"{number}. {step.tool} {json.dumps(step.arguments, ensure_ascii=False)}  [{step.status}]", file=sys.stderr)
+    if outcome.stopped == "needs_approval":
+        print(f"Stopped: a step needs your approval (request {outcome.approval_id}). See `python -m agent approvals`.", file=sys.stderr)
+        return 1
+    if outcome.stopped == "no_valid_step":
+        print("The model did not produce a usable step.", file=sys.stderr)
+        return 1
+    print(outcome.answer or "(no answer)")
+    return 0 if outcome.answer else 1
 
 
 def _accounts(args: argparse.Namespace) -> int:
@@ -312,8 +366,11 @@ def _dispatch(args: argparse.Namespace, store: AgentStore, queue: JobQueue) -> i
             queue.mark_seen(notice["id"])
     elif command == "tools":
         agent = build_agent(store)
-        for tool in agent.registry.describe():
-            print(f"{tool['adapter']:<7} {tool['name']:<19} {tool['effect']:<8} {'checks its outcome' if tool['checks_its_outcome'] else '':<19} {tool['description'][:70]}")
+        print(summary(catalogue(agent.registry, dict(agent.settings))))
+    elif command == "model":
+        return _model(args)
+    elif command == "ask":
+        return _ask(args, store, build_agent(store, args.model))
     elif command == "sandbox":
         for key, value in sandbox.isolation_report().items():
             print(f"{key:<12} {value}")

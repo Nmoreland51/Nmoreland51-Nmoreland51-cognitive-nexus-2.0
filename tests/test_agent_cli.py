@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from agent import cli
+from agent.capabilities import register_assistant_tools
 from agent.coder import default_agent
 from agent.github import register_github_tools
 from agent.jobs import JobQueue
@@ -43,6 +44,7 @@ def run(tmp_path, capsys, monkeypatch):
         model = ScriptedModel(lambda prompt: "APPROVE" if "reviewing a code change" in prompt else FIX, name="scripted")
         agent = default_agent(store, model, settings=settings or {}, workspaces=WorkspaceManager(tmp_path / "ws"))
         register_github_tools(agent.registry)
+        register_assistant_tools(agent.registry)
         return agent
 
     monkeypatch.setattr(cli, "build_agent", scripted_agent)
@@ -146,7 +148,7 @@ def test_a_queued_task_is_worked_on_by_the_worker(run, repo):
 
 def test_capabilities_and_isolation_are_printed(run):
     tools = run("tools")[1]
-    for expected in ("files   read_file", "shell   run_tests", "git     commit_changes", "github  push_branch", "external", "checks its outcome"):
+    for expected in ("tool     files     read_file", "tool     shell     run_tests", "tool     git       commit_changes", "tool     github    push_branch", "external", "tool     web       web_search", "app      Git", "account  GitHub"):
         assert expected in tools, expected
     report = run("sandbox")[1]
     assert "network" in report and "not blocked by the operating system" in report and "reads" in report
@@ -198,3 +200,33 @@ def test_accounts_are_linked_narrowed_and_unlinked_from_the_terminal(run, monkey
 def test_a_credential_cannot_be_given_as_an_argument(run):
     with pytest.raises(SystemExit):  # there is no option for it: it would stay in the shell's history
         run("accounts", "link", "github", "--token", "something")
+
+
+def test_a_question_is_answered_with_tools_from_the_terminal_and_the_calls_are_recorded(run, monkeypatch):
+    """`ask` with a scripted model: one web search, then the answer. The search is in the action history."""
+
+    import json
+
+    from modules import web_research
+
+    monkeypatch.setattr(web_research, "search_web", lambda query, max_results=5: [{"title": "NumPy 9.9.9 released", "url": "https://example.org/n", "snippet": "NumPy 9.9.9 is out.", "source": "example.org"}])
+    replies = iter([json.dumps({"tool": "web_search", "arguments": {"query": "newest numpy"}}), json.dumps({"tool": "answer", "answer": "NumPy 9.9.9."})])
+
+    def asking_agent(store, model_name="", settings=None):
+        agent = default_agent(store, ScriptedModel(lambda prompt: next(replies), name="scripted"), settings=settings or {}, workspaces=None)
+        register_assistant_tools(agent.registry)
+        return agent
+
+    monkeypatch.setattr(cli, "build_agent", asking_agent)
+
+    code, out, err = run("ask", "What is the newest numpy?")
+
+    assert code == 0 and out == "NumPy 9.9.9." and '1. web_search {"query": "newest numpy"}  [ok]' in err
+    history = run("history")[1]
+    assert "web_search" in history and "network" in history
+
+
+def test_the_model_command_says_what_is_known_and_where_from(run, monkeypatch):
+    code, out, _err = run("model", "--provider", "anthropic", "--model", "claude-sonnet-5-5")
+    assert code == 0 and "anthropic: claude-sonnet-5-5" in out and "not checked against the live service" in out
+    assert "Context length     1,000,000 tokens" in out and "Vision             yes" in out
