@@ -12,6 +12,7 @@ from typing import Any, Generator, Optional
 
 import requests
 
+from modules import accounts
 from modules.context_budget import PROMPT_SECONDS, ContextBudget, default_max_window, plan_budget, window_for_prompt
 from modules.event_log import record_event
 from modules.nexus_config import DEFAULT_ANTHROPIC_MODEL, load_runtime_config
@@ -459,23 +460,25 @@ class ProviderRouter:
         )
 
     def _detect_openai(self) -> ProviderInfo:
-        if not os.environ.get("OPENAI_API_KEY"):
-            return ProviderInfo(name="openai", available=False, message="OPENAI_API_KEY is not set.")
+        usable, why = accounts.available("openai", "chat")
+        if not usable:
+            return ProviderInfo(name="openai", available=False, message=why)
         return ProviderInfo(
             name="openai",
             available=True,
-            message="OpenAI API key is configured.",
+            message=why,
             models=[str(self.config.get("openai_model", "gpt-4.1-mini"))],
             base_url="https://api.openai.com/v1",
         )
 
     def _detect_anthropic(self) -> ProviderInfo:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            return ProviderInfo(name="anthropic", available=False, message="ANTHROPIC_API_KEY is not set.")
+        usable, why = accounts.available("anthropic", "chat")
+        if not usable:
+            return ProviderInfo(name="anthropic", available=False, message=why)
         return ProviderInfo(
             name="anthropic",
             available=True,
-            message="Anthropic API key is configured.",
+            message=why,
             models=[str(self.config.get("anthropic_model") or DEFAULT_ANTHROPIC_MODEL)],
             base_url="https://api.anthropic.com/v1",
         )
@@ -840,7 +843,7 @@ class ProviderRouter:
         raise RuntimeError(f"{provider} API returned HTTP {response.status_code}: {detail or 'no details'}")
 
     def _generate_openai(self, request: ProviderRequest, info: ProviderInfo) -> str:
-        api_key = os.environ["OPENAI_API_KEY"]
+        api_key = accounts.credential("openai", "chat")
         model = _cloud_model("openai", request.model, info)
         payload = {
             "model": model,
@@ -883,7 +886,7 @@ class ProviderRouter:
         the basic request.
         """
 
-        api_key = os.environ["ANTHROPIC_API_KEY"]
+        api_key = accounts.credential("anthropic", "chat")
         model = _cloud_model("anthropic", request.model, info)
         base: dict[str, Any] = {
             "model": model,

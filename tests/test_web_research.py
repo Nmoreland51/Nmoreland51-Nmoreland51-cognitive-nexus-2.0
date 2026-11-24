@@ -222,7 +222,7 @@ class SearchSourceSwitchingTests(unittest.TestCase):
             status = {s["name"]: s for s in web_research.search_sources_status()}
 
         self.assertFalse(status["searxng"]["available"])
-        self.assertEqual(status["brave"]["setup"], "set BRAVE_SEARCH_API_KEY")
+        self.assertEqual(status["brave"]["setup"], "link Brave Search in Settings, Linked accounts, or set BRAVE_SEARCH_API_KEY")
         self.assertTrue(status["wikipedia"]["available"])
 
     def test_source_responses_are_parsed(self) -> None:

@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from modules import accounts
 from modules.data_stores import CONFIG_ROOT, LOG_ROOT
 from modules.file_lock import locked
 from modules.file_utils import atomic_write_text
@@ -166,8 +167,8 @@ def load_runtime_config(path: Path = DEFAULT_CONFIG_FILE) -> dict[str, Any]:
     # Shown in Diagnostics, and only for a provider that is actually set up.
     config["model_id_notes"] = [
         note
-        for note, key in ((openai_note, "OPENAI_API_KEY"), (anthropic_note, "ANTHROPIC_API_KEY"))
-        if note and os.environ.get(key)
+        for note, service in ((openai_note, "openai"), (anthropic_note, "anthropic"))
+        if note and accounts.available(service, "chat")[0]
     ]
     config["anthropic_effort"] = os.environ.get("ANTHROPIC_EFFORT", str(config.get("anthropic_effort") or "low"))
     config["allow_cloud_fallback"] = _env_bool("ALLOW_CLOUD_FALLBACK", bool(config.get("allow_cloud_fallback", False)))

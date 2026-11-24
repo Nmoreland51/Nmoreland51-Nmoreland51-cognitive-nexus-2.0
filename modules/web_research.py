@@ -36,6 +36,7 @@ except Exception:
     trafilatura = None
 
 from core.reality_grounding.prompt_firewall import defuse_untrusted_text, fence_untrusted, removed_note, untrusted_rule
+from modules import accounts
 from modules.data_stores import DATA_ROOT
 from modules.event_log import record_event
 from modules.file_utils import atomic_write_text
@@ -264,7 +265,7 @@ def _search_brave(query: str, max_results: int) -> list[dict[str, Any]]:
     data = _get_json(
         "https://api.search.brave.com/res/v1/web/search",
         params={"q": query, "count": min(max_results, 20)},
-        headers={"X-Subscription-Token": os.environ.get("BRAVE_SEARCH_API_KEY", "")},
+        headers={"X-Subscription-Token": accounts.credential("brave_search", "search")},
     )
     return [
         _search_result(item.get("title", ""), item.get("url", ""), item.get("description", ""), item.get("age") or "")
@@ -344,8 +345,8 @@ def _source_setup_hint(name: str) -> str:
 
     if name == "searxng" and not os.environ.get("SEARXNG_URL"):
         return "set SEARXNG_URL"
-    if name == "brave" and not os.environ.get("BRAVE_SEARCH_API_KEY"):
-        return "set BRAVE_SEARCH_API_KEY"
+    if name == "brave" and not accounts.available("brave_search", "search")[0]:
+        return "link Brave Search in Settings, Linked accounts, or set BRAVE_SEARCH_API_KEY"
     if name == "ddgs" and DDGS is None:
         return "pip install ddgs"
     return ""

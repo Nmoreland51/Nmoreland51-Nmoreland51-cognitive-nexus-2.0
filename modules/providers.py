@@ -10,6 +10,8 @@ from typing import List, Optional
 
 import requests
 
+from modules import accounts
+
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_GENERATE_TIMEOUT = float(os.environ.get("OLLAMA_GENERATE_TIMEOUT", "600"))
@@ -239,13 +241,13 @@ def get_provider_inventory() -> List[dict]:
         {
             "name": "Anthropic",
             "type": "cloud_llm",
-            "available": bool(os.environ.get("ANTHROPIC_API_KEY")),
-            "details": "Optional cloud provider; disabled unless ANTHROPIC_API_KEY is set.",
+            "available": accounts.available("anthropic", "chat")[0],
+            "details": "Optional cloud provider. " + accounts.available("anthropic", "chat")[1],
         },
         {
             "name": "OpenAI images",
             "type": "cloud_image",
-            "available": bool(os.environ.get("OPENAI_API_KEY")),
-            "details": "Profiles exist in cognitive_nexus/image_generation_profiles.py; disabled unless OPENAI_API_KEY is set.",
+            "available": accounts.available("openai", "chat")[0],
+            "details": "Profiles exist in cognitive_nexus/image_generation_profiles.py. " + accounts.available("openai", "chat")[1],
         },
     ]

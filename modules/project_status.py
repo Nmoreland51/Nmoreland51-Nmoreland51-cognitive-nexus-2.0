@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 
+from modules import accounts
 from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -120,8 +121,8 @@ def get_environment_status() -> Dict[str, Any]:
     return {
         "cwd": str(PROJECT_ROOT),
         "ollama_url": os.environ.get("OLLAMA_URL", "http://localhost:11434"),
-        "openai_api_key_set": bool(os.environ.get("OPENAI_API_KEY")),
-        "anthropic_api_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "openai_api_key_set": accounts.available("openai", "chat")[0],
+        "anthropic_api_key_set": accounts.available("anthropic", "chat")[0],
     }
 
 

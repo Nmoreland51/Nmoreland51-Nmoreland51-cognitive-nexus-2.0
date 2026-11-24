@@ -17,11 +17,12 @@ import pytest
 
 from agent.approvals import ApprovalPolicy
 from agent.coder import default_agent
-from agent.github import GitHub, GitHubError, publish, pull_request_body, register_github_tools, repository_slug, token_from_environment
+from agent.github import GitHub, GitHubError, _is_github, _push_environment, publish, pull_request_body, register_github_tools, repository_slug, token_from_environment
 from agent.model import ScriptedModel
 from agent.registry import ToolContext
 from agent.store import AgentStore
 from agent.workspace import WorkspaceManager
+from modules import accounts
 
 # Put together at run time, so the repository's own secret scan does not take it for a credential.
 TOKEN = "-".join(("test", "token", "not", "a", "real", "one", "1234567890"))
@@ -267,7 +268,7 @@ def test_github_errors_say_what_to_do(world, monkeypatch):
     assert "The token was not accepted" in world.agent.registry.call("ci_status", {}, context_for(world)).error
     monkeypatch.delenv("COGNITIVE_NEXUS_GITHUB_TOKEN")
     assert token_from_environment() == ""
-    assert "No GitHub token is set" in world.agent.registry.call("ci_status", {}, context_for(world)).error
+    assert "No GitHub account is linked" in world.agent.registry.call("ci_status", {}, context_for(world)).error
     with pytest.raises(GitHubError, match="could not be reached"):
         GitHub(token="x", api="http://127.0.0.1:9", timeout=2).whoami()
 
@@ -334,3 +335,50 @@ def test_a_remote_that_is_not_github_is_refused(world):
         repository_slug(world.agent.workspaces, checkout)
     with pytest.raises(GitHubError, match="not of the form owner/repository"):
         repository_slug(world.agent.workspaces, checkout, override="justaname")
+
+
+# ---- the linked account: one permission per use, and the token goes to GitHub only -------------------
+
+
+def test_a_withheld_permission_stops_that_use_and_only_that_use(world):
+    accounts.withdraw("github", "pull_request")
+    before = len(world.github.state["requests"])
+
+    refused = world.agent.registry.call("open_pull_request", {}, context_for(world))
+
+    assert not refused.ok and "withheld 'pull_request'" in refused.error
+    assert len(world.github.state["requests"]) == before  # GitHub was not contacted
+    assert world.agent.registry.call("ci_status", {}, context_for(world)).ok  # reading is a different permission
+
+
+def test_a_stored_account_is_used_in_place_of_the_variable(world, monkeypatch):
+    monkeypatch.delenv("COGNITIVE_NEXUS_GITHUB_TOKEN")
+    accounts.link("github", TOKEN, permissions=["read"])
+
+    assert world.agent.registry.call("ci_status", {}, context_for(world)).ok
+    refused = world.agent.registry.call("open_pull_request", {}, context_for(world))
+    assert not refused.ok and "not allowed it to be used for 'pull_request'" in refused.error
+    assert world.github.state["pulls"] == []
+
+
+def test_the_token_is_sent_to_github_and_to_no_other_host(world):
+    context = context_for(world)
+
+    settings, token = _push_environment(context, "https://github.com/octo/project.git")
+    assert token == TOKEN and settings["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader" and "AUTHORIZATION: basic" in settings["GIT_CONFIG_VALUE_0"]
+    # A repository's remote can name any host. Only GitHub gets the GitHub credential.
+    for elsewhere in ("https://gitlab.example/octo/project.git", "https://github.com.elsewhere.example/octo/project.git", "https://example.org/github.com/project.git", str(world.remote), "git@gitlab.example:octo/project.git"):
+        assert _push_environment(context, elsewhere) == ({}, ""), elsewhere
+    # Over SSH Git uses the user's own key; the token is not involved.
+    assert _is_github(context, "git@github.com:octo/project.git") and _push_environment(context, "git@github.com:octo/project.git") == ({}, "")
+
+
+def test_withholding_push_stops_pushes_to_github_and_leaves_other_remotes_alone(world):
+    accounts.withdraw("github", "push")
+    git(world.repo, "remote", "set-url", "origin", "git@github.com:octo/project.git")
+
+    refused = world.agent.registry.call("push_branch", {}, context_for(world))
+
+    assert not refused.ok and "withheld 'push'" in refused.error  # refused before Git was started
+    git(world.repo, "remote", "set-url", "origin", str(world.remote))
+    assert world.agent.registry.call("push_branch", {}, context_for(world)).ok  # a folder on this machine is not GitHub's business

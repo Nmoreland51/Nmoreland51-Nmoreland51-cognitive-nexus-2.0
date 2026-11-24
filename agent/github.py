@@ -2,10 +2,13 @@
 
 Authorization is kept narrow on purpose:
 
-* The token comes from the environment (COGNITIVE_NEXUS_GITHUB_TOKEN or GITHUB_TOKEN). It is never
-  stored, never put on a command line, and never reaches the sandbox. A fine-grained token for
-  the one repository with "Contents: read and write" and "Pull requests: read and write" is all
-  that is needed; nothing here uses more.
+* The token is the linked GitHub account's (modules/accounts.py: stored encrypted, or the
+  environment variable COGNITIVE_NEXUS_GITHUB_TOKEN or GITHUB_TOKEN). Each use asks for it for one
+  permission ("read", "push", "pull_request"), and an account the owner has not allowed for that
+  use is a refusal. It is never put on a command line, never reaches the sandbox, and is sent to
+  GitHub only: a repository whose remote points at another host does not get it. A fine-grained
+  token for the one repository with "Contents: read and write" and "Pull requests: read and
+  write" is all that is needed; nothing here uses more.
 * The agent pushes only the task's own branch (agent/...), never with force and never to another
   branch, and opens pull requests as drafts. It does not merge, close, comment, tag or release.
 * Pushing and opening a pull request reach outside this machine, so each needs a person's
@@ -22,6 +25,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
@@ -29,6 +33,7 @@ from agent.registry import Tool, ToolContext, ToolError, ToolRegistry, ToolResul
 from agent.store import Task
 from agent.workspace import Workspace, WorkspaceError, WorkspaceManager
 from core.reality_grounding.prompt_firewall import defuse_untrusted_text
+from modules import accounts
 
 API = "https://api.github.com"
 TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")
@@ -47,6 +52,20 @@ def token_from_environment() -> str:
     return ""
 
 
+def token_for(permission: str) -> str:
+    """The GitHub credential for one use: the linked account's, if the owner allowed that use.
+
+    "" when no account is linked at all (Git then uses whatever access the user's own Git has).
+    An account that is linked but not allowed for this use raises accounts.NotPermitted: the
+    owner withdrew it, and that is a refusal, not "no token".
+    """
+
+    try:
+        return accounts.credential("github", permission)
+    except accounts.NotLinked:
+        return ""
+
+
 @dataclass
 class GitHub:
     token: str
@@ -55,7 +74,7 @@ class GitHub:
 
     def _request(self, method: str, path: str, **options: Any) -> Any:
         if not self.token:
-            raise GitHubError(f"No GitHub token is set. Put a fine-grained token for this repository in {TOKEN_VARIABLES[0]}.")
+            raise GitHubError(f"No GitHub account is linked. Link one in Settings, Linked accounts, or put a fine-grained token for this repository in {TOKEN_VARIABLES[0]}.")
         headers = {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/vnd.github+json",
@@ -182,8 +201,29 @@ def _checkout(context: ToolContext) -> tuple[WorkspaceManager, Workspace]:
     return context.workspaces, context.checkout
 
 
-def _client(context: ToolContext) -> GitHub:
-    return GitHub(token=token_from_environment(), api=str(context.settings.get("agent_github_api") or API))
+def _client(context: ToolContext, permission: str = "read") -> GitHub:
+    try:
+        token = token_for(permission)
+    except accounts.AccountError as exc:
+        raise ToolError(str(exc)) from exc
+    return GitHub(token=token, api=str(context.settings.get("agent_github_api") or API))
+
+
+def _github_hosts(context: ToolContext) -> set[str]:
+    """The hosts the GitHub credential may be sent to: github.com, and a configured GitHub Enterprise server."""
+
+    hosts = {"github.com"}
+    api_host = urlparse(str(context.settings.get("agent_github_api") or API)).hostname or ""
+    if api_host and api_host != "api.github.com":
+        hosts.add(api_host)
+    return hosts
+
+
+def _is_github(context: ToolContext, address: str) -> bool:
+    if address.startswith("https://"):
+        return (urlparse(address).hostname or "") in _github_hosts(context)
+    over_ssh = re.match(r"(?:ssh://)?git@([^:/]+)[:/]", address)
+    return over_ssh is not None and over_ssh.group(1) in _github_hosts(context)
 
 
 def _slug(context: ToolContext, remote: str = "origin") -> tuple[str, str]:
@@ -194,15 +234,24 @@ def _slug(context: ToolContext, remote: str = "origin") -> tuple[str, str]:
         raise ToolError(str(exc)) from exc
 
 
-def _push_environment(address: str) -> dict[str, str]:
-    """Git settings that carry the token for one push, passed in the environment and not on the command line."""
+def _push_environment(context: ToolContext, address: str) -> tuple[dict[str, str], str]:
+    """Git settings that carry the token for one push, passed in the environment and not on the command line.
 
-    token = token_from_environment()
+    Returns (settings, token). Both are empty for a remote that is not GitHub: a local folder or
+    another host gets no credential, whatever the repository's remote says. For a GitHub remote
+    the "push" permission of the linked account is asked for even when the push goes over SSH,
+    so that withdrawing it stops pushes to GitHub altogether (accounts.NotPermitted).
+    """
+
+    if not _is_github(context, address):
+        return {}, ""
+    token = token_for("push")
     if not token or not address.startswith("https://"):
-        return {}  # a local or SSH remote, or no token: Git uses whatever access the user already has
+        return {}, ""  # no linked account, or SSH: Git uses whatever access the user already has
     basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
     host = re.match(r"https://[^/]+/", address)
-    return {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": f"http.{host.group(0) if host else 'https://github.com/'}.extraheader", "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {basic}"}
+    settings = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": f"http.{host.group(0) if host else 'https://github.com/'}.extraheader", "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {basic}"}
+    return settings, token
 
 
 def push_branch(context: ToolContext, remote: str = "origin") -> ToolResult:
@@ -213,11 +262,15 @@ def push_branch(context: ToolContext, remote: str = "origin") -> ToolResult:
     if not address:
         raise ToolError(f"The repository has no remote named {remote}.")
     try:
+        settings, token = _push_environment(context, address)
+    except accounts.AccountError as exc:
+        raise ToolError(str(exc)) from exc
+    try:
         commit = manager.head(checkout)
         # One branch, by its full name on both sides, no force: this cannot move any other branch.
-        manager.git(checkout, ["push", remote, f"refs/heads/{checkout.branch}:refs/heads/{checkout.branch}"], env=_push_environment(address))
+        manager.git(checkout, ["push", remote, f"refs/heads/{checkout.branch}:refs/heads/{checkout.branch}"], env=settings)
     except WorkspaceError as exc:
-        raise ToolError(f"The push did not succeed: {str(exc).replace(token_from_environment() or chr(0), '***')}") from exc
+        raise ToolError(f"The push did not succeed: {str(exc).replace(token or chr(0), '***')}") from exc
     return ToolResult(ok=True, output=f"Pushed {checkout.branch} ({commit[:12]}) to {remote}.", data={"commit": commit, "branch": checkout.branch, "remote": remote})
 
 
@@ -225,7 +278,11 @@ def _push_done(context: ToolContext, arguments: dict[str, Any], result: ToolResu
     manager, checkout = _checkout(context)
     remote = result.data["remote"]
     address = manager.git(checkout, ["remote", "get-url", remote], check=False).stdout.strip()
-    listed = manager.git(checkout, ["ls-remote", remote, f"refs/heads/{checkout.branch}"], env=_push_environment(address), check=False).stdout.split()
+    try:
+        settings, _token = _push_environment(context, address)
+    except accounts.AccountError as exc:
+        return False, str(exc)
+    listed = manager.git(checkout, ["ls-remote", remote, f"refs/heads/{checkout.branch}"], env=settings, check=False).stdout.split()
     there = bool(listed) and listed[0] == result.data["commit"]
     return there, f"the remote's {checkout.branch} is at the pushed commit" if there else f"the remote's {checkout.branch} is not at the pushed commit"
 
@@ -233,7 +290,7 @@ def _push_done(context: ToolContext, arguments: dict[str, Any], result: ToolResu
 def open_pull_request(context: ToolContext, title: str = "", base: str = "", draft: bool = True) -> ToolResult:
     _manager, checkout = _checkout(context)
     owner, repo = _slug(context)
-    client = _client(context)
+    client = _client(context, "pull_request")
     task = context.store.get_task(context.task_id)
     try:
         existing = client.find_pull_request(owner, repo, checkout.branch)
@@ -255,7 +312,7 @@ def open_pull_request(context: ToolContext, title: str = "", base: str = "", dra
 def _pull_request_done(context: ToolContext, arguments: dict[str, Any], result: ToolResult) -> tuple[bool, str]:
     manager, checkout = _checkout(context)
     owner, repo = result.data["repository"].split("/", 1)
-    seen = _client(context).pull_request(owner, repo, int(result.data["number"]))
+    seen = _client(context, "pull_request").pull_request(owner, repo, int(result.data["number"]))
     right = seen.get("state") == "open" and (seen.get("head") or {}).get("ref") == checkout.branch and (seen.get("head") or {}).get("sha") == manager.head(checkout)
     return right, "GitHub shows the pull request open at the task's commit" if right else "GitHub does not show an open pull request at the task's commit"
 
@@ -361,4 +418,4 @@ def publish(agent: Any, task_id: str, *, remote: str = "origin") -> dict[str, An
     return {"status": "failed", "error": "Nothing was published."}
 
 
-__all__ = ["GitHub", "GitHubError", "publish", "pull_request_body", "register_github_tools", "repository_slug", "token_from_environment"]
+__all__ = ["GitHub", "GitHubError", "publish", "pull_request_body", "register_github_tools", "repository_slug", "token_for", "token_from_environment"]
