@@ -441,6 +441,7 @@ after every change of the phase (`quality_after.json` records which run each par
 | Word problems written after the fix (6 × 3) | 7 of 18 | **15 of 18** |
 | First word, length requests through the app (median) | 16.2 s | **6.9 s** |
 | First word, app against Ollama alone with the same settings (corrected 2026-11-24) | +10.2 to +11.4 s (`44c49e7`) | **+1.9 to +2.6 s** |
+| The same, with local servers as 127.0.0.1 and each answer's connection kept (`audit/remaining-items`) | | **+0.5 to +0.8 s** |
 
 Before the change the "Fast" profile sent a load-time option (`num_batch`) that no other call sent, so
 Ollama reloaded the model between calls; the before-figures for the first word include that.
@@ -451,6 +452,37 @@ The figures above were measured again on 2026-11-24 with the calls straight to O
 `127.0.0.1` on a kept-open connection (`profile` and `profile_before` in `quality_after.json`).
 The model is not exact about length either way: the remaining misses are the model's (2 of 7 within range
 with nothing added).
+
+## Which page states each sentence of an answer (`claim_map.json`)
+
+```
+python tools/claim_map_benchmark.py --show                 # the dev set
+python tools/claim_map_benchmark.py --set heldout          # measured once
+```
+
+`modules/claim_map.py` matches each sentence of a web answer to the passage of a page read that states
+it, with the page's address and when it was fetched (item 028), by rules and without a model. The
+labels in `tests/fixtures/claim_map_cases.json` were written before the code: the dev set is every
+sentence of the twelve real chat answers in `research_dolphin3-8b.json`, plus twelve written to be
+unsupported, several hard on purpose (the right words with a changed number, a negation, a wrong
+"current"); the held-out set is twelve written paraphrases of what a page says and ten more unsupported
+sentences, run once after the rules were settled on dev.
+
+| | Dev | Held-out |
+|---|---|---|
+| Statements a page makes, matched to that page | 27 of 27 | 8 of 12 |
+| Unsupported sentences reported as on no page read | 10 of 12 | 8 of 10 |
+| Unsupported sentences shown as stated (the worst mistake) | 2 | 2 |
+| Sentences about the sources recognised as such | 5 of 5 | (none in the set) |
+
+What the rules see: a figure, a product code or a name that no page has, and a sentence whose words
+are not on the page. What they do not see: a sentence that uses a page's words to say something else
+("Tomas Reik is the current mayor", when the page says he was mayor from 2010 to 2018; "heaters made
+after June 2025 are also recalled"), and a fact put in other words ("came out" for "published",
+"became mayor" for "took office"): a third of the held-out paraphrases were reported as on no page.
+Because of those misses the mapping is shown in Diagnostics ("How the last answer was made") rather
+than as a warning under every answer, where it would raise false alarms. The answers the local model
+actually wrote (dev) mostly repeat the pages' words, which is where the rules do well.
 
 ## Which search results reach the model (`research_relevance_*.json`)
 
@@ -494,24 +526,29 @@ python tools/speed_benchmark.py --model dolphin3:8b --compare docs/benchmarks/sp
 python tools/speed_benchmark.py --recommend docs/benchmarks/speed_dolphin3-8b.json                     # which sizes fit here
 ```
 
-Measured on 2026-11-23 with `dolphin3:8b` (8B, 4-bit Q4_K_M) through Ollama 0.40.17, window of 4,096 tokens,
-on an AMD processor with 6 cores and 12 threads, 31.2 GB of memory and no graphics card. Nothing else was
-running. Three fixed prompts, each sent twice:
+Measured again on 2026-11-24 with `dolphin3:8b` (8B, 4-bit Q4_K_M) through Ollama 0.40.17, window of
+4,096 tokens, on an AMD processor with 6 cores and 12 threads, 31.2 GB of memory and no graphics card.
+Three fixed prompts, each sent twice, on one connection kept open:
 
-| | Result |
-|---|---|
-| First word, short new question | 2.9 s |
-| First word, a question the server has just read (a follow-up) | 2.4 s |
-| First word, a 2,105-token text read for the first time | 60 s |
-| Writing speed | 5.1 tokens a second (4.5 to 5.4) |
-| Reading speed, new text | 58 tokens a second (36 for the long text) |
-| A 150-word answer, start to finish | 30 to 35 s |
-| Memory held by Ollama | 5.0 GB at most |
-| Processor use while answering | 56% on average |
+| | Result | First published (2026-11-23) |
+|---|---|---|
+| First word, short new question | **0.7 s** | 2.9 s |
+| First word, a question the server has just read (a follow-up) | **0.24 s** | 2.4 s |
+| First word, a 2,105-token text read for the first time | 57 s | 60 s |
+| Writing speed | 5.1 tokens a second (4.5 to 5.4) | 5.1 |
+| Reading speed, new text | 61 tokens a second (37 for the long text) | 58 (36) |
+| A 150-word answer, start to finish | 28 to 33 s | 30 to 35 s |
+| Memory held by Ollama | 5.6 GB at most | 5.0 GB |
+| Processor use while answering | 72% on average | 56% |
 
-So on this machine a short answer starts within three seconds and a paragraph takes about half a minute,
-while pasting a long document costs a minute before anything appears. The second time the same text is
-sent (a follow-up about it) it is not read again.
+**The first published first-word times were about 2 s too long.** The tool opened a new connection to
+`localhost` for every run, and on Windows that first tries IPv6, which Ollama does not listen on: 2.05 s
+each time here. It now keeps one connection open; the writing and reading speeds come from Ollama's own
+counters and were not affected. `--compare` does not compare first-word times between a file measured
+the old way and one measured the new way. So on this machine a short answer starts in under a second
+when the model is loaded and a paragraph takes about half a minute, while pasting a long document
+costs about a minute before anything appears. The second time the same text is sent (a follow-up about
+it) it is not read again.
 
 **Which model sizes fit here** (`--recommend`). Only the 8B row is measured; the others are arithmetic
 from it (a model twice the size writes about half as fast) and are labelled as estimates:
@@ -525,6 +562,34 @@ from it (a model twice the size writes about half as fast) and are labelled as e
 | about 70B | 44.5 GB | | does not fit |
 
 No other model was installed to check the estimates: you asked for Ollama to be left alone.
+
+## The app's own time, and what it asks the network for (`app_profile.json`)
+
+```
+python tools/app_profile.py --save docs/benchmarks/app_profile.json
+```
+
+Profiled before any refactoring (items 104 and 101), on 2026-11-24 on the same machine with Ollama
+running and neither ComfyUI nor Automatic1111 installed, as on the owner's computer. The page is drawn
+by Streamlit's own test runner: a first visit, the rerun that every click causes, and a chat turn whose
+answer comes from a stand-in at once, so the figures are the app's own work. A sampler looks at the
+running script's call stack every few milliseconds; every HTTP request is counted by address.
+
+| | Before | After |
+|---|---|---|
+| First visit, seconds and requests | 16.0 s, 15 (Ollama's model list 7 times) | **4.95 s**, 7 |
+| Each later click (a rerun) | 1.81 s, 1 request | **0.42 s**, none |
+| A chat turn, the app's own part | 1.97 s | **0.58 s** |
+| Importing the core / the app | 1.15 s / 1.89 s | 1.10 s / 1.87 s |
+
+Where the time went before: 84% of the first visit was waiting for connections to be made, and 94% of
+each rerun was one question to a ComfyUI that was not running. The large modules' own code was not the
+cost: a chat turn's planning, prompt building and checks took about 50 ms of its 2 s. The causes, all
+fixed: on Windows a new connection to "localhost" first tries IPv6, which these servers do not listen
+on (2.05 s each time, against 0.04 s to 127.0.0.1), and a server that is not running took twice as long
+to report under that name; the Images tab asked ComfyUI on every click; Ollama's model list was asked
+for from seven places; the two image servers were asked one after the other; and a streamed answer was
+left before its end, so its connection was closed and the next answer opened a new one.
 
 ## Making a picture beside the chat model (`picture_memory.json`)
 

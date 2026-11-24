@@ -50,6 +50,7 @@ from modules.project_status import (
 )
 from modules.providers import (
     check_ollama_status,
+    forget_ollama_tags,
     get_provider_inventory,
 )
 from modules.ingest import UPLOAD_TYPES
@@ -342,7 +343,8 @@ def get_cached_core_health(provider_order: tuple[str, ...], selected_model: str)
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_cached_image_provider() -> dict[str, Any]:
-    return detect_image_provider()
+    # From the same detection as the list, instead of asking every server a second time.
+    return detect_image_provider(get_cached_image_providers())
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -396,6 +398,8 @@ def clear_runtime_caches() -> None:
         get_cached_core_status,
     ):
         cached_func.clear()
+    forget_ollama_tags()
+    get_nexus_core().comfyui.forget_status()
     get_nexus_core().refresh_config()
 
 
@@ -1400,6 +1404,7 @@ def render_image_tab(settings: dict[str, Any] | None = None) -> None:
         if st.button("Refresh image providers", key="refresh_image_providers", width="stretch"):
             get_cached_image_provider.clear()
             get_cached_image_providers.clear()
+            get_nexus_core().comfyui.forget_status()
             get_cached_image_summary.clear()
             st.rerun()
     with refresh_cols[1]:

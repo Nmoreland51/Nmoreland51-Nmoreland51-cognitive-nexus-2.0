@@ -1,0 +1,717 @@
+{
+  "dev": {
+    "set": "dev",
+    "coverage_threshold": 0.6,
+    "stated_matched_to_the_right_page": 27,
+    "stated": 27,
+    "unsupported_reported_as_not_found": 10,
+    "unsupported": 12,
+    "unsupported_shown_as_stated": 2,
+    "about_the_sources_recognised": 5,
+    "about_the_sources": 5,
+    "rows": [
+      {
+        "case": "tidewater_version",
+        "text": "The latest stable release of Tidewater is version 4.2, published on 3 March 2026.",
+        "from": "model",
+        "expected": "https://tidewater.example/releases",
+        "right": true,
+        "got": "https://tidewater.example/releases",
+        "coverage": 0.86,
+        "missing": []
+      },
+      {
+        "case": "tidewater_version",
+        "text": "The previous release, 4.1, came out in October 2025 and remains supported until 2027.",
+        "from": "model",
+        "expected": "https://tidewater.example/releases",
+        "right": true,
+        "got": "https://tidewater.example/releases",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "harbor_battery",
+        "text": "The web results do not say how long the Harbor H2 headphone battery lasts.",
+        "from": "model",
+        "expected": "about the sources",
+        "right": true,
+        "got": "about the sources",
+        "coverage": 0.0,
+        "missing": []
+      },
+      {
+        "case": "harbor_battery",
+        "text": "However, they mention that the Harbor H2 ran for 31 hours on one charge with noise cancelling on.",
+        "from": "model",
+        "expected": "https://audiobench.example/reviews/harbor-h2",
+        "right": true,
+        "got": "https://audiobench.example/reviews/harbor-h2",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "The Larkspur bridge opened to traffic in 1962 after four years of construction.",
+        "from": "model",
+        "expected": "https://riverhistory.example/larkspur-bridge",
+        "right": true,
+        "got": "https://riverhistory.example/larkspur-bridge",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "The repainting of the Larkspur bridge is expected to begin in spring and take five months.",
+        "from": "model",
+        "expected": "https://larkspurnews.example/bridge-repainting",
+        "right": true,
+        "got": "https://larkspurnews.example/bridge-repainting",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "Cyclists will be diverted to the upstream footbridge.",
+        "from": "model",
+        "expected": "https://larkspurnews.example/bridge-repainting",
+        "right": true,
+        "got": "https://larkspurnews.example/bridge-repainting",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "osterhaven_mayor",
+        "text": "The web results do not say who the current mayor of Osterhaven is.",
+        "from": "model",
+        "expected": "about the sources",
+        "right": true,
+        "got": "about the sources",
+        "coverage": 0.0,
+        "missing": []
+      },
+      {
+        "case": "osterhaven_mayor",
+        "text": "However, they mention that Mayor Ilse Brandt took office in January 2025 after winning the November 2024 election.",
+        "from": "model",
+        "expected": "https://osterhaven.example/mayor",
+        "right": true,
+        "got": "https://osterhaven.example/mayor",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "rye_loaf",
+        "text": "The Hollin rye loaf should be baked at 220 degrees Celsius for 15 minutes, then the oven should be lowered to 190 for another 35 minutes.",
+        "from": "model",
+        "expected": "https://hollinbakes.example/rye-loaf",
+        "right": true,
+        "got": "https://hollinbakes.example/rye-loaf",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "rye_loaf",
+        "text": "The web results do not say what temperature to bake the Hollin rye loaf at.",
+        "from": "model",
+        "expected": "about the sources",
+        "right": true,
+        "got": "about the sources",
+        "coverage": 0.0,
+        "missing": []
+      },
+      {
+        "case": "rye_loaf",
+        "text": "The web results suggest baking the Hollin rye loaf at 220 degrees Celsius for 15 minutes, then lowering the oven to 190 for another 35 minutes.",
+        "from": "model",
+        "expected": "https://hollinbakes.example/rye-loaf",
+        "right": true,
+        "got": "https://hollinbakes.example/rye-loaf",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "aster_hall",
+        "text": "The Aster concert hall has 1,840 seats across three levels.",
+        "from": "model",
+        "expected": "https://asterhall.example/about",
+        "right": true,
+        "got": "https://asterhall.example/about",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "aster_hall",
+        "text": "The building was designed around an adjustable acoustic canopy above the stage.",
+        "from": "model",
+        "expected": "https://asterhall.example/about",
+        "right": true,
+        "got": "https://asterhall.example/about",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "aster_hall",
+        "text": "The nearest car park to the Aster concert hall is under the market square.",
+        "from": "model",
+        "expected": "https://cityparking.example/aster",
+        "right": true,
+        "got": "https://cityparking.example/aster",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "brightline_recall",
+        "text": "Brightline is recalling the BH-200 and BH-300 heaters made between January and June 2025 because the thermostat can stick.",
+        "from": "model",
+        "expected": "https://brightline.example/safety/recall",
+        "right": true,
+        "got": "https://brightline.example/safety/recall",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "brightline_recall",
+        "text": "Owners should stop using the heater and contact Brightline for a free replacement.",
+        "from": "model",
+        "expected": "https://brightline.example/safety/recall",
+        "right": true,
+        "got": "https://brightline.example/safety/recall",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "brightline_recall",
+        "text": "No other models are affected.",
+        "from": "model",
+        "expected": "https://brightline.example/safety/recall",
+        "right": true,
+        "got": "https://brightline.example/safety/recall",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "quillfeather_port",
+        "text": "The Quillfeather sync server listens on port 8472 by default.",
+        "from": "model",
+        "expected": "https://quillfeather.example/docs/sync-server",
+        "right": true,
+        "got": "https://quillfeather.example/docs/sync-server",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "quillfeather_port",
+        "text": "This information is mentioned in the Quillfeather docs.",
+        "from": "model",
+        "expected": "about the sources",
+        "right": true,
+        "got": "about the sources",
+        "coverage": 0.0,
+        "missing": []
+      },
+      {
+        "case": "quillfeather_port",
+        "text": "The Quillfeather changelog states that version 7.3 added end-to-end encrypted sync.",
+        "from": "model",
+        "expected": "https://quillfeather.example/changelog",
+        "right": true,
+        "got": "https://quillfeather.example/changelog",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "pinewood_linux",
+        "text": "The Pinewood P3 printer does work with Linux.",
+        "from": "model",
+        "expected": "https://pinewood.example/p3/firmware",
+        "right": true,
+        "got": "https://pinewood.example/p3/firmware",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "pinewood_linux",
+        "text": "Linux support for the Pinewood P3 arrived with firmware 2.1, which allows it to work with CUPS without extra drivers.",
+        "from": "model",
+        "expected": "https://pinewood.example/p3/firmware",
+        "right": true,
+        "got": "https://pinewood.example/p3/firmware",
+        "coverage": 0.91,
+        "missing": []
+      },
+      {
+        "case": "pinewood_linux",
+        "text": "The Pinewood P3 is a compact laser printer for home offices.",
+        "from": "model",
+        "expected": "https://pinewood.example/p3",
+        "right": true,
+        "got": "https://pinewood.example/p3",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "kestrel_price",
+        "text": "The Kestrel K9 weighs 249 grams with its battery.",
+        "from": "model",
+        "expected": "https://kestrel.example/k9/specs",
+        "right": true,
+        "got": "https://kestrel.example/k9/specs",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "kestrel_price",
+        "text": "It folds to the size of a paperback and has obstacle sensors facing forward and down.",
+        "from": "model",
+        "expected": "https://kestrel.example/k9/specs",
+        "right": true,
+        "got": "https://kestrel.example/k9/specs",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "kestrel_price",
+        "text": "The Kestrel K9 flew for 34 minutes in calm air in our test.",
+        "from": "model",
+        "expected": "https://skytests.example/kestrel-k9",
+        "right": true,
+        "got": "https://skytests.example/kestrel-k9",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "vellmar_founder",
+        "text": "Vellmar Shipping was founded in 1887 in Osterhaven.",
+        "from": "model",
+        "expected": "https://vellmar.example/history",
+        "right": true,
+        "got": "https://vellmar.example/history",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "vellmar_founder",
+        "text": "It began with two coastal steamers and now runs eleven vessels.",
+        "from": "model",
+        "expected": "https://vellmar.example/history",
+        "right": true,
+        "got": "https://vellmar.example/history",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "saltmarsh_population",
+        "text": "The web results do not say the population of Saltmarsh.",
+        "from": "model",
+        "expected": "about the sources",
+        "right": true,
+        "got": "about the sources",
+        "coverage": 0.0,
+        "missing": []
+      },
+      {
+        "case": "saltmarsh_population",
+        "text": "Saltmarsh is a village on the estuary, known for its lighthouse and its Thursday market.",
+        "from": "model",
+        "expected": "https://coastguide.example/saltmarsh",
+        "right": true,
+        "got": "https://coastguide.example/saltmarsh",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "saltmarsh_population",
+        "text": "The Saltmarsh lighthouse was built in 1854 and is open to visitors in summer.",
+        "from": "model",
+        "expected": "https://lights.example/saltmarsh",
+        "right": true,
+        "got": "https://lights.example/saltmarsh",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "tidewater_version",
+        "text": "Tidewater 4.3 was released in May 2026.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.67,
+        "missing": [
+          "4.3",
+          "may"
+        ]
+      },
+      {
+        "case": "tidewater_version",
+        "text": "The latest release removed the write-ahead log.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.8,
+        "missing": []
+      },
+      {
+        "case": "harbor_battery",
+        "text": "The Harbor H2 battery lasts 40 hours.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.5,
+        "missing": [
+          "40"
+        ]
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "The Larkspur bridge opened in 1926.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "1926"
+        ]
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "The bridge carries six lanes.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.33,
+        "missing": []
+      },
+      {
+        "case": "osterhaven_mayor",
+        "text": "Tomas Reik is the current mayor of Osterhaven.",
+        "from": "written",
+        "expected": "not found",
+        "right": false,
+        "got": "https://archive.example/osterhaven/reik",
+        "coverage": 0.8,
+        "missing": []
+      },
+      {
+        "case": "rye_loaf",
+        "text": "Bake the Hollin rye loaf at 250 degrees Celsius.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "250"
+        ]
+      },
+      {
+        "case": "aster_hall",
+        "text": "The Aster concert hall seats 2,400 people.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "2400"
+        ]
+      },
+      {
+        "case": "brightline_recall",
+        "text": "Brightline is recalling the BH-100 heater.",
+        "from": "written",
+        "expected": "not found",
+        "right": false,
+        "got": "https://homewarmth.example/reviews/bh-100",
+        "coverage": 0.67,
+        "missing": []
+      },
+      {
+        "case": "quillfeather_port",
+        "text": "The Quillfeather sync server listens on port 8080 by default.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "8080"
+        ]
+      },
+      {
+        "case": "kestrel_price",
+        "text": "The Kestrel K9 costs 499 euros.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.33,
+        "missing": [
+          "499"
+        ]
+      },
+      {
+        "case": "vellmar_founder",
+        "text": "Vellmar Shipping was founded by Henrik Vellmar.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.75,
+        "missing": [
+          "henrik"
+        ]
+      }
+    ]
+  },
+  "heldout": {
+    "set": "heldout",
+    "coverage_threshold": 0.6,
+    "stated_matched_to_the_right_page": 8,
+    "stated": 12,
+    "unsupported_reported_as_not_found": 8,
+    "unsupported": 10,
+    "unsupported_shown_as_stated": 2,
+    "about_the_sources_recognised": 0,
+    "about_the_sources": 0,
+    "rows": [
+      {
+        "case": "tidewater_version",
+        "text": "Version 4.2 of Tidewater came out on 3 March 2026.",
+        "from": "written",
+        "expected": "https://tidewater.example/releases",
+        "right": false,
+        "got": "not found",
+        "coverage": 0.75,
+        "missing": []
+      },
+      {
+        "case": "harbor_battery",
+        "text": "With noise cancelling switched on, the Harbor H2 lasted 31 hours in a test.",
+        "from": "written",
+        "expected": "https://audiobench.example/reviews/harbor-h2",
+        "right": true,
+        "got": "https://audiobench.example/reviews/harbor-h2",
+        "coverage": 0.71,
+        "missing": []
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "Traffic first crossed the Larkspur bridge in 1962.",
+        "from": "written",
+        "expected": "https://riverhistory.example/larkspur-bridge",
+        "right": true,
+        "got": "https://riverhistory.example/larkspur-bridge",
+        "coverage": 0.6,
+        "missing": []
+      },
+      {
+        "case": "osterhaven_mayor",
+        "text": "Ilse Brandt became mayor of Osterhaven in January 2025.",
+        "from": "written",
+        "expected": "https://osterhaven.example/mayor",
+        "right": false,
+        "got": "not found",
+        "coverage": 0.83,
+        "missing": []
+      },
+      {
+        "case": "rye_loaf",
+        "text": "The rye loaf goes in at 220 degrees for 15 minutes, then at 190 for 35 minutes more.",
+        "from": "written",
+        "expected": "https://hollinbakes.example/rye-loaf",
+        "right": true,
+        "got": "https://hollinbakes.example/rye-loaf",
+        "coverage": 0.8,
+        "missing": []
+      },
+      {
+        "case": "aster_hall",
+        "text": "About 1,840 people fit in the main auditorium of the Aster concert hall.",
+        "from": "written",
+        "expected": "https://asterhall.example/about",
+        "right": true,
+        "got": "https://asterhall.example/about",
+        "coverage": 0.86,
+        "missing": []
+      },
+      {
+        "case": "brightline_recall",
+        "text": "Only the BH-200 and BH-300 models are part of the Brightline recall.",
+        "from": "written",
+        "expected": "https://brightline.example/safety/recall",
+        "right": false,
+        "got": "not found",
+        "coverage": 0.5,
+        "missing": []
+      },
+      {
+        "case": "quillfeather_port",
+        "text": "Port 8472 is what the Quillfeather sync server uses unless told otherwise.",
+        "from": "written",
+        "expected": "https://quillfeather.example/docs/sync-server",
+        "right": false,
+        "got": "not found",
+        "coverage": 0.5,
+        "missing": []
+      },
+      {
+        "case": "pinewood_linux",
+        "text": "Since firmware 2.1, the Pinewood P3 works with CUPS on Linux.",
+        "from": "written",
+        "expected": "https://pinewood.example/p3/firmware",
+        "right": true,
+        "got": "https://pinewood.example/p3/firmware",
+        "coverage": 0.83,
+        "missing": []
+      },
+      {
+        "case": "kestrel_price",
+        "text": "In calm air, the Kestrel K9 stayed up for 34 minutes.",
+        "from": "written",
+        "expected": "https://skytests.example/kestrel-k9",
+        "right": true,
+        "got": "https://skytests.example/kestrel-k9",
+        "coverage": 0.8,
+        "missing": []
+      },
+      {
+        "case": "vellmar_founder",
+        "text": "Vellmar Shipping started out in Osterhaven in 1887 with two coastal steamers.",
+        "from": "written",
+        "expected": "https://vellmar.example/history",
+        "right": true,
+        "got": "https://vellmar.example/history",
+        "coverage": 0.83,
+        "missing": []
+      },
+      {
+        "case": "saltmarsh_population",
+        "text": "The Saltmarsh lighthouse dates from 1854.",
+        "from": "written",
+        "expected": "https://lights.example/saltmarsh",
+        "right": true,
+        "got": "https://lights.example/saltmarsh",
+        "coverage": 0.67,
+        "missing": []
+      },
+      {
+        "case": "tidewater_version",
+        "text": "Tidewater 4.1 is no longer supported.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.33,
+        "missing": []
+      },
+      {
+        "case": "harbor_battery",
+        "text": "Charging the Harbor H2 from empty takes five hours.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.2,
+        "missing": []
+      },
+      {
+        "case": "larkspur_bridge",
+        "text": "The ferry at the Larkspur crossing stopped running in 1931.",
+        "from": "written",
+        "expected": "not found",
+        "right": false,
+        "got": "https://riverhistory.example/larkspur-ferry",
+        "coverage": 0.6,
+        "missing": []
+      },
+      {
+        "case": "osterhaven_mayor",
+        "text": "Mayor Ilse Brandt's term runs until 2031.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "2031"
+        ]
+      },
+      {
+        "case": "brightline_recall",
+        "text": "Brightline heaters made after June 2025 are also being recalled.",
+        "from": "written",
+        "expected": "not found",
+        "right": false,
+        "got": "https://brightline.example/safety/recall",
+        "coverage": 1.0,
+        "missing": []
+      },
+      {
+        "case": "quillfeather_port",
+        "text": "The Quillfeather sync server needs a PostgreSQL database.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.5,
+        "missing": [
+          "postgresql"
+        ]
+      },
+      {
+        "case": "pinewood_linux",
+        "text": "The Pinewood P3 prints 40 pages a minute.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "40"
+        ]
+      },
+      {
+        "case": "aster_hall",
+        "text": "The car park under the market square closes at ten in the evening.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 0.83,
+        "missing": [
+          "10"
+        ]
+      },
+      {
+        "case": "vellmar_founder",
+        "text": "Vellmar Shipping has ordered four feeder ships.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "4"
+        ]
+      },
+      {
+        "case": "kestrel_price",
+        "text": "The Kestrel K9 weighs 320 grams.",
+        "from": "written",
+        "expected": "not found",
+        "right": true,
+        "got": "not found",
+        "coverage": 1.0,
+        "missing": [
+          "320"
+        ]
+      }
+    ]
+  }
+}

@@ -280,7 +280,9 @@ class ProviderRouterTests(unittest.TestCase):
         with patch("modules.provider_router.OLLAMA_SESSION.post", side_effect=fake_post):
             self.assertTrue(router.warm_ollama("dolphin3:8b"))
 
-        self.assertEqual(captured["url"], "http://localhost:11434/api/generate")
+        # "localhost" in the settings is sent as 127.0.0.1 (modules/local_address.py: on Windows a new
+        # connection to "localhost" waited 2 s for an IPv6 attempt first).
+        self.assertEqual(captured["url"], "http://127.0.0.1:11434/api/generate")
         self.assertEqual(captured["json"]["prompt"], "")
         self.assertEqual(captured["json"]["keep_alive"], OLLAMA_DEFAULT_KEEP_ALIVE)
         self.assertEqual(captured["json"]["options"]["num_ctx"], OLLAMA_MIN_NUM_CTX)

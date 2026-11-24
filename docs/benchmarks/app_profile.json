@@ -1,0 +1,1028 @@
+{
+  "what": "The app's own time and every HTTP request, app.py drawn by Streamlit's test runner with a stand-in model (tools/app_profile.py). Ollama running; ComfyUI and Automatic1111 not installed.",
+  "machine": {
+    "processor": "AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "cores": 6,
+    "threads": 12,
+    "ram_gb": 31.2,
+    "ram_free_gb": 10.8,
+    "system": "Windows 11",
+    "gpu": "none found",
+    "vram_gb": 0.0
+  },
+  "before": {
+    "code": "653f510 (before the fixes of items 101 and 104)",
+    "what": "The app's own time and HTTP requests, with a stand-in model (tools/app_profile.py)",
+    "measured_at": "2026-11-24T14:10:14+00:00",
+    "ollama_url": "http://localhost:11434",
+    "import_seconds": {
+      "modules.nexus_core": 1.15,
+      "app": 1.89
+    },
+    "page": {
+      "first_visit": {
+        "seconds": 16.02,
+        "exception": [],
+        "http": {
+          "total": 15,
+          "by_address": [
+            {
+              "call": "GET http://localhost:11434/api/tags",
+              "times": 7
+            },
+            {
+              "call": "GET http://127.0.0.1:7860/sdapi/v1/options",
+              "times": 2
+            },
+            {
+              "call": "GET http://127.0.0.1:8188/",
+              "times": 2
+            },
+            {
+              "call": "GET http://127.0.0.1:8188/system_stats",
+              "times": 2
+            },
+            {
+              "call": "POST http://localhost:11434/api/generate",
+              "times": 1
+            },
+            {
+              "call": "POST http://localhost:11434/api/show",
+              "times": 1
+            }
+          ]
+        },
+        "time": {
+          "samples": 697,
+          "on_stack_ours": [
+            {
+              "function": "app.py:<module>",
+              "share": 0.976
+            },
+            {
+              "function": "app.py:main",
+              "share": 0.947
+            },
+            {
+              "function": "tools/app_profile.py:send",
+              "share": 0.857
+            },
+            {
+              "function": "modules/embeddings.py:installed_ollama_embedding_models",
+              "share": 0.273
+            },
+            {
+              "function": "modules/embeddings.py:choose_embedder",
+              "share": 0.273
+            },
+            {
+              "function": "modules/knowledge_store.py:__init__",
+              "share": 0.273
+            },
+            {
+              "function": "web_research_module.py:__init__",
+              "share": 0.273
+            },
+            {
+              "function": "modules/research.py:get_research_module",
+              "share": 0.273
+            },
+            {
+              "function": "modules/image_gen.py:detect_image_providers",
+              "share": 0.214
+            },
+            {
+              "function": "modules/comfyui_client.py:detect",
+              "share": 0.214
+            },
+            {
+              "function": "app.py:render_image_tab",
+              "share": 0.214
+            },
+            {
+              "function": "modules/providers.py:check_ollama_status",
+              "share": 0.158
+            },
+            {
+              "function": "app.py:get_cached_ollama_status",
+              "share": 0.149
+            },
+            {
+              "function": "app.py:render_diagnostics_tab",
+              "share": 0.141
+            },
+            {
+              "function": "app.py:get_cached_knowledge_summary",
+              "share": 0.138
+            },
+            {
+              "function": "app.py:get_cached_research_module",
+              "share": 0.135
+            },
+            {
+              "function": "app.py:render_files_knowledge_tab",
+              "share": 0.135
+            },
+            {
+              "function": "modules/image_gen.py:detect_image_provider",
+              "share": 0.11
+            },
+            {
+              "function": "app.py:get_cached_image_provider",
+              "share": 0.11
+            },
+            {
+              "function": "app.py:render_comfyui_workflow_section",
+              "share": 0.109
+            },
+            {
+              "function": "modules/nexus_core.py:status_snapshot",
+              "share": 0.108
+            },
+            {
+              "function": "app.py:get_cached_core_status",
+              "share": 0.108
+            },
+            {
+              "function": "app.py:get_cached_image_providers",
+              "share": 0.103
+            },
+            {
+              "function": "app.py:render_sidebar",
+              "share": 0.053
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_find_and_load_unlocked",
+              "share": 0.04
+            }
+          ],
+          "at_top_any": [
+            {
+              "function": "util/connection.py:create_connection",
+              "share": 0.836
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.034
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:_path_stat",
+              "share": 0.033
+            },
+            {
+              "function": "Python313/socket.py:readinto",
+              "share": 0.02
+            },
+            {
+              "function": "Python313/inspect.py:getsourcefile",
+              "share": 0.019
+            },
+            {
+              "function": "Python313/glob.py:select_exists",
+              "share": 0.019
+            },
+            {
+              "function": "Python313/mimetypes.py:read_windows_registry",
+              "share": 0.007
+            },
+            {
+              "function": "Python313/threading.py:join",
+              "share": 0.004
+            },
+            {
+              "function": "requests/utils.py:get_netrc_auth",
+              "share": 0.003
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:get_data",
+              "share": 0.003
+            },
+            {
+              "function": "streamlit/config.py:get_config_options",
+              "share": 0.001
+            },
+            {
+              "function": "metadata/__init__.py:mtime",
+              "share": 0.001
+            },
+            {
+              "function": "Python313/threading.py:wait",
+              "share": 0.001
+            },
+            {
+              "function": "Python313/enum.py:__new__",
+              "share": 0.001
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:_compile_bytecode",
+              "share": 0.001
+            },
+            {
+              "function": "pyarrow/compute.py:_make_global_functions",
+              "share": 0.001
+            },
+            {
+              "function": "Python313/glob.py:select_wildcard",
+              "share": 0.001
+            },
+            {
+              "function": "streamlit/dataframe_util.py:convert_pandas_df_to_arrow_table",
+              "share": 0.001
+            },
+            {
+              "function": "pathlib/_local.py:mkdir",
+              "share": 0.001
+            },
+            {
+              "function": "arrow/array.py:to_numpy",
+              "share": 0.001
+            },
+            {
+              "function": "agent/store.py:transaction",
+              "share": 0.001
+            },
+            {
+              "function": "urllib/parse.py:urlparse",
+              "share": 0.001
+            },
+            {
+              "function": "Python313/subprocess.py:_execute_child",
+              "share": 0.001
+            },
+            {
+              "function": "Python313/subprocess.py:_wait",
+              "share": 0.001
+            },
+            {
+              "function": "arrays/string_arrow.py:_from_sequence",
+              "share": 0.001
+            }
+          ]
+        }
+      },
+      "rerun": {
+        "seconds": 1.81,
+        "exception": [],
+        "http": {
+          "total": 1,
+          "by_address": [
+            {
+              "call": "GET http://127.0.0.1:8188/system_stats",
+              "times": 1
+            }
+          ]
+        },
+        "time": {
+          "samples": 85,
+          "on_stack_ours": [
+            {
+              "function": "app.py:main",
+              "share": 0.988
+            },
+            {
+              "function": "app.py:<module>",
+              "share": 0.988
+            },
+            {
+              "function": "tools/app_profile.py:send",
+              "share": 0.941
+            },
+            {
+              "function": "modules/comfyui_client.py:detect",
+              "share": 0.941
+            },
+            {
+              "function": "app.py:render_comfyui_workflow_section",
+              "share": 0.941
+            },
+            {
+              "function": "app.py:render_image_tab",
+              "share": 0.941
+            },
+            {
+              "function": "ui/data_panel.py:render_data_panel",
+              "share": 0.024
+            },
+            {
+              "function": "app.py:render_memory_tab",
+              "share": 0.024
+            },
+            {
+              "function": "modules/file_lock.py:read_json",
+              "share": 0.012
+            },
+            {
+              "function": "modules/accounts.py:_load",
+              "share": 0.012
+            },
+            {
+              "function": "modules/accounts.py:available",
+              "share": 0.012
+            },
+            {
+              "function": "modules/web_research.py:_source_setup_hint",
+              "share": 0.012
+            },
+            {
+              "function": "modules/web_research.py:search_sources_status",
+              "share": 0.012
+            },
+            {
+              "function": "app.py:search_sources_caption",
+              "share": 0.012
+            },
+            {
+              "function": "app.py:render_web_research_tab",
+              "share": 0.012
+            },
+            {
+              "function": "modules/data_stores.py:files",
+              "share": 0.012
+            },
+            {
+              "function": "modules/backup.py:_store_files",
+              "share": 0.012
+            },
+            {
+              "function": "modules/backup.py:check_integrity",
+              "share": 0.012
+            },
+            {
+              "function": "ui/data_panel.py:render_integrity_warnings",
+              "share": 0.012
+            },
+            {
+              "function": "agent/store.py:read",
+              "share": 0.012
+            },
+            {
+              "function": "agent/store.py:actions",
+              "share": 0.012
+            },
+            {
+              "function": "ui/agent_panel.py:render_agent_panel",
+              "share": 0.012
+            },
+            {
+              "function": "app.py:render_agent_tab",
+              "share": 0.012
+            }
+          ],
+          "at_top_any": [
+            {
+              "function": "util/connection.py:create_connection",
+              "share": 0.941
+            },
+            {
+              "function": "Python313/tokenize.py:read_or_stop",
+              "share": 0.012
+            },
+            {
+              "function": "pathlib/_local.py:open",
+              "share": 0.012
+            },
+            {
+              "function": "streamlit/dataframe_util.py:convert_arrow_table_to_arrow_bytes",
+              "share": 0.012
+            },
+            {
+              "function": "pathlib/_local.py:stat",
+              "share": 0.012
+            },
+            {
+              "function": "agent/store.py:read",
+              "share": 0.012
+            }
+          ]
+        }
+      },
+      "chat_turn": {
+        "seconds": 1.97,
+        "exception": [],
+        "http": {
+          "total": 2,
+          "by_address": [
+            {
+              "call": "POST http://localhost:11434/api/show",
+              "times": 1
+            },
+            {
+              "call": "GET http://127.0.0.1:8188/system_stats",
+              "times": 1
+            }
+          ]
+        },
+        "time": {
+          "samples": 85,
+          "on_stack_ours": [
+            {
+              "function": "app.py:main",
+              "share": 0.965
+            },
+            {
+              "function": "app.py:<module>",
+              "share": 0.965
+            },
+            {
+              "function": "tools/app_profile.py:send",
+              "share": 0.894
+            },
+            {
+              "function": "modules/comfyui_client.py:detect",
+              "share": 0.882
+            },
+            {
+              "function": "app.py:render_comfyui_workflow_section",
+              "share": 0.882
+            },
+            {
+              "function": "app.py:render_image_tab",
+              "share": 0.882
+            },
+            {
+              "function": "modules/nexus_core.py:stream_chat_response",
+              "share": 0.024
+            },
+            {
+              "function": "app.py:render_chat_tab",
+              "share": 0.024
+            },
+            {
+              "function": "ui/data_panel.py:render_data_panel",
+              "share": 0.024
+            },
+            {
+              "function": "app.py:render_memory_tab",
+              "share": 0.024
+            },
+            {
+              "function": "app.py:_select_model_option",
+              "share": 0.012
+            },
+            {
+              "function": "app.py:render_sidebar",
+              "share": 0.012
+            },
+            {
+              "function": "modules/provider_router.py:model_window",
+              "share": 0.012
+            },
+            {
+              "function": "modules/provider_router.py:plan_context",
+              "share": 0.012
+            },
+            {
+              "function": "modules/nexus_core.py:_context_budget",
+              "share": 0.012
+            },
+            {
+              "function": "modules/file_lock.py:append_line",
+              "share": 0.012
+            },
+            {
+              "function": "modules/response_verifier.py:log_verification",
+              "share": 0.012
+            },
+            {
+              "function": "modules/file_utils.py:atomic_write_text",
+              "share": 0.012
+            },
+            {
+              "function": "modules/memory.py:save_session_history",
+              "share": 0.012
+            },
+            {
+              "function": "app.py:persist_assistant_response",
+              "share": 0.012
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.012
+            },
+            {
+              "function": "modules/backup.py:_archive_name",
+              "share": 0.012
+            },
+            {
+              "function": "modules/backup.py:_store_files",
+              "share": 0.012
+            },
+            {
+              "function": "modules/backup.py:check_integrity",
+              "share": 0.012
+            },
+            {
+              "function": "ui/data_panel.py:render_integrity_warnings",
+              "share": 0.012
+            }
+          ],
+          "at_top_any": [
+            {
+              "function": "util/connection.py:create_connection",
+              "share": 0.882
+            },
+            {
+              "function": "pathlib/_local.py:stat",
+              "share": 0.024
+            },
+            {
+              "function": "Python313/ast.py:parse",
+              "share": 0.012
+            },
+            {
+              "function": "state/common.py:is_element_id",
+              "share": 0.012
+            },
+            {
+              "function": "Python313/socket.py:readinto",
+              "share": 0.012
+            },
+            {
+              "function": "modules/file_lock.py:append_line",
+              "share": 0.012
+            },
+            {
+              "function": "modules/file_utils.py:atomic_write_text",
+              "share": 0.012
+            },
+            {
+              "function": "Python313/glob.py:select_recursive_step",
+              "share": 0.012
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.012
+            },
+            {
+              "function": "arrow/array.py:__init__",
+              "share": 0.012
+            }
+          ]
+        }
+      }
+    }
+  },
+  "after": {
+    "code": "this commit",
+    "what": "The app's own time and HTTP requests, with a stand-in model (tools/app_profile.py)",
+    "measured_at": "2026-11-24T14:54:25+00:00",
+    "ollama_url": "http://localhost:11434",
+    "import_seconds": {
+      "modules.nexus_core": 1.1,
+      "app": 1.87
+    },
+    "page": {
+      "first_visit": {
+        "seconds": 4.95,
+        "exception": [],
+        "http": {
+          "total": 7,
+          "by_address": [
+            {
+              "call": "GET http://127.0.0.1:11434/api/tags",
+              "times": 2
+            },
+            {
+              "call": "GET http://127.0.0.1:7860/sdapi/v1/options",
+              "times": 1
+            },
+            {
+              "call": "GET http://127.0.0.1:8188/",
+              "times": 1
+            },
+            {
+              "call": "GET http://127.0.0.1:8188/system_stats",
+              "times": 1
+            },
+            {
+              "call": "POST http://127.0.0.1:11434/api/generate",
+              "times": 1
+            },
+            {
+              "call": "POST http://127.0.0.1:11434/api/show",
+              "times": 1
+            }
+          ]
+        },
+        "time": {
+          "samples": 185,
+          "on_stack_ours": [
+            {
+              "function": "app.py:<module>",
+              "share": 0.935
+            },
+            {
+              "function": "app.py:main",
+              "share": 0.832
+            },
+            {
+              "function": "modules/image_gen.py:detect_image_providers",
+              "share": 0.265
+            },
+            {
+              "function": "app.py:get_cached_image_providers",
+              "share": 0.265
+            },
+            {
+              "function": "app.py:get_cached_image_provider",
+              "share": 0.265
+            },
+            {
+              "function": "tools/app_profile.py:send",
+              "share": 0.227
+            },
+            {
+              "function": "modules/comfyui_client.py:_probe",
+              "share": 0.205
+            },
+            {
+              "function": "modules/comfyui_client.py:detect",
+              "share": 0.205
+            },
+            {
+              "function": "modules/nexus_core.py:status_snapshot",
+              "share": 0.205
+            },
+            {
+              "function": "app.py:get_cached_core_status",
+              "share": 0.205
+            },
+            {
+              "function": "app.py:render_sidebar",
+              "share": 0.2
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_find_and_load_unlocked",
+              "share": 0.157
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_find_and_load",
+              "share": 0.157
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_call_with_frames_removed",
+              "share": 0.146
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:exec_module",
+              "share": 0.146
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_load_unlocked",
+              "share": 0.146
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.146
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:_path_stat",
+              "share": 0.13
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:find_spec",
+              "share": 0.119
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:_get_spec",
+              "share": 0.119
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_find_spec",
+              "share": 0.119
+            },
+            {
+              "function": "app.py:render_overview_tab",
+              "share": 0.081
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_handle_fromlist",
+              "share": 0.049
+            },
+            {
+              "function": "app.py:render_agent_tab",
+              "share": 0.038
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:get_code",
+              "share": 0.032
+            }
+          ],
+          "at_top_any": [
+            {
+              "function": "Python313/threading.py:wait",
+              "share": 0.27
+            },
+            {
+              "function": "util/connection.py:create_connection",
+              "share": 0.205
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.146
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:_path_stat",
+              "share": 0.13
+            },
+            {
+              "function": "Python313/glob.py:select_exists",
+              "share": 0.059
+            },
+            {
+              "function": "Python313/inspect.py:getsourcefile",
+              "share": 0.059
+            },
+            {
+              "function": "Python313/mimetypes.py:read_windows_registry",
+              "share": 0.027
+            },
+            {
+              "function": "Python313/socket.py:readinto",
+              "share": 0.022
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:get_data",
+              "share": 0.016
+            },
+            {
+              "function": "Python313/threading.py:join",
+              "share": 0.016
+            },
+            {
+              "function": "streamlit/config.py:get_config_options",
+              "share": 0.005
+            },
+            {
+              "function": "<frozen importlib._bootstrap_external>:_fill_cache",
+              "share": 0.005
+            },
+            {
+              "function": "<frozen importlib._bootstrap>:_call_with_frames_removed",
+              "share": 0.005
+            },
+            {
+              "function": "pathlib/_local.py:mkdir",
+              "share": 0.005
+            },
+            {
+              "function": "streamlit/dataframe_util.py:convert_arrow_table_to_arrow_bytes",
+              "share": 0.005
+            },
+            {
+              "function": "arrow/array.py:to_numpy",
+              "share": 0.005
+            },
+            {
+              "function": "agent/store.py:transaction",
+              "share": 0.005
+            },
+            {
+              "function": "Python313/shutil.py:_access_check",
+              "share": 0.005
+            },
+            {
+              "function": "requests/utils.py:get_netrc_auth",
+              "share": 0.005
+            }
+          ]
+        }
+      },
+      "rerun": {
+        "seconds": 0.42,
+        "exception": [],
+        "http": {
+          "total": 0,
+          "by_address": []
+        },
+        "time": {
+          "samples": 6,
+          "on_stack_ours": [
+            {
+              "function": "app.py:main",
+              "share": 0.5
+            },
+            {
+              "function": "app.py:<module>",
+              "share": 0.5
+            },
+            {
+              "function": "modules/data_stores.py:<genexpr>",
+              "share": 0.333
+            },
+            {
+              "function": "modules/memory.py:load_session_history_file",
+              "share": 0.167
+            },
+            {
+              "function": "app.py:restore_persisted_chat",
+              "share": 0.167
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.167
+            },
+            {
+              "function": "modules/backup.py:_archive_name",
+              "share": 0.167
+            },
+            {
+              "function": "modules/backup.py:_store_files",
+              "share": 0.167
+            },
+            {
+              "function": "modules/backup.py:check_integrity",
+              "share": 0.167
+            },
+            {
+              "function": "ui/data_panel.py:render_integrity_warnings",
+              "share": 0.167
+            },
+            {
+              "function": "ui/data_panel.py:render_data_panel",
+              "share": 0.167
+            },
+            {
+              "function": "app.py:render_memory_tab",
+              "share": 0.167
+            },
+            {
+              "function": "agent/store.py:read",
+              "share": 0.167
+            },
+            {
+              "function": "agent/store.py:approvals",
+              "share": 0.167
+            },
+            {
+              "function": "ui/agent_panel.py:render_agent_panel",
+              "share": 0.167
+            },
+            {
+              "function": "app.py:render_agent_tab",
+              "share": 0.167
+            }
+          ],
+          "at_top_any": [
+            {
+              "function": "pathlib/_local.py:stat",
+              "share": 0.5
+            },
+            {
+              "function": "Python313/tokenize.py:open",
+              "share": 0.167
+            },
+            {
+              "function": "<frozen ntpath>:realpath",
+              "share": 0.167
+            },
+            {
+              "function": "agent/store.py:read",
+              "share": 0.167
+            }
+          ]
+        }
+      },
+      "chat_turn": {
+        "seconds": 0.58,
+        "exception": [],
+        "http": {
+          "total": 1,
+          "by_address": [
+            {
+              "call": "POST http://127.0.0.1:11434/api/show",
+              "times": 1
+            }
+          ]
+        },
+        "time": {
+          "samples": 9,
+          "on_stack_ours": [
+            {
+              "function": "app.py:<module>",
+              "share": 0.667
+            },
+            {
+              "function": "app.py:main",
+              "share": 0.556
+            },
+            {
+              "function": "modules/nexus_core.py:stream_chat_response",
+              "share": 0.222
+            },
+            {
+              "function": "ui/data_panel.py:render_data_panel",
+              "share": 0.222
+            },
+            {
+              "function": "app.py:render_memory_tab",
+              "share": 0.222
+            },
+            {
+              "function": "tools/app_profile.py:send",
+              "share": 0.111
+            },
+            {
+              "function": "modules/provider_router.py:model_window",
+              "share": 0.111
+            },
+            {
+              "function": "modules/provider_router.py:plan_context",
+              "share": 0.111
+            },
+            {
+              "function": "modules/nexus_core.py:_context_budget",
+              "share": 0.111
+            },
+            {
+              "function": "app.py:render_chat_tab",
+              "share": 0.111
+            },
+            {
+              "function": "modules/knowledge_store.py:_connect",
+              "share": 0.111
+            },
+            {
+              "function": "modules/knowledge_store.py:stats",
+              "share": 0.111
+            },
+            {
+              "function": "web_research_module.py:get_processing_summary",
+              "share": 0.111
+            },
+            {
+              "function": "app.py:render_files_knowledge_tab",
+              "share": 0.111
+            },
+            {
+              "function": "modules/data_stores.py:<genexpr>",
+              "share": 0.111
+            },
+            {
+              "function": "modules/backup.py:check_integrity",
+              "share": 0.111
+            },
+            {
+              "function": "ui/data_panel.py:render_integrity_warnings",
+              "share": 0.111
+            },
+            {
+              "function": "modules/backup.py:list_snapshots",
+              "share": 0.111
+            },
+            {
+              "function": "agent/store.py:read",
+              "share": 0.111
+            },
+            {
+              "function": "agent/store.py:approvals",
+              "share": 0.111
+            },
+            {
+              "function": "ui/agent_panel.py:render_agent_panel",
+              "share": 0.111
+            },
+            {
+              "function": "app.py:render_agent_tab",
+              "share": 0.111
+            }
+          ],
+          "at_top_any": [
+            {
+              "function": "pathlib/_local.py:stat",
+              "share": 0.222
+            },
+            {
+              "function": "Python313/ast.py:parse",
+              "share": 0.111
+            },
+            {
+              "function": "Python313/linecache.py:checkcache",
+              "share": 0.111
+            },
+            {
+              "function": "Python313/socket.py:readinto",
+              "share": 0.111
+            },
+            {
+              "function": "logging/__init__.py:flush",
+              "share": 0.111
+            },
+            {
+              "function": "modules/knowledge_store.py:_connect",
+              "share": 0.111
+            },
+            {
+              "function": "pathlib/_local.py:open",
+              "share": 0.111
+            },
+            {
+              "function": "agent/store.py:read",
+              "share": 0.111
+            }
+          ]
+        }
+      }
+    }
+  }
+}

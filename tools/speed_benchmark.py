@@ -38,6 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from modules import hardware  # noqa: E402
+from modules.local_address import loopback_ipv4  # noqa: E402
 
 _TOWN = " ".join(
     f"In year {1900 + number}, the town of Marrow Ford recorded {300 + 7 * number} households, opened {number % 5 + 1} new workshops along the river and "
@@ -76,6 +77,13 @@ class Watch(threading.Thread):
             self.cpu.append(psutil.cpu_percent(interval=None))
 
 
+# One kept-open connection, as the app has (modules/providers.OLLAMA_SESSION), opened by the
+# warm-up call before anything is timed. Until 2026-11-24 every run opened a new connection, and on
+# Windows a new connection to "localhost" waits about 2 s for an IPv6 attempt to fail first; the
+# first-word times saved before then include that (docs/benchmarks/README.md says by how much).
+SESSION = requests.Session()
+
+
 def one_run(url: str, model: str, prompt: str, max_tokens: int, num_ctx: int) -> dict[str, Any]:
     watch = Watch()
     watch.start()
@@ -84,7 +92,7 @@ def one_run(url: str, model: str, prompt: str, max_tokens: int, num_ctx: int) ->
     final: dict[str, Any] = {}
     text = []
     try:
-        with requests.post(
+        with SESSION.post(
             f"{url}/api/generate",
             json={"model": model, "prompt": prompt, "stream": True, "keep_alive": "24h", "options": {"temperature": 0, "num_predict": max_tokens, "num_ctx": num_ctx}},
             stream=True,
@@ -126,9 +134,9 @@ def one_run(url: str, model: str, prompt: str, max_tokens: int, num_ctx: int) ->
 
 
 def measure(model: str, url: str, num_ctx: int = 4096) -> dict[str, Any]:
-    url = url.rstrip("/")
-    version = requests.get(f"{url}/api/version", timeout=10).json().get("version", "")
-    shown = requests.post(f"{url}/api/show", json={"model": model}, timeout=20).json()
+    url = loopback_ipv4(url.rstrip("/"))
+    version = SESSION.get(f"{url}/api/version", timeout=10).json().get("version", "")
+    shown = SESSION.post(f"{url}/api/show", json={"model": model}, timeout=20).json()
     one_run(url, model, "Say OK.", 4, num_ctx)  # load the model first, so that loading is not counted as answering
     runs = []
     for name, prompt, max_tokens in PROMPTS:
@@ -136,7 +144,7 @@ def measure(model: str, url: str, num_ctx: int = 4096) -> dict[str, Any]:
             row = {"prompt": name, "sent": attempt, **one_run(url, model, prompt, max_tokens, num_ctx)}
             runs.append(row)
             print(f"{name:<13} {attempt:<18} first word {row['first_word_seconds']:>6.2f}s  total {row['total_seconds']:>6.1f}s  reads {row['prompt_tokens_per_second']:>6.1f}/s  writes {row['output_tokens_per_second']:>5.1f}/s  memory {row['peak_ollama_memory_gb']:.1f} GB  processor {row['mean_processor_percent']:.0f}%", flush=True)
-    loaded: dict[str, Any] = next((item for item in requests.get(f"{url}/api/ps", timeout=10).json().get("models", []) if item.get("name") == model), {})
+    loaded: dict[str, Any] = next((item for item in SESSION.get(f"{url}/api/ps", timeout=10).json().get("models", []) if item.get("name") == model), {})
     details = shown.get("details") or {}
     fresh = [row for row in runs if row["sent"] == "new prompt"]
     again = [row for row in runs if row["sent"] == "same prompt again"]
@@ -144,6 +152,7 @@ def measure(model: str, url: str, num_ctx: int = 4096) -> dict[str, Any]:
         "measured_at": time.strftime("%Y-%m-%d"),
         "hardware": hardware.describe(),
         "ollama_version": version,
+        "connection": "one kept-open connection, opened before the first timed run",
         "model": {
             "name": model,
             "parameters": str(details.get("parameter_size") or ""),
@@ -176,6 +185,9 @@ def compare(before: dict[str, Any], after: dict[str, Any], tolerance: float = 0.
     if not same_machine(before["hardware"], after["hardware"]) or before["model"]["name"] != after["model"]["name"]:
         return {"verdict": "not comparable", "why": "The saved file is from another machine or another model.", "changes": []}
     changes, slower = [], False
+    # A file saved before the tool kept its connection open counted a new connection in every
+    # first-word time (about 2 s on Windows with "localhost"); those times cannot be compared.
+    same_connection = before.get("connection") == after.get("connection")
     for key, meaning, higher_is_better in (
         ("output_tokens_per_second", "Tokens written per second", True),
         ("prompt_tokens_per_second", "Tokens read per second", True),
@@ -186,6 +198,9 @@ def compare(before: dict[str, Any], after: dict[str, Any], tolerance: float = 0.
         if not old:
             continue
         change = (new - old) / old
+        if key.startswith("first_word") and not same_connection:
+            changes.append({"what": meaning, "before": old, "after": new, "change_percent": round(change * 100), "worse": False, "note": "not compared: one file opened a new connection for every run"})
+            continue
         worse = change < -tolerance if higher_is_better else change > tolerance and (new - old) > 0.5
         slower = slower or worse
         changes.append({"what": meaning, "before": old, "after": new, "change_percent": round(change * 100), "worse": worse})

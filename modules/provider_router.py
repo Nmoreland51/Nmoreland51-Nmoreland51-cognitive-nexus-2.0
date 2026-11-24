@@ -17,7 +17,7 @@ from modules.context_budget import PROMPT_SECONDS, ContextBudget, default_max_wi
 from modules.event_log import record_event
 from modules.model_capabilities import ModelCapabilities, capabilities as model_capabilities
 from modules.nexus_config import DEFAULT_ANTHROPIC_MODEL, load_runtime_config
-from modules.providers import FALLBACK_RESPONSE, OLLAMA_SESSION, check_ollama_status, get_ollama_base_url
+from modules.providers import FALLBACK_RESPONSE, OLLAMA_SESSION, check_ollama_status, get_ollama_base_url, loopback_ipv4
 from modules.token_estimate import estimate_tokens
 
 
@@ -83,6 +83,25 @@ def _optional_available(module_name: str) -> bool:
     import importlib.util
 
     return importlib.util.find_spec(module_name) is not None
+
+
+def _finish_reading(response: Any) -> None:
+    """Read what is left of a streamed answer, then let its connection go back to the pool.
+
+    The stream is left as soon as Ollama's last message arrives; the body it belongs to may not be
+    read to its end yet, and a connection whose body was not read is closed instead of being kept,
+    so the next request had to open a new one. Never raises.
+    """
+
+    try:
+        for _rest in response.iter_content(chunk_size=1024):
+            pass
+    except Exception:  # the answer is complete; a failure here only costs the kept connection
+        pass
+    try:
+        response.close()
+    except Exception:
+        pass
 
 
 def _needs_slow_startup_timeout(model: str) -> bool:
@@ -252,7 +271,7 @@ class ProviderRouter:
 
         if not model:
             return False
-        url = (base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/")
+        url = loopback_ipv4((base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/"))
         if heavy_work.picture_in_progress():
             # Loading ahead of time is only a convenience; while a picture is being made it would
             # put the model in memory beside it. The first chat answer loads it instead.
@@ -281,7 +300,7 @@ class ProviderRouter:
         # otherwise add a connection attempt to every turn.
         if time.monotonic() - self._window_lookup_failed.get(model, -1e9) < 60.0:
             return None
-        url = (base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/")
+        url = loopback_ipv4((base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/"))
         try:
             response = OLLAMA_SESSION.post(f"{url}/api/show", json={"model": model}, timeout=(3.0, 10.0))
             response.raise_for_status()
@@ -358,7 +377,7 @@ class ProviderRouter:
         if not model:
             record["error"] = "No model selected."
             return record
-        url = (base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/")
+        url = loopback_ipv4((base_url or str(self.config.get("ollama_url") or get_ollama_base_url())).rstrip("/"))
         started = time.perf_counter()
         try:
             response = OLLAMA_SESSION.post(
@@ -719,7 +738,7 @@ class ProviderRouter:
         model = model or self._resolve_model(request, info)[0]
         if not model:
             raise RuntimeError("Ollama is available but no usable model could be selected.")
-        base_url = (request.base_url or info.base_url or str(self.config.get("ollama_url"))).rstrip("/")
+        base_url = loopback_ipv4((request.base_url or info.base_url or str(self.config.get("ollama_url"))).rstrip("/"))
         payload: dict[str, Any] = {
             "model": model,
             "prompt": request.prompt,
@@ -819,6 +838,7 @@ class ProviderRouter:
                     "load_duration_ns": int(data.get("load_duration") or 0),
                     "waited_for_picture_seconds": picture_wait["waited_seconds"],
                 }
+                _finish_reading(response)
                 return
         if not yielded_any:
             raise RuntimeError(f"Ollama model '{model}' stream ended without text.")

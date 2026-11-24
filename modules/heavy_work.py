@@ -38,6 +38,7 @@ import requests
 from filelock import FileLock, Timeout
 
 from modules.data_stores import DATA_ROOT
+from modules.local_address import loopback_ipv4
 
 GB = 1024**3
 MARGIN_GB = 1.5  # left free for the system, the browser and the app itself
@@ -92,7 +93,7 @@ def available_gb() -> float:
 
 def _base(base_url: str) -> str:
     if base_url:
-        return base_url.rstrip("/")
+        return loopback_ipv4(base_url.rstrip("/"))
     from modules.providers import get_ollama_base_url
 
     return get_ollama_base_url().rstrip("/")

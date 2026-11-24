@@ -11,6 +11,7 @@ import os
 import random
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ import requests
 
 from modules import heavy_work
 from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
+from modules.local_address import loopback_ipv4
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +34,8 @@ LEGACY_IMAGE_DIRS = [
 ]
 IMAGE_DIRS = [GENERATED_DIR, *LEGACY_IMAGE_DIRS]
 
-AUTOMATIC1111_URL = os.environ.get("AUTOMATIC1111_URL", "http://127.0.0.1:7860").rstrip("/")
-COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/")
+AUTOMATIC1111_URL = loopback_ipv4(os.environ.get("AUTOMATIC1111_URL", "http://127.0.0.1:7860").rstrip("/"))
+COMFYUI_URL = loopback_ipv4(os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/"))
 PROVIDER_DETECTION_TIMEOUT = 0.75
 # Current home of Stable Diffusion 1.5 on Hugging Face (the old runwayml repo only redirects here).
 DEFAULT_DIFFUSERS_MODEL = "stable-diffusion-v1-5/stable-diffusion-v1-5"
@@ -147,16 +149,13 @@ def check_local_image_backend() -> ImageBackendStatus:
     )
 
 
-def detect_image_providers() -> list[dict[str, Any]]:
-    """Detect image-generation backends without loading heavy model weights."""
-
-    providers: list[dict[str, Any]] = []
-
+def _probe_automatic1111() -> dict[str, Any]:
+    found: list[dict[str, Any]] = []
     try:
         response = requests.get(f"{AUTOMATIC1111_URL}/sdapi/v1/options", timeout=PROVIDER_DETECTION_TIMEOUT)
         if response.ok:
             data = response.json()
-            providers.append(
+            found.append(
                 _provider(
                     name="automatic1111",
                     label="Automatic1111 API",
@@ -168,7 +167,7 @@ def detect_image_providers() -> list[dict[str, Any]]:
                 )
             )
         else:
-            providers.append(
+            found.append(
                 _provider(
                     name="automatic1111",
                     label="Automatic1111 API",
@@ -179,7 +178,7 @@ def detect_image_providers() -> list[dict[str, Any]]:
                 )
             )
     except Exception as exc:
-        providers.append(
+        found.append(
             _provider(
                 name="automatic1111",
                 label="Automatic1111 API",
@@ -189,11 +188,15 @@ def detect_image_providers() -> list[dict[str, Any]]:
                 url=AUTOMATIC1111_URL,
             )
         )
+    return found[0]
 
+
+def _probe_comfyui() -> dict[str, Any]:
+    found: list[dict[str, Any]] = []
     try:
         response = requests.get(COMFYUI_URL, timeout=PROVIDER_DETECTION_TIMEOUT)
         if response.ok or response.status_code in (200, 404):
-            providers.append(
+            found.append(
                 _provider(
                     name="comfyui",
                     label="ComfyUI API",
@@ -204,7 +207,7 @@ def detect_image_providers() -> list[dict[str, Any]]:
                 )
             )
         else:
-            providers.append(
+            found.append(
                 _provider(
                     name="comfyui",
                     label="ComfyUI API",
@@ -215,7 +218,7 @@ def detect_image_providers() -> list[dict[str, Any]]:
                 )
             )
     except Exception as exc:
-        providers.append(
+        found.append(
             _provider(
                 name="comfyui",
                 label="ComfyUI API",
@@ -225,6 +228,20 @@ def detect_image_providers() -> list[dict[str, Any]]:
                 url=COMFYUI_URL,
             )
         )
+    return found[0]
+
+
+def detect_image_providers() -> list[dict[str, Any]]:
+    """Detect image-generation backends without loading heavy model weights.
+
+    The two servers are asked at the same time: one that is not running takes the whole
+    PROVIDER_DETECTION_TIMEOUT to report, so asking one after the other doubled the wait.
+    """
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        automatic1111 = pool.submit(_probe_automatic1111)
+        comfyui = pool.submit(_probe_comfyui)
+        providers: list[dict[str, Any]] = [automatic1111.result(), comfyui.result()]
 
     local_status = check_local_image_backend()
     providers.append(
@@ -242,10 +259,10 @@ def detect_image_providers() -> list[dict[str, Any]]:
     return providers
 
 
-def detect_image_provider() -> dict[str, Any]:
-    """Return the best currently usable provider."""
+def detect_image_provider(providers: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Return the best currently usable provider (from `providers` when given, else asked now)."""
 
-    for provider in detect_image_providers():
+    for provider in (providers if providers is not None else detect_image_providers()):
         if provider.get("available") and provider.get("implemented"):
             return provider
     return _provider(

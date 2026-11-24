@@ -5,12 +5,15 @@ from __future__ import annotations
 import os
 import importlib.util
 import json
+import threading
+import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 import requests
 
 from modules import accounts
+from modules.local_address import loopback_ipv4
 
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
@@ -68,7 +71,42 @@ def is_embedding_model(entry: dict) -> bool:
 def get_ollama_base_url() -> str:
     """Return the configured Ollama URL, defaulting to local Ollama."""
 
-    return os.environ.get("OLLAMA_URL", DEFAULT_OLLAMA_URL).rstrip("/")
+    return loopback_ipv4(os.environ.get("OLLAMA_URL", DEFAULT_OLLAMA_URL).rstrip("/"))
+
+
+# The model list is asked for from several places while one page is drawn (7 times on a first
+# visit, measured with tools/app_profile.py); within a few seconds the answer is the same.
+TAGS_CACHE_SECONDS = 5.0
+_tags_cache: dict[str, tuple[float, dict]] = {}
+_tags_guard = threading.Lock()
+
+
+def ollama_tags(base_url: Optional[str] = None, timeout: float = 2.5) -> dict:
+    """Ollama's list of installed models (GET /api/tags), asked at most once in TAGS_CACHE_SECONDS per server.
+
+    Raises what the request raises; a failure is not remembered, so the next call asks again.
+    """
+
+    url = loopback_ipv4((base_url or get_ollama_base_url()).rstrip("/"))
+    with _tags_guard:
+        cached = _tags_cache.get(url)
+        if cached is not None and time.monotonic() - cached[0] < TAGS_CACHE_SECONDS:
+            return cached[1]
+    response = OLLAMA_SESSION.get(f"{url}/api/tags", timeout=timeout)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict):
+        raise ValueError("Ollama's model list is not a JSON object")
+    with _tags_guard:
+        _tags_cache[url] = (time.monotonic(), data)
+    return data
+
+
+def forget_ollama_tags() -> None:
+    """Ask Ollama again next time (after a model was installed or removed, and between tests)."""
+
+    with _tags_guard:
+        _tags_cache.clear()
 
 
 def get_ollama_model_preferences() -> List[str]:
@@ -113,11 +151,9 @@ def rank_ollama_models(models: List[str]) -> List[str]:
 def check_ollama_status(base_url: Optional[str] = None, timeout: float = 2.5) -> ProviderStatus:
     """Check Ollama by calling GET /api/tags and returning installed models."""
 
-    resolved_url = (base_url or get_ollama_base_url()).rstrip("/")
+    resolved_url = loopback_ipv4((base_url or get_ollama_base_url()).rstrip("/"))
     try:
-        response = OLLAMA_SESSION.get(f"{resolved_url}/api/tags", timeout=timeout)
-        response.raise_for_status()
-        data = response.json()
+        data = ollama_tags(resolved_url, timeout=timeout)
         entries = [entry for entry in data.get("models", []) if entry.get("name")]
         embedding = [str(entry["name"]) for entry in entries if is_embedding_model(entry)]
         models = rank_ollama_models([str(entry["name"]) for entry in entries if not is_embedding_model(entry)])
@@ -167,7 +203,7 @@ def generate_with_ollama(
     if not model:
         return FALLBACK_RESPONSE
 
-    resolved_url = (base_url or get_ollama_base_url()).rstrip("/")
+    resolved_url = loopback_ipv4((base_url or get_ollama_base_url()).rstrip("/"))
     payload = {
         "model": model,
         "prompt": prompt,

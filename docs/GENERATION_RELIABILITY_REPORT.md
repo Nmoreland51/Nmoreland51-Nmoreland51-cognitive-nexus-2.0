@@ -123,7 +123,10 @@ the cost of a new connection to `localhost`: the app's request for a streamed an
 its last bytes were read, so its connection was closed and the next answer opened a new one, through
 the same IPv6 attempt. That is fixed after this phase (on the branch `audit/remaining-items`: local
 servers are addressed as `127.0.0.1`, and a streamed answer is read to its end so its connection is
-kept); measured there.
+kept). Measured there the same way, the app's share is +0.54 s for the short question, +0.75 s for the
+story and +0.56 s for the explanation. That is about as long as the model takes to write its first few
+words (it writes about five tokens a second), which is what the app waits for before it shows any text,
+so that leaked prompt text can be held back; it was not timed separately.
 
 **The reloads.** Before the fix the call straight to Ollama spent 4.1 to 4.6 s loading the model each
 time, although the model was loaded. Ollama's log said why: "reloading model, runner options changed".

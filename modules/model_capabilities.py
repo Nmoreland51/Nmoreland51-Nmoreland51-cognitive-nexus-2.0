@@ -23,6 +23,8 @@ from typing import Any
 
 import requests
 
+from modules.local_address import loopback_ipv4
+
 FEATURES = ("streaming", "tools", "structured_output", "vision", "embeddings")
 FEATURE_MEANING = {
     "streaming": "The answer arrives piece by piece while it is written.",
@@ -119,7 +121,7 @@ def from_ollama_show(model: str, shown: dict[str, Any]) -> ModelCapabilities:
 def for_ollama(model: str, base_url: str, *, session: Any = None, timeout: float = 4.0) -> ModelCapabilities:
     """Ask the Ollama server about one model. Cached for a few minutes; never raises."""
 
-    key = (base_url.rstrip("/"), model)
+    key = (loopback_ipv4(base_url.rstrip("/")), model)
     now = time.monotonic()
     with _lock:
         hit = _cache.get(key)

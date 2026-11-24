@@ -80,7 +80,42 @@ def answer_rows(last_provider: dict[str, Any] | None, last_rule: dict[str, Any] 
         rows.append({"What": label, "Value": value})
     for item in (meta.get("dropped_results") or [])[:6]:
         rows.append({"What": "Left out", "Value": f"{str(item.get('title') or item.get('url') or '')[:90]}: {item.get('reason', '')}"})
+    rows += sentence_rows(meta.get("sentence_sources") or [])
     return rows
 
 
-__all__ = ["RULE_STAGES", "STOP_REASONS", "answer_rows"]
+SENTENCE_KINDS = {
+    "stated": "stated on",
+    "not found": "not stated on any page read",
+    "about the sources": "about the sources, not about the world",
+    "advice": "advice, not a statement",
+}
+
+
+def sentence_rows(mapped: list[dict[str, Any]], limit: int = 8) -> list[dict[str, str]]:
+    """Which page states each sentence of a web answer (modules/claim_map.py). Sentences are named by
+    their number, not quoted, so nothing written in the chat is shown here."""
+
+    if not mapped:
+        return []
+    counts: dict[str, int] = {}
+    for item in mapped:
+        counts[str(item.get("kind"))] = counts.get(str(item.get("kind")), 0) + 1
+    counted_as = {"stated": "stated on a page read", "not found": "on no page read", "about the sources": "about the sources", "advice": "advice"}
+    rows = [{"What": "Sentences of the answer", "Value": ", ".join(f"{counts[kind]} {counted_as[kind]}" for kind in counted_as if counts.get(kind))}]
+    for number, item in enumerate(mapped[:limit], start=1):
+        kind = str(item.get("kind"))
+        if kind == "stated":
+            fetched = f", fetched {item['retrieved_at'][:16].replace('T', ' ')}" if item.get("retrieved_at") else ""
+            value = f"stated on {str(item.get('title') or item.get('url'))[:80]} ({item.get('url')}{fetched})"
+        else:
+            value = SENTENCE_KINDS.get(kind, kind)
+            if item.get("missing"):
+                value += f" (no page has {', '.join(item['missing'])})"
+        rows.append({"What": f"Sentence {number}", "Value": value})
+    if len(mapped) > limit:
+        rows.append({"What": "More sentences", "Value": f"{len(mapped) - limit} not shown"})
+    return rows
+
+
+__all__ = ["RULE_STAGES", "SENTENCE_KINDS", "STOP_REASONS", "answer_rows", "sentence_rows"]

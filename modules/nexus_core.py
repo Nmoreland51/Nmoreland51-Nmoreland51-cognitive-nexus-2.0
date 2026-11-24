@@ -62,6 +62,7 @@ from modules.response_self_critic import (
 )
 from modules.response_verifier import log_verification, verify_response
 from modules.calculator import EXPRESSION_OPTIONS, calculate, looks_like_word_problem, solve_word_problem
+from modules.claim_map import map_sentences, sources_from as claim_sources_from
 from modules.research_plan import PLAN_OPTIONS, SearchPlan, as_typed, plan_search, unsourced_names_note
 from modules.web_research import (
     NO_RESULTS_SUMMARY,
@@ -1449,6 +1450,7 @@ class NexusCore:
             summary_started = time.perf_counter()
             model_meta: dict[str, Any] = {}
             model_answered = False
+            sentence_sources: list[dict[str, Any]] = []
             if gathered["has_sources"]:
                 prompt = build_summary_prompt(query, results, gathered["scraped_pages"], brief=True, meaning=search_plan.topic if search_plan.source == "model" else "")
                 request = self._provider_request(
@@ -1464,6 +1466,11 @@ class NexusCore:
                 summary = "".join(chunks).strip()
                 model_meta = dict(getattr(self.provider_router, "last_stream_metadata", {}) or {})
                 model_answered = bool(summary) and bool(model_meta.get("success")) and model_meta.get("provider") != "fallback"
+                if model_answered:
+                    # Which page states each sentence the model wrote (item 028), for Diagnostics.
+                    sentence_sources = [
+                        item.to_dict() for item in map_sentences(summary, claim_sources_from(results, gathered["scraped_pages"]))
+                    ]
                 if not summary:
                     summary = "No summary was generated."
                     yield summary
@@ -1539,6 +1546,7 @@ class NexusCore:
                 "searches": list(gathered.get("searches") or []),
                 "dropped_results": list(gathered.get("dropped") or []),
                 "timings": dict(gathered.get("timings") or {}),
+                "sentence_sources": sentence_sources,
             }
             self._record_response_self_critic(user_message, answer, plan, settings)
             return

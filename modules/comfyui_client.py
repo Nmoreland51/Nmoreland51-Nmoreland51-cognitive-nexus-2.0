@@ -14,6 +14,7 @@ from typing import Any
 import requests
 
 from modules.data_stores import DATA_ROOT
+from modules.local_address import loopback_ipv4
 from modules.nexus_config import load_runtime_config
 
 
@@ -68,19 +69,39 @@ class ComfyUIClient:
 
     def __init__(self, base_url: str | None = None, timeout: float = 5.0) -> None:
         config = load_runtime_config()
-        self.base_url = (base_url or str(config.get("comfyui_url", "http://127.0.0.1:8188"))).rstrip("/")
+        self.base_url = loopback_ipv4((base_url or str(config.get("comfyui_url", "http://127.0.0.1:8188"))).rstrip("/"))
         self.timeout = timeout
         self.session = requests.Session()
+        self._last_status: tuple[float, ComfyUIStatus] | None = None
         ensure_comfy_dirs()
 
-    def detect(self) -> ComfyUIStatus:
-        """Detect whether the ComfyUI server is reachable."""
+    # The Images tab is drawn again on every click in the app, and asking a ComfyUI that is not
+    # running took 1.7 s each time on the development machine (tools/app_profile.py). The answer
+    # is kept this long; running a workflow always asks again.
+    DETECT_CACHE_SECONDS = 30.0
+    # A ComfyUI on this machine answers within milliseconds; one that is not running is reported after this.
+    PROBE_TIMEOUT = 0.75
 
+    def detect(self, *, fresh: bool = False) -> ComfyUIStatus:
+        """Detect whether the ComfyUI server is reachable (kept for DETECT_CACHE_SECONDS unless fresh)."""
+
+        if not fresh and self._last_status is not None and time.monotonic() - self._last_status[0] < self.DETECT_CACHE_SECONDS:
+            return self._last_status[1]
+        status = self._probe()
+        self._last_status = (time.monotonic(), status)
+        return status
+
+    def forget_status(self) -> None:
+        """Ask the server again next time (the Refresh button)."""
+
+        self._last_status = None
+
+    def _probe(self) -> ComfyUIStatus:
         try:
-            response = self.session.get(f"{self.base_url}/system_stats", timeout=1.5)
+            response = self.session.get(f"{self.base_url}/system_stats", timeout=self.PROBE_TIMEOUT)
             if response.ok:
                 return ComfyUIStatus(True, "ComfyUI is reachable.", self.base_url)
-            root = self.session.get(self.base_url, timeout=1.5)
+            root = self.session.get(self.base_url, timeout=self.PROBE_TIMEOUT)
             if root.ok or root.status_code in {200, 404}:
                 return ComfyUIStatus(True, "ComfyUI server responded.", self.base_url)
             return ComfyUIStatus(False, f"ComfyUI returned HTTP {root.status_code}.", self.base_url)
@@ -207,7 +228,7 @@ class ComfyUIClient:
     ) -> ComfyUIResult:
         """Patch prompt text, run the workflow, poll status, and save images/metadata."""
 
-        status = self.detect()
+        status = self.detect(fresh=True)
         if not status.available:
             return ComfyUIResult(success=False, error=status.message)
 

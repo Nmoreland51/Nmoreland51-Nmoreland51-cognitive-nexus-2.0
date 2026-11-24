@@ -937,6 +937,53 @@
     "tokens_per_second_app": 5.07,
     "tokens_per_second_alone": 5.1
    }
+  },
+  "profile_after_connection_fix": {
+   "short_question": {
+    "first_word_app": 1.02,
+    "first_word_ollama_alone": 0.48,
+    "overhead": 0.54,
+    "prompt_read_app": [
+     200,
+     0.2
+    ],
+    "prompt_read_alone": [
+     34,
+     0.45
+    ],
+    "tokens_per_second_app": 5.03,
+    "tokens_per_second_alone": 5.3
+   },
+   "story_150": {
+    "first_word_app": 1.45,
+    "first_word_ollama_alone": 0.7,
+    "overhead": 0.75,
+    "prompt_read_app": [
+     231,
+     0.2
+    ],
+    "prompt_read_alone": [
+     37,
+     0.67
+    ],
+    "tokens_per_second_app": 5.02,
+    "tokens_per_second_alone": 5.2
+   },
+   "explanation_300": {
+    "first_word_app": 1.26,
+    "first_word_ollama_alone": 0.7,
+    "overhead": 0.56,
+    "prompt_read_app": [
+     284,
+     0.2
+    ],
+    "prompt_read_alone": [
+     37,
+     0.67
+    ],
+    "tokens_per_second_app": 5.05,
+    "tokens_per_second_alone": 5.1
+   }
   }
  },
  "profile_superseded": {
@@ -1223,6 +1270,81 @@
  "profile_measured_at": "2026-11-24 08:33",
  "profile_code": {
   "profile": "f7b4892 (this branch's code)",
-  "profile_before": "44c49e7 (the code before the corrective phase)"
- }
+  "profile_before": "44c49e7 (the code before the corrective phase)",
+  "profile_after_connection_fix": "audit/remaining-items, with local servers addressed as 127.0.0.1 and streamed answers read to their end"
+ },
+ "profile_after_connection_fix": [
+  {
+   "id": "short_question",
+   "app": {
+    "first_word_seconds": 1.02,
+    "total_seconds": 11.0,
+    "output_tokens": 54,
+    "tokens_per_second": 5.03,
+    "prompt_tokens": 200,
+    "prompt_seconds": 0.2,
+    "num_ctx": 2048,
+    "num_predict": 140,
+    "temperature": 0.1
+   },
+   "direct": {
+    "first_word_seconds": 0.48,
+    "total_seconds": 6.9,
+    "output_tokens": 34,
+    "tokens_per_second": 5.3,
+    "load_seconds": 0.01,
+    "prompt_tokens_read": 34,
+    "prompt_seconds": 0.45
+   },
+   "first_word_overhead_seconds": 0.54
+  },
+  {
+   "id": "story_150",
+   "app": {
+    "first_word_seconds": 1.45,
+    "total_seconds": 33.4,
+    "output_tokens": 166,
+    "tokens_per_second": 5.02,
+    "prompt_tokens": 231,
+    "prompt_seconds": 0.2,
+    "num_ctx": 4096,
+    "num_predict": 780,
+    "temperature": 0.55
+   },
+   "direct": {
+    "first_word_seconds": 0.7,
+    "total_seconds": 24.5,
+    "output_tokens": 124,
+    "tokens_per_second": 5.2,
+    "load_seconds": 0.01,
+    "prompt_tokens_read": 37,
+    "prompt_seconds": 0.67
+   },
+   "first_word_overhead_seconds": 0.75
+  },
+  {
+   "id": "explanation_300",
+   "app": {
+    "first_word_seconds": 1.26,
+    "total_seconds": 51.0,
+    "output_tokens": 256,
+    "tokens_per_second": 5.05,
+    "prompt_tokens": 284,
+    "prompt_seconds": 0.2,
+    "num_ctx": 4096,
+    "num_predict": 558,
+    "temperature": 0.55
+   },
+   "direct": {
+    "first_word_seconds": 0.7,
+    "total_seconds": 74.9,
+    "output_tokens": 376,
+    "tokens_per_second": 5.1,
+    "load_seconds": 0.01,
+    "prompt_tokens_read": 37,
+    "prompt_seconds": 0.67
+   },
+   "first_word_overhead_seconds": 0.56
+  }
+ ]
 }

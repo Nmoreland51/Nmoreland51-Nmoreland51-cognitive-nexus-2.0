@@ -31,6 +31,7 @@ from typing import Any, Protocol, Sequence
 import requests
 
 from modules.event_log import record_event
+from modules.local_address import loopback_ipv4
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class OllamaEmbedder:
 
     def __init__(self, model: str, base_url: str, session: Any = None, timeout: float = 120.0) -> None:
         self.model = model
-        self.base_url = base_url.rstrip("/")
+        self.base_url = loopback_ipv4(base_url.rstrip("/"))
         self.name = f"ollama:{model}"
         self._session = session or requests.Session()
         self._timeout = timeout
@@ -157,9 +158,16 @@ def installed_ollama_embedding_models(base_url: str, session: Any = None, timeou
     """Embedding models Ollama has, in order of preference. Empty when Ollama is not reachable."""
 
     try:
-        response = (session or requests).get(f"{base_url.rstrip('/')}/api/tags", timeout=timeout)
-        response.raise_for_status()
-        names = [str(item.get("name") or "") for item in response.json().get("models") or []]
+        if session is None:
+            # The same short-lived model list as the chat side (modules/providers.ollama_tags).
+            from modules.providers import ollama_tags
+
+            listed = ollama_tags(base_url, timeout=timeout)
+        else:
+            response = session.get(f"{loopback_ipv4(base_url.rstrip('/'))}/api/tags", timeout=timeout)
+            response.raise_for_status()
+            listed = response.json()
+        names = [str(item.get("name") or "") for item in listed.get("models") or []]
     except Exception:
         return []
     found: list[str] = []
@@ -193,7 +201,7 @@ def choose_embedder(
 
     configured = normalize_backend(backend if backend is not None else os.environ.get("KNOWLEDGE_EMBEDDING_BACKEND"))
     wanted_model = (model if model is not None else os.environ.get("KNOWLEDGE_EMBEDDING_MODEL") or "").strip()
-    url = (ollama_url or os.environ.get("OLLAMA_URL") or "http://localhost:11434").rstrip("/")
+    url = loopback_ipv4((ollama_url or os.environ.get("OLLAMA_URL") or "http://localhost:11434").rstrip("/"))
 
     def status(embedder: Embedder, runtime: str, model_name: str, message: str, degraded: bool) -> tuple[Embedder, dict[str, Any]]:
         return embedder, {

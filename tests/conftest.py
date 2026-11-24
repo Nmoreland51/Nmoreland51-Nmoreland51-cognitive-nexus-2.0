@@ -48,6 +48,18 @@ def default_handling_of_outside_text():
 
 
 @pytest.fixture(autouse=True)
+def fresh_ollama_model_list():
+    """The model list is kept for a few seconds (modules/providers.ollama_tags); no test may see
+    another test's answer."""
+
+    from modules import providers
+
+    providers.forget_ollama_tags()
+    yield
+    providers.forget_ollama_tags()
+
+
+@pytest.fixture(autouse=True)
 def accounts_file_per_test(tmp_path, monkeypatch):
     """Linked accounts are saved in one file; every test gets an empty one of its own."""
 
