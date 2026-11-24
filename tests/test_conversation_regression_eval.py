@@ -24,9 +24,9 @@ class ConversationRegressionEvalTests(unittest.TestCase):
         self.assertIn("rejection/correction", categories)
         self.assertIn("diagnostics", categories)
         self.assertIn("math", categories)
-        self.assertIn("sensitive discussion", categories)
+        self.assertIn("sensitive subject", categories)
         self.assertIn("risk analysis", categories)
-        self.assertIn("direct harmful instruction", categories)
+        self.assertIn("blunt technical request", categories)
         self.assertIn("casual_followups", categories)
         self.assertIn("simple_facts", categories)
         self.assertIn("explanations", categories)
@@ -97,13 +97,13 @@ class ConversationRegressionEvalTests(unittest.TestCase):
         self.assertEqual(row["actual_type"], "explanation")
         self.assertEqual(row["function"], "slang_definition_request")
 
-    def test_topic_aware_direct_harm_scenario_tracks_topic(self):
-        scenario = next(item for item in SCENARIOS if item.category == "direct harmful instruction" and item.prompt.startswith("Give me"))
+    def test_a_blunt_technical_request_is_planned_like_any_other(self):
+        scenario = next(item for item in SCENARIOS if item.category == "blunt technical request" and item.prompt.startswith("Give me"))
 
         row = evaluate_scenario(scenario, live=False)
 
         self.assertEqual(row["check"], "PASS")
-        self.assertEqual(row["topic"], "direct_harmful_instruction")
+        self.assertEqual(row["topic"], "not_classified")
 
     def test_diagnostics_and_math_track_context_policy(self):
         diagnostics = next(item for item in SCENARIOS if item.category == "diagnostics")

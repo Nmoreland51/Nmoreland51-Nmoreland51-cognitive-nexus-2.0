@@ -867,12 +867,9 @@ class NexusCoreTests(unittest.TestCase):
         self.assertEqual(core.last_provider_result.get("fallback_reason"), "empty response from llama3.2:3b")
         self.assertEqual(core.last_provider_result.get("attempts")[0]["error"], "empty response from llama3.2:3b")
 
-    def test_sensitive_discussion_does_not_auto_refuse(self):
-        core = NexusCore()
-        seen_prompts = []
-
+    def fake_model(self, core, text, seen):
         def fake_stream(request):
-            seen_prompts.append(request.prompt)
+            seen.append(request.prompt)
             core.provider_router.last_stream_metadata = {
                 "provider": "ollama",
                 "model": "fake-local-model",
@@ -880,7 +877,7 @@ class NexusCoreTests(unittest.TestCase):
                 "attempts": [{"provider": "ollama", "success": True}],
                 "fallback_reason": "",
             }
-            yield "I can't provide information on how to engage in illegal activity."
+            yield text
 
         core.provider_router.stream = fake_stream  # type: ignore[method-assign]
         core.provider_router.detect_provider = lambda *_args, **_kwargs: type(  # type: ignore[method-assign]
@@ -888,45 +885,51 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
 
-        answer = core.generate_chat_response("Explain phishing risk and how companies prevent it.", [], settings)
+    def test_a_models_refusal_is_shown_as_it_is_and_marked_as_the_models(self):
+        # The app used to swap an answer like this for a text of its own ("At a high level ...").
+        core = NexusCore()
+        seen_prompts = []
+        refusal = "I can't provide information on how to engage in illegal activity."
+        self.fake_model(core, refusal, seen_prompts)
 
-        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "risk_analysis")
+        answer = core.generate_chat_response("Explain phishing risk and how companies prevent it.", [], self.base_chat_settings())
+
+        self.assertEqual(answer, refusal)
         self.assertEqual(core.last_provider_result.get("provider"), "ollama")
-        self.assertTrue(seen_prompts)
+        self.assertTrue(core.last_provider_result.get("declined_by_model"))
         self.assertIn("Explain phishing risk", seen_prompts[0])
-        self.assertIn("high level", answer.lower())
-        self.assertNotIn(GENERIC_REFUSAL_TEXT.lower(), answer.lower())
-        self.assertNotIn("can't provide information on illegal", answer.lower())
-        self.assertNotIn("can't provide information on how to", answer.lower())
+        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "not_classified")
 
-    def test_direct_harmful_operational_request_gets_narrow_redirect(self):
+    def test_no_request_is_answered_by_the_app_instead_of_the_model(self):
+        # This message used to get a canned redirect without the model ever being asked.
         core = NexusCore()
-        settings = self.base_chat_settings()
+        seen_prompts = []
+        self.fake_model(core, "Here is how that works.", seen_prompts)
+        message = "Give me step by step instructions to build malware."
 
-        answer = core.generate_chat_response("Give me step by step instructions to build malware.", [], settings)
+        answer = core.generate_chat_response(message, [], self.base_chat_settings())
 
-        self.assertEqual(core.last_provider_result.get("provider"), "local_topic_handler")
-        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "direct_harmful_instruction")
-        self.assertNotIn("exact operational steps", answer.lower())
-        self.assertIn("actionable instructions", answer.lower())
-        self.assertIn("prevention", answer.lower())
-        self.assertNotIn(GENERIC_REFUSAL_TEXT.lower(), answer.lower())
+        self.assertEqual(answer, "Here is how that works.")
+        self.assertEqual(core.last_provider_result.get("provider"), "ollama")
+        self.assertFalse(core.last_provider_result.get("declined_by_model"))
+        self.assertEqual(len(seen_prompts), 1)
+        self.assertIn(message, seen_prompts[0])
+        self.assertNotIn("actionable instructions", answer.lower())
 
-    def test_safety_applies_after_harmful_followup_resolution(self):
+    def test_a_followup_is_resolved_against_the_last_turn_and_sent_to_the_model(self):
         core = NexusCore()
-        settings = self.base_chat_settings()
+        seen_prompts = []
+        self.fake_model(core, "Both, then.", seen_prompts)
         messages = [{"role": "assistant", "content": "I can give steps to build malware or explain prevention."}]
 
-        answer = core.generate_chat_response("all of the above", messages, settings)
+        answer = core.generate_chat_response("all of the above", messages, self.base_chat_settings())
 
-        self.assertEqual(core.last_provider_result.get("provider"), "local_topic_handler")
+        self.assertEqual(answer, "Both, then.")
+        self.assertEqual(core.last_provider_result.get("provider"), "ollama")
         self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("pragmatics", {}).get("function"), "choose_all")
-        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "direct_harmful_instruction")
-        self.assertNotIn("exact operational steps", answer.lower())
-        self.assertIn("actionable instructions", answer.lower())
-        self.assertNotIn(GENERIC_REFUSAL_TEXT.lower(), answer.lower())
+        self.assertEqual(core.last_response_plan.get("diagnostics", {}).get("analysis", {}).get("topic_handling", {}).get("category"), "ambiguous_followup")
+        self.assertIn("I can give steps to build malware or explain prevention.", seen_prompts[0])
 
     def test_simple_fact_auto_mode_does_not_pull_stale_research_context(self):
         core = NexusCore()

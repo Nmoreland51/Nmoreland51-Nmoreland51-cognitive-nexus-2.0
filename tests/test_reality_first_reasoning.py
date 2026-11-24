@@ -7,17 +7,27 @@ from core.reasoning.reality_model import model_reality
 
 
 class RealityFirstReasoningTests(unittest.TestCase):
-    def test_time_machine_blocks_procedural_fiction(self):
+    def test_time_machine_is_recognised_as_fiction_and_written_as_asked(self):
         assessment = analyze_epistemic_request("How do I build a time machine with temporal stabilizers?")
         self.assertEqual(assessment.reality.reality_status, "fictional_construct")
-        self.assertFalse(assessment.feasibility.procedural_allowed)
+        self.assertFalse(assessment.feasibility.procedural_allowed)  # the assessment itself is unchanged
+        # The default labels: nothing is held back.
+        self.assertIn("Write it as asked, in full detail.", assessment.constraints.instruction)
+        self.assertNotIn("Do not provide step-by-step", assessment.constraints.instruction)
+
+    def test_time_machine_detail_is_held_back_only_when_the_owner_chooses_that(self):
+        assessment = analyze_epistemic_request("How do I build a time machine with temporal stabilizers?", reality_check="withhold")
         self.assertIn("Do not provide step-by-step", assessment.constraints.instruction)
 
     def test_perpetual_motion_is_impossible(self):
-        assessment = analyze_epistemic_request("Give me steps to build a perpetual motion machine.")
+        question = "Give me steps to build a perpetual motion machine."
+        assessment = analyze_epistemic_request(question)
         self.assertEqual(assessment.reality.reality_status, "impossible_under_current_science")
         self.assertEqual(assessment.feasibility.level, "impossible")
-        self.assertFalse(assessment.constraints.allow_procedural_framing)
+        # Labelled, answered in full by default; the earlier withholding is the owner's option.
+        self.assertTrue(assessment.constraints.allow_procedural_framing)
+        self.assertIn("what does not exist or is not possible today", " ".join(assessment.constraints.instruction.split()))
+        self.assertFalse(analyze_epistemic_request(question, reality_check="withhold").constraints.allow_procedural_framing)
 
     def test_wormholes_are_theoretical_not_engineering(self):
         assessment = analyze_epistemic_request("How would engineers build a wormhole prototype?")
