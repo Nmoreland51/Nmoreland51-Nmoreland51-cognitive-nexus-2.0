@@ -75,7 +75,10 @@ def verify_independently(task: dict[str, Any], repository: Path, branch: str, sc
     """Check a finished task without trusting the agent: a fresh clone of its branch, the tests run again."""
 
     clone = scratch / "verify"
-    subprocess.run(["git", "clone", "-q", "--branch", branch, str(repository), str(clone)], check=True, capture_output=True)
+    # core.autocrlf=false: where Git is set up to convert line endings on checkout (the default
+    # of Git for Windows, and of GitHub's Windows runners), an untouched test file would
+    # otherwise differ from the original byte for byte and a correct fix would not count.
+    subprocess.run(["git", "clone", "-q", "-c", "core.autocrlf=false", "--branch", branch, str(repository), str(clone)], check=True, capture_output=True)
     tests_untouched = all((clone / name).read_bytes() == content.encode("utf-8") for name, content in task["files"].items() if is_protected(name))
     passed = True
     for command in task["acceptance"]:
