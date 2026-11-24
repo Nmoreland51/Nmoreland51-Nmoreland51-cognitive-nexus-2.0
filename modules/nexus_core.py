@@ -22,6 +22,7 @@ from modules.context_manager import (
 )
 from modules.image_gen import ImageGenerationRequest, generate_images
 from modules.behavior_policy import (
+    JUDGE_OPTIONS,
     ContentRuleBlocked,
     RuleDecision,
     check_content_rule,
@@ -281,7 +282,7 @@ class NexusCore:
             return "Got it, no on that. What should I change or skip?"
         return "Got it. I'll continue from the immediate previous point."
 
-    def content_rule(self, text: str, settings: dict[str, Any] | None = None, recent: str = "") -> RuleDecision:
+    def content_rule(self, text: str, settings: dict[str, Any] | None = None, recent: str = "", kind: str = "text") -> RuleDecision:
         """Apply the app's one content rule (no sexual content involving minors) to a request.
 
         See modules/behavior_policy.check_content_rule. A model is asked only when a first, cheap
@@ -295,19 +296,19 @@ class NexusCore:
         set_untrusted_mode(policy_from({**self.config, **settings}).untrusted_content)
 
         def judge(prompt: str) -> str:
-            return self._model_text(prompt, settings, {"temperature": 0.0, "num_predict": 3})
+            return self._model_text(prompt, settings, dict(JUDGE_OPTIONS))
 
-        decision = check_content_rule(text, recent, judge)
+        decision = check_content_rule(text, recent, judge, kind)
         self.last_content_rule = decision.to_dict()
         if decision.blocked:
             # The event records that it happened and at which stage, never the message.
             record_event("content_rule", "A request was not answered under the app's one content rule", stage=decision.stage)
         return decision
 
-    def _require_content_rule(self, text: str, settings: dict[str, Any] | None = None) -> None:
+    def _require_content_rule(self, text: str, settings: dict[str, Any] | None = None, kind: str = "text") -> None:
         """For entry points other than chat: stop with ContentRuleBlocked when the rule applies."""
 
-        decision = self.content_rule(text, settings)
+        decision = self.content_rule(text, settings, kind=kind)
         if decision.blocked:
             raise ContentRuleBlocked(decision)
 
@@ -637,10 +638,9 @@ class NexusCore:
         profile = settings.get("chat_profile")
         minimal_context = bool(settings.get("_minimal_context_for_turn", False))
         if minimal_context:
-            routed_system = (
-                "You are Cognitive Nexus. Answer only the current user message. "
-                "Be brief, direct, and natural. Do not use old chat, files, memory, research, or unrelated topics."
-            )
+            # Who the assistant is and how it should sound is said once, in the system prompt, by the
+            # owner's text. This line only keeps a quick turn from dragging in old material.
+            routed_system = "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics."
         else:
             base_prompt = chat_system_prompt(profile, {**self.config, **settings})
             routed_system = build_routed_prompt(
@@ -1904,7 +1904,7 @@ class NexusCore:
         what to leave out and is not part of the request.
         """
 
-        self._require_content_rule(str(request.prompt or ""))
+        self._require_content_rule(str(request.prompt or ""), kind="image")
         return generate_images(request)
 
     def run_comfyui_workflow(
@@ -1917,7 +1917,7 @@ class NexusCore:
     ):
         """Run a ComfyUI workflow through the central client."""
 
-        self._require_content_rule(str(prompt or ""))
+        self._require_content_rule(str(prompt or ""), kind="image")
         return self.comfyui.run_workflow(
             workflow=workflow,
             prompt=prompt,
