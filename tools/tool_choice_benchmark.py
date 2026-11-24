@@ -57,7 +57,7 @@ def fingerprint() -> str:
     """Changes whenever what the model is shown, or the shape it is held to, changes."""
 
     tools = toolcall.offered(registry())
-    shown = toolcall.build_prompt("REQUEST", tools, []) + json.dumps(toolcall.step_schema(tools), sort_keys=True)
+    shown = toolcall.build_prompt("REQUEST", tools, []) + json.dumps(toolcall.step_schema(tools), sort_keys=True) + toolcall.NOT_SENT + toolcall.NOT_FETCHED
     return hashlib.sha256(shown.encode("utf-8")).hexdigest()[:16]
 
 

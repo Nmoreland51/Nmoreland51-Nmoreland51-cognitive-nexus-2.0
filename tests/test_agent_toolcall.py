@@ -174,7 +174,7 @@ def test_a_page_is_only_fetched_if_its_address_came_from_the_request_or_a_search
     outcome = toolcall.run(obedient, world.registry, world.context, f"Summarise {PAGE}")
 
     assert world.fetched == [PAGE]
-    assert outcome.steps[1].status == "refused" and "only read if its address was in the request, in a search result or among the links of a page already read" in outcome.steps[1].shown
+    assert outcome.steps[1].status == "refused" and outcome.steps[1].shown == toolcall.NOT_FETCHED
     # An address a search returned is fine.
     world.fetched.clear()
     found = ScriptedModel([step("web_search", query="numpy"), step("read_page", url="https://example.org/numpy-news"), final("9.9.9")])
@@ -212,7 +212,7 @@ def test_after_private_documents_were_read_nothing_more_is_sent_out(world):
     outcome = toolcall.run(leaking, world.registry, world.context, "What is my alarm code, and was that brand recalled?")
 
     assert world.searched == []  # the private text never reached a search engine
-    assert outcome.steps[1].status == "refused" and "nothing more is sent to other machines" in outcome.steps[1].shown
+    assert outcome.steps[1].status == "refused" and outcome.steps[1].shown == toolcall.NOT_SENT and "Do not guess that part" in toolcall.NOT_SENT
     assert outcome.answer == "The code is 4417." and [action["tool"] for action in world.store.actions()] == ["search_knowledge"]
 
 

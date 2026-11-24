@@ -41,6 +41,15 @@ from agent.registry import ToolContext, ToolRegistry
 from core.reality_grounding.prompt_firewall import defuse_untrusted_text, fence_untrusted
 
 ANSWER = "answer"
+# What the model is told when one of the two rules below stops a call. Part of what is measured.
+NOT_SENT = (
+    "Not done: documents from the owner's knowledge base were read in this run, so nothing more is sent to other machines. "
+    "Answer from what you have, and say plainly which part of the request could not be checked. Do not guess that part."
+)
+NOT_FETCHED = (
+    "Not done: a page is only read if its address was in the request, in a search result or among the links of a page already read. "
+    "Search first, or answer from what you have and say what could not be read."
+)
 READ_ONLY_EFFECTS = ("read", "network")
 PRIVATE_ADAPTERS = ("knowledge",)
 _URL = re.compile(r"https?://[^\s\"'<>)\]]+")
@@ -235,10 +244,10 @@ def run(
         done.add(signature)
         # The two rules about where data may go (see the module text).
         if tool["effect"] == "network" and private_read and not private_then_network:
-            steps.append(Step(name, arguments, status="refused", shown="Not done: documents from the owner's knowledge base were read in this run, so nothing more is sent to other machines. Answer from what you have."))
+            steps.append(Step(name, arguments, status="refused", shown=NOT_SENT))
             continue
         if name == "read_page" and arguments.get("url") not in known_addresses:
-            steps.append(Step(name, arguments, status="refused", shown="Not done: a page is only read if its address was in the request, in a search result or among the links of a page already read. Search first, or answer from what you have."))
+            steps.append(Step(name, arguments, status="refused", shown=NOT_FETCHED))
             continue
         result = registry.call(name, arguments, context, step=f"ask.{len(steps) + 1}.{calls}")
         if result.status == "needs_approval":
