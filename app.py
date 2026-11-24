@@ -65,6 +65,7 @@ from modules.nexus_core import NexusCore
 from modules.web_research import search_sources_status
 from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
+from ui.agent_panel import render_agent_panel
 from ui.behavior_panel import render_behavior_panel
 from ui.data_panel import render_data_panel, start_daily_snapshot
 from nexus_router import (
@@ -114,6 +115,7 @@ TAB_LABELS = [
     "Diagnostics",
     "Settings",
     "Tools / Utilities",
+    "Agent",
 ]
 
 _WINDOWS_PATH_RE = re.compile(r"[A-Za-z]:\\[^\s`'\"<>|]+")
@@ -2339,6 +2341,28 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
         st.json(get_prompt_template_examples())
 
 
+def render_agent_tab(settings: dict[str, Any]) -> None:
+    """The coding agent: tasks, what waits for the owner, and everything it did."""
+
+    from agent.cli import build_agent
+    from agent.handlers import default_handlers
+    from agent.jobs import Worker
+    from agent.store import AgentStore
+
+    store = AgentStore()
+    model = str(settings.get("selected_model") or "")
+
+    def build():
+        return build_agent(store, model)
+
+    render_agent_panel(
+        store,
+        build,
+        read_only=is_demo_safe(settings),
+        make_worker=lambda queue: Worker(queue, default_handlers(queue, build), capacity=1),
+    )
+
+
 def load_demo_data():
     if "messages" not in st.session_state or not st.session_state.messages:
         st.session_state.messages = [
@@ -2525,6 +2549,8 @@ def main() -> None:
         render_settings_tab(settings)
     with tabs[10]:
         render_tools_tab(settings)
+    with tabs[11]:
+        render_agent_tab(settings)
 
 
 if __name__ == "__main__":
