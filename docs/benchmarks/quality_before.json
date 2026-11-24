@@ -1,7 +1,7 @@
 {
  "measured_at": "2026-11-23 23:14",
  "model": "dolphin3:8b",
- "code": "C:\\Users\\Nmore\\AppData\\Local\\Temp\\claude\\d6eb3c563740ff34\\bf922277-de20-4da7-ab0c-41c74f6ca949\\scratchpad\\vw",
+ "code": "a separate checkout of 44c49e7 (--root)",
  "chat_settings": {
   "throughput_mode": "fast",
   "target_tokens_per_second": 60,

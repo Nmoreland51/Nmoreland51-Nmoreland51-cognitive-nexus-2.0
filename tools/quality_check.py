@@ -351,7 +351,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     setup(args.root.resolve())
     cases = json.loads(CASES.read_text(encoding="utf-8"))
-    report: dict[str, Any] = {"measured_at": time.strftime("%Y-%m-%d %H:%M"), "model": args.model, "code": str(args.root.resolve()), "chat_settings": CHAT_DEFAULTS}
+    # Which code was measured is recorded by its commit (below), never by its path on this machine.
+    code = "this checkout" if args.root.resolve() == HERE.resolve() else "a separate checkout (--root)"
+    report: dict[str, Any] = {"measured_at": time.strftime("%Y-%m-%d %H:%M"), "model": args.model, "code": code, "chat_settings": CHAT_DEFAULTS}
     try:
         import subprocess
 
