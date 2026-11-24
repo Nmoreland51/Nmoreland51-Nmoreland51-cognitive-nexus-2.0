@@ -1,0 +1,289 @@
+{
+ "about": "Ambiguous local searches for tools/research_relevance_benchmark.py, with a fixed pool of search results per question (names are made up). 'about' says whether a result is about what was asked or about another meaning of a word in it. 'dev' is the owner's Omaha question, which the planner was written for; 'heldout' was written at the same time and run afterwards, with nothing adjusted to it. The search engine is simulated: it ranks the pool by how many of the query's words a result contains, as a keyword search does, so the old pipeline gets what the question's words match.",
+ "cases": [
+  {
+   "id": "omaha_weed",
+   "set": "dev",
+   "question": "Search the web for the best weed in Omaha.",
+   "typed": "best weed in Omaha",
+   "pool": [
+    {
+     "title": "Best 24 Weed Control Service in Omaha, NE",
+     "snippet": "Lawn weed control and fertilization for Omaha homes. Free estimates on weed control service.",
+     "url": "https://www.yellowpages.example/omaha-ne/weed-control-service",
+     "about": "other"
+    },
+    {
+     "title": "Common Omaha Lawn Weeds and How to Handle Them",
+     "snippet": "Crabgrass, dandelions and creeping charlie: the weeds Omaha lawns see most, and the best way to get rid of them.",
+     "url": "https://lawncare.example/common-weeds-in-omaha-lawns",
+     "about": "other"
+    },
+    {
+     "title": "Best Weed Killer for Lawns 2026",
+     "snippet": "We tested 14 herbicides for dandelions and crabgrass. The best weed killer for most lawns.",
+     "url": "https://garden.example/best-weed-killer",
+     "about": "other"
+    },
+    {
+     "title": "Top 10 Best Cannabis Dispensaries in Omaha, NE",
+     "snippet": "Find dispensaries near Omaha with reviews and hours.",
+     "url": "https://www.yelp.example/search?find_desc=cannabis+dispensaries&find_loc=Omaha",
+     "about": "asked"
+    },
+    {
+     "title": "Nebraska medical cannabis: what is legal in 2026",
+     "snippet": "Nebraska voters approved medical cannabis; recreational use remains illegal. What Omaha patients need to know about dispensary licences.",
+     "url": "https://news.example/nebraska-medical-cannabis-2026",
+     "about": "asked"
+    },
+    {
+     "title": "Riverside Green Dispensary, Council Bluffs: menu and prices",
+     "snippet": "Medical cannabis dispensary across the river from Omaha. Current menu, strains and prices for registered patients.",
+     "url": "https://riversidegreen.example/menu",
+     "about": "asked"
+    },
+    {
+     "title": "Where in Omaha is THCA sold? r/Omaha",
+     "snippet": "Locals compare smoke shops in Omaha that sell THCA flower and hemp products.",
+     "url": "https://www.reddit.example/r/Omaha/comments/thca",
+     "about": "asked"
+    },
+    {
+     "title": "Best cannabis strains of 2026, ranked",
+     "snippet": "The top-rated weed strains this year by potency, flavour and effects.",
+     "url": "https://cannabisguide.example/best-strains-2026",
+     "about": "asked"
+    }
+   ]
+  },
+  {
+   "id": "denver_jaguar",
+   "set": "heldout",
+   "question": "Where can I buy a jaguar in Denver?",
+   "typed": "buy a jaguar in Denver",
+   "pool": [
+    {
+     "title": "Jaguars at the Denver Zoo",
+     "snippet": "Meet the jaguars at the Denver Zoo's Predator Ridge, open daily.",
+     "url": "https://denverzoo.example/animals/jaguar",
+     "about": "other"
+    },
+    {
+     "title": "Jaguar facts: the big cat of the Americas",
+     "snippet": "Jaguars are the largest cats in the Americas. Learn about their habitat and diet.",
+     "url": "https://wildlife.example/jaguar-facts",
+     "about": "other"
+    },
+    {
+     "title": "Jacksonville Jaguars at Denver Broncos: buy tickets",
+     "snippet": "Buy tickets for the Jaguars game in Denver this season.",
+     "url": "https://tickets.example/jaguars-at-broncos",
+     "about": "other"
+    },
+    {
+     "title": "Mile High Jaguar Land Rover Denver - new and used Jaguar cars",
+     "snippet": "Shop new Jaguar models and certified pre-owned Jaguar vehicles at our Denver dealership.",
+     "url": "https://milehighjaguar.example/inventory",
+     "about": "asked"
+    },
+    {
+     "title": "Used Jaguar for sale in Denver, CO",
+     "snippet": "Browse used Jaguar F-Pace and XF listings near Denver with prices.",
+     "url": "https://cars.example/search?make=jaguar&city=denver",
+     "about": "asked"
+    },
+    {
+     "title": "Jaguar XF review 2026",
+     "snippet": "The Jaguar XF sedan: price, performance and what owners say.",
+     "url": "https://autoreview.example/jaguar-xf-2026",
+     "about": "asked"
+    }
+   ]
+  },
+  {
+   "id": "houston_crane",
+   "set": "heldout",
+   "question": "Search for the best crane rental in Houston.",
+   "typed": "best crane rental in Houston",
+   "pool": [
+    {
+     "title": "Whooping crane tours near Houston",
+     "snippet": "See the endangered whooping cranes on a guided bird watching tour from Houston.",
+     "url": "https://birding.example/whooping-crane-tours",
+     "about": "other"
+    },
+    {
+     "title": "Sandhill crane migration in Texas",
+     "snippet": "When and where to see sandhill cranes in Texas this winter, the best viewing spots.",
+     "url": "https://birds.example/sandhill-crane-texas",
+     "about": "other"
+    },
+    {
+     "title": "Bayou Lift Crane Rental Houston - mobile cranes",
+     "snippet": "Mobile and crawler crane rental in Houston with certified operators. 30 to 300 ton cranes.",
+     "url": "https://bayoulift.example/crane-rental",
+     "about": "asked"
+    },
+    {
+     "title": "Best crane rental companies in Houston, TX",
+     "snippet": "Compare crane rental companies in Houston by rates, reviews and fleet.",
+     "url": "https://contractors.example/search?service=crane-rental&city=houston",
+     "about": "asked"
+    },
+    {
+     "title": "How much does crane rental cost in 2026?",
+     "snippet": "Hourly and daily crane rental rates for mobile, tower and crawler cranes.",
+     "url": "https://equipmentguide.example/crane-rental-cost",
+     "about": "asked"
+    }
+   ]
+  },
+  {
+   "id": "boston_mercury",
+   "set": "heldout",
+   "question": "How much mercury is in the tuna sold in Boston?",
+   "typed": "mercury in tuna sold in Boston",
+   "pool": [
+    {
+     "title": "Mercury Marine outboard engines - Boston dealer",
+     "snippet": "Shop Mercury outboard motors and boat engines at our Boston dealership.",
+     "url": "https://boatsboston.example/mercury-outboards",
+     "about": "other"
+    },
+    {
+     "title": "See Mercury in the evening sky over Boston",
+     "snippet": "The planet Mercury is visible after sunset this week from Boston.",
+     "url": "https://skywatch.example/mercury-visible-boston",
+     "about": "other"
+    },
+    {
+     "title": "Mercury levels in commercial fish and shellfish",
+     "snippet": "FDA table of mean mercury concentrations in tuna, swordfish and other fish.",
+     "url": "https://fda.example/mercury-levels-fish",
+     "about": "asked"
+    },
+    {
+     "title": "Study finds mercury in Boston supermarket tuna",
+     "snippet": "Researchers tested canned and fresh tuna sold in Boston stores for mercury.",
+     "url": "https://bostonnews.example/tuna-mercury-study",
+     "about": "asked"
+    },
+    {
+     "title": "How much tuna is safe to eat?",
+     "snippet": "Guidance on mercury in albacore and light tuna for adults and children.",
+     "url": "https://health.example/tuna-mercury-safety",
+     "about": "asked"
+    }
+   ]
+  },
+  {
+   "id": "seattle_apple",
+   "set": "heldout",
+   "question": "Where can I get cheap apple repair in Seattle?",
+   "typed": "cheap apple repair in Seattle",
+   "pool": [
+    {
+     "title": "Apple tree pruning and care in Seattle",
+     "snippet": "Arborists for apple tree pruning, disease treatment and orchard care in Seattle.",
+     "url": "https://arborist.example/apple-tree-care-seattle",
+     "about": "other"
+    },
+    {
+     "title": "Apple orchards near Seattle: pick your own",
+     "snippet": "Pick your own apples at orchards within an hour of Seattle.",
+     "url": "https://farms.example/apple-orchards-seattle",
+     "about": "other"
+    },
+    {
+     "title": "Emerald Fix - iPhone and MacBook repair Seattle",
+     "snippet": "Affordable iPhone screen and MacBook battery repair in Seattle, same day.",
+     "url": "https://emeraldfix.example/repairs",
+     "about": "asked"
+    },
+    {
+     "title": "Apple Store, University Village: Genius Bar repairs",
+     "snippet": "Book a Genius Bar appointment for iPhone, iPad and Mac repair in Seattle.",
+     "url": "https://apple.example/retail/university-village",
+     "about": "asked"
+    },
+    {
+     "title": "Cheapest iPhone screen repair in Seattle, compared",
+     "snippet": "We compared prices for iPhone screen repair at eight Seattle shops.",
+     "url": "https://localguide.example/seattle-iphone-repair-prices",
+     "about": "asked"
+    }
+   ]
+  },
+  {
+   "id": "nashville_bass",
+   "set": "heldout",
+   "question": "Find the best bass lessons in Nashville.",
+   "typed": "best bass lessons in Nashville",
+   "pool": [
+    {
+     "title": "Bass fishing guides on Percy Priest Lake",
+     "snippet": "Guided largemouth and smallmouth bass fishing trips near Nashville.",
+     "url": "https://fishing.example/percy-priest-bass",
+     "about": "other"
+    },
+    {
+     "title": "Nashville bass fishing report",
+     "snippet": "This week's largemouth bass fishing report for lakes around Nashville.",
+     "url": "https://anglers.example/nashville-bass-report",
+     "about": "other"
+    },
+    {
+     "title": "Music City Bass Studio - bass guitar lessons",
+     "snippet": "Private electric and upright bass guitar lessons in Nashville for all levels.",
+     "url": "https://musiccitybass.example/lessons",
+     "about": "asked"
+    },
+    {
+     "title": "Best bass guitar teachers in Nashville, TN",
+     "snippet": "Compare bass guitar teachers in Nashville by price and reviews.",
+     "url": "https://lessons.example/search?instrument=bass-guitar&city=nashville",
+     "about": "asked"
+    },
+    {
+     "title": "How to choose a bass guitar teacher",
+     "snippet": "What to look for in a bass guitar teacher: experience, style and cost.",
+     "url": "https://musicguide.example/choose-bass-teacher",
+     "about": "asked"
+    }
+   ]
+  },
+  {
+   "id": "chicago_pizza",
+   "set": "heldout",
+   "question": "What is the best pizza in Chicago?",
+   "typed": "best pizza in Chicago",
+   "pool": [
+    {
+     "title": "The 15 best pizza places in Chicago",
+     "snippet": "Deep dish, tavern style and Neapolitan: where to eat pizza in Chicago.",
+     "url": "https://eater.example/best-pizza-chicago",
+     "about": "asked"
+    },
+    {
+     "title": "Lakeshore Deep Dish - menu",
+     "snippet": "Chicago deep dish pizza since 1971. Menu and prices.",
+     "url": "https://lakeshoredeepdish.example/menu",
+     "about": "asked"
+    },
+    {
+     "title": "Tavern-style pizza: Chicago's other pizza",
+     "snippet": "Why Chicagoans eat thin, square-cut tavern pizza more than deep dish.",
+     "url": "https://chicagofood.example/tavern-style-pizza",
+     "about": "asked"
+    },
+    {
+     "title": "Best pizza in Chicago, Reddit thread",
+     "snippet": "Locals argue about the best pizza in Chicago.",
+     "url": "https://www.reddit.example/r/chicago/best-pizza",
+     "about": "asked"
+    }
+   ]
+  }
+ ]
+}

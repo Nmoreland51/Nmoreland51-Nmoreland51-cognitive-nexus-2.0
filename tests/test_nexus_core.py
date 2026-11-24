@@ -1149,7 +1149,10 @@ class NexusCoreTests(unittest.TestCase):
         ), patch.object(core.provider_router, "stream") as stream:
             text = "".join(core.stream_chat_response("search the web for the latest stable Python release", [], settings))
 
-        stream.assert_not_called()
+        # The model may be asked what the question means before searching (modules/research_plan.py),
+        # but without results it is never asked to write an answer.
+        prompts = [call.args[0].prompt for call in stream.call_args_list]
+        self.assertTrue(all(prompt.startswith("Before a web search is made") for prompt in prompts), prompts)
         self.assertIn("Web search returned no results", text)
 
 
