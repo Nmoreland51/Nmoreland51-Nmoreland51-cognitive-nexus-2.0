@@ -8,8 +8,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 74 |
-| PARTIAL | 52 |
+| COMPLETE | 75 |
+| PARTIAL | 51 |
 | MISSING | 19 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
@@ -18,7 +18,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 |---|---|---|---|---|
 | 1. Fix the foundations and release confusion (P0) | 4 | 5 | 1 | 0 |
 | 2. Make core AI chat genuinely reliable (P1) | 6 | 7 | 0 | 0 |
-| 3. Fix reality-first reasoning, fact checking, and research (P0) | 13 | 2 | 0 | 0 |
+| 3. Fix reality-first reasoning, fact checking, and research (P0) | 14 | 1 | 0 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 13 | 4 | 0 | 0 |
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
@@ -73,6 +73,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-24, corrective quality phase (the owner's CN-QA-001 to 007), branch quality/corrective-phase: reports docs/QUALITY_BASELINE.md, CONTENT_RULE_VERIFICATION.md, GENERATION_RELIABILITY_REPORT.md, FACTUAL_RELIABILITY_REPORT.md, WEB_RESEARCH_QUALITY_REPORT.md, QUALITY_FINAL_VERIFICATION.md. Measure before and after with tools/quality_check.py (--root for another checkout; --only profile for app against Ollama alone). Lessons: (1) Ollama reloads the model whenever a load-time option differs from the last request (num_ctx, num_batch, num_thread; its log says "reloading model, runner options changed", about 4 to 6.5 s here). The app sends none but num_ctx, and the router never shrinks the window; keep it that way, and run timing-sensitive measurements alone. (2) The relevance benchmark has a new held-out set for every round (heldout, heldout2, heldout3): write the next set before running a changed planner on any held-out question. (3) Saved real-model results are tied to the prompts by fingerprint; changing the web answer prompt means running tools/research_benchmark.py and tools/injection_benchmark.py again.
 - 2026-11-24, resuming the 146 items on branch audit/remaining-items (stacked on quality/corrective-phase, whose pull request the owner has to open: the in-app form never reached GitHub). Heavy work (098, 105): modules/heavy_work.py makes one picture at a time across processes, makes room in memory before the local pipeline loads (the chat model is taken out of Ollama's memory when the picture would not fit beside it; setting picture_memory), keeps chat from loading the model beside a picture, and stops a picture at its time limit; the agent's job queue is bounded (agent/jobs.py QUEUE_LIMITS). Measured with tools/picture_memory_check.py (docs/benchmarks/picture_memory.json); the peak varies by about 1.4 GB between runs, so the higher figure is used. Register entry R-D12. Ledger corrections from code that already existed: 109 (the agent's permissioned tools and sandbox) and 118 (approvals, now with the exact arguments and the branch's changes shown). Next: 104 and 101 with tools/app_profile.py (the app's own time and its HTTP requests per rerun, stand-in model), then 030 and 028 (research claims by meaning), then the security documents (114, 110, 117), then 120 and 121 guided by the profile.
 - 2026-11-24, later: profiling (104, 101) found that on Windows every new connection to "localhost" waits 2.05 s for an IPv6 attempt (Ollama listens on IPv4 only), and that the measuring tools opened one per call: the published CN-QA-007 comparison and the speed benchmark's first-word times were about 2 s off. Corrected on quality/corrective-phase (aab9c45, CN-QA-007 back to partial there) and merged here; here local servers are 127.0.0.1 (modules/local_address.py), streamed answers keep their connection, ComfyUI's status and Ollama's model list are cached, and the app's share of the first word is +0.5 to +0.8 s (CN-QA-007 complete here). Lesson: time anything against a local server only on a kept-open connection to 127.0.0.1, or the 2 s lands in the figure. 028: modules/claim_map.py maps answer sentences to pages by rules; its held-out set (tests/fixtures/claim_map_cases.json) has now been seen, so a change to the rules needs a new held-out set before a figure is quoted. Next: 030 (one rumour on many sites), then 114, 110, 117, then 120 and 121 with tools/app_profile.py before and after.
+- 2026-11-24, item 030 (8363502): a story retold in other words counts once (modules/retellings.py, all-minilm, threshold measured by tools/retelling_benchmark.py; its held-out pairs have now been seen). Lesson: the claim check had only been measured on labelled passages; the first real pages showed a well-known myth called LIKELY TRUE, because debunking pages open by stating the myth. Check claim-check changes on real pages too: tools/claim_check_real_pages.py fetch once, judge every version on the same pages (pages stay in data/benchmark_pages/, not committed). Its held-out claims have now been seen: write a new set before quoting a figure for changed rules. Next: 110, then 120 and 121 with tools/app_profile.py before and after, 048, 140.
 
 ## Items that need the owner
 
@@ -84,7 +85,6 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **014** (PARTIAL): An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
 - **023** (PARTIAL): Your choice of other models to install (Ollama was to be left alone), and a cloud key, to measure more than one model.
 - **028** (PARTIAL): A reading of meaning: the rules miss a fact put in other words (a third of the held-out paraphrases) and pass a sentence that uses a page's words to say something else ("the current mayor" for a former one). A model's second reading, as the claim check has, would need its own measurement on a new held-out set.
-- **030** (PARTIAL): A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
 - **051** (PARTIAL): An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
 - **057** (PARTIAL): Docker or a WSL distribution for confinement of reading and of the network. Neither is installed on this machine.
 - **062** (PARTIAL): A GitHub token (COGNITIVE_NEXUS_GITHUB_TOKEN) to run it against the real service.
@@ -681,14 +681,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_claim_check_evidence.py::test_every_classification_comes_with_its_reason (17 cases), test_breakdown_lists_repeats_and_sources_that_did_not_address_the_claim, test_report_shows_reasons_dates_the_second_reading_and_what_was_left_out.
 - **Commits:** 1eb0e4a, 5278dea
 
-### 030 · P0 · recommended · PARTIAL
+### 030 · P0 · recommended · COMPLETE
 
 > Handle misinformation repeated across many websites as one underlying unsupported claim, not independent confirmation.
 
-- **Evidence:** Sources on the same site count once; the same passage on several sites counts once, including near-copies (four fifths of the words shared), and the report lists what was folded together; fetched pages with the same text are marked as copies of one source. A verdict stronger than 'weakly supported' needs two independent passages from medium- or high-trust sources.
-- **Tests:** tests/test_claim_check_evidence.py::test_a_rumour_copied_across_sites_is_one_weak_piece_of_evidence, test_breakdown_lists_repeats_and_sources_that_did_not_address_the_claim; tests/test_research_hardening.py::test_same_page_under_two_addresses_is_fetched_once_and_copies_are_marked.
-- **Commits:** 1eb0e4a, 5278dea
-- **Needs:** A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
+- **Evidence:** A site counts once, a copied passage counts once, and a passage that tells an already counted one's story in other words counts once (modules/retellings.py: compared by meaning with the all-minilm embedding model). The threshold was chosen on 32 pairs labelled before the code; on 20 held-out pairs, run once, 9 of 10 retellings were counted once and none of 10 independent reports were merged (word overlap alone: 0 of 10). Debunking pages that open with the myth no longer count as support. On pages the app's own search found for 11 claims written after the rules were settled (6 myths, 5 facts): 8 right with the model's second reading (7 before), and no myth called LIKELY TRUE. Limits: a retelling that adds its own invented detail counts as independent; two plain statements of a well-known fact count once; without all-minilm the check says retellings may be counted twice.
+- **Tests:** tests/test_retellings.py; tests/test_claim_check_evidence.py::test_a_myth_set_out_to_be_debunked_is_not_support and the five tests after it; tests/test_live_ollama.py::test_a_story_retold_in_other_words_counts_once_with_the_real_embedding_model; tools/retelling_benchmark.py and tools/claim_check_real_pages.py (docs/benchmarks/retellings.json, claim_check_real_pages.json).
+- **Commits:** 1eb0e4a, 5278dea, 8363502
 
 ### 031 · P0 · recommended · COMPLETE
 

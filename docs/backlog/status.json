@@ -168,11 +168,10 @@
   "tests": "tests/test_claim_check_evidence.py::test_every_classification_comes_with_its_reason (17 cases), test_breakdown_lists_repeats_and_sources_that_did_not_address_the_claim, test_report_shows_reasons_dates_the_second_reading_and_what_was_left_out."
  },
  "030": {
-  "commits": "1eb0e4a, 5278dea",
-  "evidence": "Sources on the same site count once; the same passage on several sites counts once, including near-copies (four fifths of the words shared), and the report lists what was folded together; fetched pages with the same text are marked as copies of one source. A verdict stronger than 'weakly supported' needs two independent passages from medium- or high-trust sources.",
-  "needs": "A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.",
-  "status": "PARTIAL",
-  "tests": "tests/test_claim_check_evidence.py::test_a_rumour_copied_across_sites_is_one_weak_piece_of_evidence, test_breakdown_lists_repeats_and_sources_that_did_not_address_the_claim; tests/test_research_hardening.py::test_same_page_under_two_addresses_is_fetched_once_and_copies_are_marked."
+  "commits": "1eb0e4a, 5278dea, 8363502",
+  "evidence": "A site counts once, a copied passage counts once, and a passage that tells an already counted one's story in other words counts once (modules/retellings.py: compared by meaning with the all-minilm embedding model). The threshold was chosen on 32 pairs labelled before the code; on 20 held-out pairs, run once, 9 of 10 retellings were counted once and none of 10 independent reports were merged (word overlap alone: 0 of 10). Debunking pages that open with the myth no longer count as support. On pages the app's own search found for 11 claims written after the rules were settled (6 myths, 5 facts): 8 right with the model's second reading (7 before), and no myth called LIKELY TRUE. Limits: a retelling that adds its own invented detail counts as independent; two plain statements of a well-known fact count once; without all-minilm the check says retellings may be counted twice.",
+  "status": "COMPLETE",
+  "tests": "tests/test_retellings.py; tests/test_claim_check_evidence.py::test_a_myth_set_out_to_be_debunked_is_not_support and the five tests after it; tests/test_live_ollama.py::test_a_story_retold_in_other_words_counts_once_with_the_real_embedding_model; tools/retelling_benchmark.py and tools/claim_check_real_pages.py (docs/benchmarks/retellings.json, claim_check_real_pages.json)."
  },
  "031": {
   "commits": "1eb0e4a",
