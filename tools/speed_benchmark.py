@@ -156,6 +156,8 @@ def measure(model: str, url: str, num_ctx: int = 4096) -> dict[str, Any]:
         "summary": {
             "first_word_seconds_new_prompt": round(statistics.median(row["first_word_seconds"] for row in fresh), 2),
             "first_word_seconds_follow_up": round(statistics.median(row["first_word_seconds"] for row in again), 2),
+            "first_word_seconds_long_new_prompt": max(row["first_word_seconds"] for row in fresh),
+            "longest_prompt_tokens": max(row["prompt_tokens"] for row in fresh),
             "output_tokens_per_second": round(statistics.median(row["output_tokens_per_second"] for row in runs if row["output_tokens_per_second"]), 1),
             "prompt_tokens_per_second": round(statistics.median(row["prompt_tokens_per_second"] for row in fresh if row["prompt_tokens_per_second"]), 1),
             "peak_ollama_memory_gb": max(row["peak_ollama_memory_gb"] for row in runs),

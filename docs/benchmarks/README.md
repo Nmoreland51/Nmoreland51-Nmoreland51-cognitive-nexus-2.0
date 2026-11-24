@@ -393,3 +393,67 @@ A change to this app's own code made by the coding agent can only be accepted af
 came out not worse, or with a stated reason (`agent/coder.py`). `tests/test_evaluation_gate.py` runs it for
 real on a copy of this repository: a commit that stops the removal of planted lines is reported as worse, and
 emptying the fixture that measures it does not help.
+
+## Speed on this machine (`speed_*.json`)
+
+```
+python tools/speed_benchmark.py --model dolphin3:8b --save docs/benchmarks/speed_dolphin3-8b.json
+python tools/speed_benchmark.py --model dolphin3:8b --compare docs/benchmarks/speed_dolphin3-8b.json   # slower than before?
+python tools/speed_benchmark.py --recommend docs/benchmarks/speed_dolphin3-8b.json                     # which sizes fit here
+```
+
+Measured on 2026-11-23 with `dolphin3:8b` (8B, 4-bit Q4_K_M) through Ollama 0.40.17, window of 4,096 tokens,
+on an AMD processor with 6 cores and 12 threads, 31.2 GB of memory and no graphics card. Nothing else was
+running. Three fixed prompts, each sent twice:
+
+| | Result |
+|---|---|
+| First word, short new question | 2.9 s |
+| First word, a question the server has just read (a follow-up) | 2.4 s |
+| First word, a 2,105-token text read for the first time | 60 s |
+| Writing speed | 5.1 tokens a second (4.5 to 5.4) |
+| Reading speed, new text | 58 tokens a second (36 for the long text) |
+| A 150-word answer, start to finish | 30 to 35 s |
+| Memory held by Ollama | 5.0 GB at most |
+| Processor use while answering | 56% on average |
+
+So on this machine a short answer starts within three seconds and a paragraph takes about half a minute,
+while pasting a long document costs a minute before anything appears. The second time the same text is
+sent (a follow-up about it) it is not read again.
+
+**Which model sizes fit here** (`--recommend`). Only the 8B row is measured; the others are arithmetic
+from it (a model twice the size writes about half as fast) and are labelled as estimates:
+
+| Size (4-bit) | Memory needed | Writing speed | Verdict |
+|---|---|---|---|
+| about 3B | 3.5 GB | 13.6 tokens/s (estimate) | fits, fast enough for chat |
+| about 8B | 6.4 GB | 5.1 tokens/s (measured) | fits, fast enough for chat |
+| about 14B | 10.5 GB | 2.9 tokens/s (estimate) | fits, fast enough for chat: the largest worth trying here |
+| about 24B | 16.0 GB | 1.7 tokens/s (estimate) | fits, too slow for chat on the processor alone |
+| about 70B | 44.5 GB | | does not fit |
+
+No other model was installed to check the estimates: you asked for Ollama to be left alone.
+
+## Tests against the real model (`tests/test_live_ollama.py`)
+
+```
+CN_LIVE_OLLAMA_URL=http://localhost:11434 python -m pytest tests/test_live_ollama.py
+```
+
+Every other test plays the model with fixed replies. These eight send real requests through the code the app
+uses: the server reports what the model can do; an answer arrives and is labelled as the model's; it arrives
+piece by piece; a reply held to a schema parses and matches; the tool loop gets a usable step and the model
+answers "12 times 12" without a tool; the one content rule stops one request and lets an ordinary one through
+with the real model judging both; and a whole chat turn goes through the app. **All eight passed on
+2026-11-23 with `dolphin3:8b`.** They are skipped in CI, where there is no model. Cloud providers are not
+covered: no key was available.
+
+Found while writing them:
+
+- **Chat can get simple facts wrong because it samples.** The first version of the chat test asked "What is 7
+  times 6?". Through the app the model answered 84, 42 and 42 in three tries; asked directly at temperature
+  0 it answers 42. Chat sends a temperature of 0.35 to 0.7, which suits writing and is a risk for short
+  factual questions. Not changed yet: lowering it changes every answer and needs measuring first.
+- The first run had two failures that were the tests' own fault: they pointed the app at the test suite's
+  closed model address. The content-rule test failed safe: a judge that cannot be reached stops the request.
+  The test now also checks that the model really judged.

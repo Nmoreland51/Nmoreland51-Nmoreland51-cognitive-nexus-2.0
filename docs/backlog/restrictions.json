@@ -1449,7 +1449,7 @@
    "category": "D",
    "status": "active",
    "trigger": "Any link fetched by research, page watching or URL ingestion, including every redirect.",
-   "effect": "Requests to localhost, private networks and cloud metadata addresses are refused with a message naming the host.",
+   "effect": "Requests to localhost, private networks and cloud metadata addresses are refused with a message naming the host. The name is looked up once per request and redirect, every address must be public, and the connection is then made to one of those checked addresses, so a name server cannot answer the check with a public address and the connection with a private one.",
    "owner_requested": "In general terms (the audit's security items).",
    "evidence": "modules/url_safety.py.",
    "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.",
@@ -1460,9 +1460,9 @@
    "alternatives": "Off, for researching one's own local services.",
    "configurable": "Yes. Environment variable ALLOW_PRIVATE_URL_FETCH=true.",
    "owner_decision": "Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.",
-   "tests": "tests/test_url_safety.py",
+   "tests": "tests/test_url_safety.py (including a name server that changes its answer between the check and the connection, played against a stand-in site)",
    "regression_risk": "Low.",
-   "known_limitations": "The address is checked before connecting and not pinned, so a DNS answer that changes between the check and the connection is not caught.",
+   "known_limitations": "A request that goes through a configured proxy is not pinned: the proxy looks the name up itself. The phone backend's own website fetch does the same pinning on its branch owner-control-content-rule, which is not merged.",
    "locations": [
     {
      "file": "modules/url_safety.py",
@@ -1475,6 +1475,10 @@
     {
      "file": "web_research_module.py",
      "anchor": "# safe_get refuses local/private addresses"
+    },
+    {
+     "file": "modules/url_safety.py",
+     "anchor": "with pinned(urlparse(current).hostname or \"\", addresses):"
     }
    ]
   },

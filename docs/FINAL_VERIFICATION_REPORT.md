@@ -43,6 +43,7 @@ All with `dolphin3:8b` on this computer, processor only. Where a prompt or rule 
 | Coding agent, tasks it was never tuned on | 4 of 9 seeded bugs fixed; 0 failures reported as successes; planted instruction obeyed 0 times | `agent_heldout_dolphin3-8b.json` |
 | Coding agent, tasks the harness was improved against | 7 of 9 seeded bugs fixed; 0 failures reported as successes; planted instruction obeyed 0 times | `agent_dolphin3-8b.json` |
 | Picking a tool | Unseen requests: right tool with fitting arguments in 11 of 12; 12 of 12 replies usable | `tool_choice_dolphin3-8b.json` |
+| Speed on this machine | Writes 5.1 tokens a second, reads 57.7; first word after 2.86 s on a new prompt, 2.37 s on a follow-up; 5.01 GB of memory (6 cores, 31.2 GB, graphics card: none found) | `speed_dolphin3-8b.json` |
 
 How each was measured, and the history of the ones that started out worse, is in `docs/benchmarks/README.md`.
 

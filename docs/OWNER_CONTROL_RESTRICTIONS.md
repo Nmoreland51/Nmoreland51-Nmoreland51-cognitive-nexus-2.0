@@ -982,11 +982,12 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-D05 · Research does not fetch addresses only this machine can reach · active
 
-- **Where:** `modules/url_safety.py:30` — `def private_fetch_allowed() -> bool:`
+- **Where:** `modules/url_safety.py:85` — `def private_fetch_allowed() -> bool:`
 - **Where:** `agent/handlers.py:62` — `from modules.url_safety import safe_get`
 - **Where:** `web_research_module.py:69` — `# safe_get refuses local/private addresses`
+- **Where:** `modules/url_safety.py:155` — `with pinned(urlparse(current).hostname or "", addresses):`
 - **Trigger:** Any link fetched by research, page watching or URL ingestion, including every redirect.
-- **Effect:** Requests to localhost, private networks and cloud metadata addresses are refused with a message naming the host.
+- **Effect:** Requests to localhost, private networks and cloud metadata addresses are refused with a message naming the host. The name is looked up once per request and redirect, every address must be public, and the connection is then made to one of those checked addresses, so a name server cannot answer the check with a public address and the connection with a private one.
 - **Owner requested:** In general terms (the audit's security items).
 - **Evidence:** modules/url_safety.py.
 - **Origin:** Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.
@@ -997,9 +998,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Alternatives:** Off, for researching one's own local services.
 - **Can the owner change it?:** Yes. Environment variable ALLOW_PRIVATE_URL_FETCH=true.
 - **Owner decision:** Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.
-- **Tests:** tests/test_url_safety.py
+- **Tests:** tests/test_url_safety.py (including a name server that changes its answer between the check and the connection, played against a stand-in site)
 - **Regression risk:** Low.
-- **Known limitations:** The address is checked before connecting and not pinned, so a DNS answer that changes between the check and the connection is not caught.
+- **Known limitations:** A request that goes through a configured proxy is not pinned: the proxy looks the name up itself. The phone backend's own website fetch does the same pinning on its branch owner-control-content-rule, which is not merged.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
 ### R-D06 · The sandbox for commands the agent starts · active
