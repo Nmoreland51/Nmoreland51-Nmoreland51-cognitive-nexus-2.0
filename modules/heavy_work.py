@@ -317,7 +317,7 @@ class PictureStop:
             return True
         if self.cancel is not None and self.cancel.is_set():
             self.reason = "cancelled"
-        elif time.monotonic() - self.started > self.time_limit_seconds:
+        elif time.monotonic() - self.started >= self.time_limit_seconds:  # reaching the limit is over it
             self.reason = f"over its time limit of {self.time_limit_seconds:.0f} s"
         return bool(self.reason)
 

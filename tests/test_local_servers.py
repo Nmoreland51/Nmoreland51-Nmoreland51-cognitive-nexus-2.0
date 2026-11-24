@@ -128,7 +128,7 @@ def test_comfyui_is_asked_once_per_half_minute_and_a_workflow_always_asks_again(
 
 def test_the_two_image_servers_are_asked_at_the_same_time(monkeypatch):
     def slow_refusal(url, timeout=None):
-        time.sleep(0.5)
+        time.sleep(0.6)
         raise requests.ConnectionError("refused")
 
     monkeypatch.setattr(image_gen.requests, "get", slow_refusal)
@@ -137,7 +137,7 @@ def test_the_two_image_servers_are_asked_at_the_same_time(monkeypatch):
     seconds = time.perf_counter() - started
     assert [item["name"] for item in found] == ["automatic1111", "comfyui", "diffusers_local"]
     assert not found[0]["available"] and not found[1]["available"]
-    assert seconds < 0.9, f"took {seconds:.2f} s: the servers were asked one after the other"
+    assert seconds < 1.1, f"took {seconds:.2f} s: the servers were asked one after the other (that takes 1.2 s)"
 
 
 def test_the_best_image_provider_is_picked_from_a_list_already_found(monkeypatch):

@@ -142,7 +142,9 @@ def test_beyond_the_waiting_limit_a_request_is_turned_down_at_once():
     waiter = threading.Thread(target=wait_in_turn)
     waiter.start()
     waiting_started.wait(5)
-    time.sleep(0.2)  # the waiter is now counted
+    deadline = time.monotonic() + 5
+    while heavy_work._state["waiting"] < 1 and time.monotonic() < deadline:  # until the waiter is counted
+        time.sleep(0.01)
     started = time.monotonic()
     with pytest.raises(heavy_work.MachineBusy, match="waiting"):
         with heavy_work.picture_slot(wait_seconds=5, max_waiting=1):
@@ -324,7 +326,10 @@ def test_a_cancelled_picture_stops_between_steps_and_nothing_is_kept(fake_torch)
 
 
 def test_a_picture_over_its_time_limit_is_stopped(fake_torch):
-    stop = heavy_work.PictureStop(time_limit_seconds=0.0)
+    # Started a minute ago with a 30-second limit: not a race against the clock, whose steps on
+    # Windows are about 15 ms (a limit of 0 s could pass unnoticed within one step).
+    stop = heavy_work.PictureStop(time_limit_seconds=30.0)
+    stop.started -= 60.0
     request = ImageGenerationRequest(prompt="a lighthouse", steps=10, save_outputs=False)
     with pytest.raises(heavy_work.PictureStopped, match="time limit"):
         image_gen.generate_with_diffusers(request, generator=FakeGenerator(), stop=stop)
