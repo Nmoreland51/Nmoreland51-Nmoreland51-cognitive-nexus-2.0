@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 68 |
-| PARTIAL | 52 |
-| MISSING | 25 |
+| COMPLETE | 71 |
+| PARTIAL | 53 |
+| MISSING | 21 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -23,8 +23,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 5. Build the autonomous software engineer you actually want (P1) | 13 | 4 | 0 | 0 |
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
-| 8. Performance and local hardware (P1) | 2 | 6 | 3 | 0 |
-| 9. Security, privacy and data integrity (P0) | 4 | 6 | 3 | 0 |
+| 8. Performance and local hardware (P1) | 4 | 6 | 1 | 0 |
+| 9. Security, privacy and data integrity (P0) | 5 | 7 | 1 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
@@ -71,6 +71,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, linked accounts (item 079): modules/accounts.py is the one place a credential is obtained (`accounts.credential(service, permission)`); the providers, Brave search and the GitHub tools use it. Stored secrets are DPAPI-encrypted on Windows and plain (user-only file) elsewhere. Everything involving a service was tested against a stand-in HTTP server in tests/test_accounts.py; nothing has been run against a real service. Tests get an empty accounts file each (tests/conftest.py).
 - 2026-11-23, tools and the gate: agent/capabilities.py (one list of tools, apps, accounts; web_search, read_page, search_knowledge as tools with declared input and output shapes), modules/model_capabilities.py, agent/toolcall.py (the local model picks a tool as JSON held to a schema by Ollama's `format`; two data rules, R-D11), tools/tool_choice_benchmark.py (held-out: 11 of 12; re-run it when the prompt, tools or schema change: a test says so), tools/evaluation_gate.py (model-free comparison of two versions; the agent's changes to this app need it to be accepted, R-C09). The chat tab does not use the tool loop: it still routes by rules. Windows CI was red for a day because the benchmark's clone followed Git's global line-ending setting; to reproduce the runner locally set GIT_CONFIG_GLOBAL to a file with core.autocrlf=true.
 - 2026-11-24, corrective quality phase (the owner's CN-QA-001 to 007), branch quality/corrective-phase: reports docs/QUALITY_BASELINE.md, CONTENT_RULE_VERIFICATION.md, GENERATION_RELIABILITY_REPORT.md, FACTUAL_RELIABILITY_REPORT.md, WEB_RESEARCH_QUALITY_REPORT.md, QUALITY_FINAL_VERIFICATION.md. Measure before and after with tools/quality_check.py (--root for another checkout; --only profile for app against Ollama alone). Lessons: (1) Ollama reloads the model whenever a load-time option differs from the last request (num_ctx, num_batch, num_thread; its log says "reloading model, runner options changed", about 4 to 6.5 s here). The app sends none but num_ctx, and the router never shrinks the window; keep it that way, and run timing-sensitive measurements alone. (2) The relevance benchmark has a new held-out set for every round (heldout, heldout2, heldout3): write the next set before running a changed planner on any held-out question. (3) Saved real-model results are tied to the prompts by fingerprint; changing the web answer prompt means running tools/research_benchmark.py and tools/injection_benchmark.py again.
+- 2026-11-24, resuming the 146 items on branch audit/remaining-items (stacked on quality/corrective-phase, whose pull request the owner has to open: the in-app form never reached GitHub). Heavy work (098, 105): modules/heavy_work.py makes one picture at a time across processes, makes room in memory before the local pipeline loads (the chat model is taken out of Ollama's memory when the picture would not fit beside it; setting picture_memory), keeps chat from loading the model beside a picture, and stops a picture at its time limit; the agent's job queue is bounded (agent/jobs.py QUEUE_LIMITS). Measured with tools/picture_memory_check.py (docs/benchmarks/picture_memory.json); the peak varies by about 1.4 GB between runs, so the higher figure is used. Register entry R-D12. Ledger corrections from code that already existed: 109 (the agent's permissioned tools and sandbox) and 118 (approvals, now with the exact arguments and the branch's changes shown). Next: 104 and 101 with tools/app_profile.py (the app's own time and its HTTP requests per rerun, stand-in model), then 030 and 028 (research claims by meaning), then the security documents (114, 110, 117), then 120 and 121 guided by the profile.
 
 ## Items that need the owner
 
@@ -101,6 +102,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **095** (MISSING): Depends on item 094.
 - **096** (PARTIAL): Your choice of other models to install (Ollama was to be left alone).
 - **097** (PARTIAL): Your choice of other models to install (Ollama was to be left alone).
+- **109** (PARTIAL): Docker or a WSL distribution, so that reading and the network can be confined by the operating system (as for items 057 and 077).
 - **112** (PARTIAL): Encryption of the live files is planned for the security phase. Until then, full-disk encryption (BitLocker) protects them.
 - **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 - **115** (PARTIAL): A hostile-document set for uploaded files, measured the same way.
@@ -1226,11 +1228,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Commits:** 34d7d67
 - **Needs:** Your choice of other models to install (Ollama was to be left alone).
 
-### 098 · P1 · recommended · MISSING
+### 098 · P1 · recommended · COMPLETE
 
 > Avoid loading large local models at the same time as memory-intensive image pipelines when resources are tight.
 
-- **Evidence:** Image generation loads Stable Diffusion without unloading the chat model first.
+- **Evidence:** modules/heavy_work.py, used by modules/image_gen.generate_images: before the local Stable Diffusion pipeline loads, the memory free is compared with what the picture needs plus 1.5 GB to spare. The need was measured on the development machine with tools/picture_memory_check.py: a peak of 7.1 GB at 512x512 and 8.5 GB at 768x768 (the higher of two runs; the peak varied by 1.4 GB). When the picture would not fit, the chat model is taken out of Ollama's memory first (keep_alive 0), unless the owner's setting picture_memory (Images tab, settings file) keeps it loaded, and the note under the picture says what was done. While a picture is being made, a chat request whose model is not loaded and would not fit waits for the picture (modules/provider_router.py), and loading the model ahead of time is skipped. Measured with the chat model loaded and about 8.8 GB free (docs/benchmarks/picture_memory.json): the lowest free memory during a 768x768 picture was 0.35 GB and 1.8 GB before the change, 8.8 GB after; the next chat answer then waited 11.7 s for Ollama to load the model again. A 512x512 picture fitted, and the chat model stayed loaded.
+- **Tests:** tests/test_heavy_work.py
+- **Commits:** 854e55c
 
 ### 099 · P1 · recommended · COMPLETE
 
@@ -1273,11 +1277,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 - **Evidence:** No profiling has been done.
 
-### 105 · P1 · recommended · MISSING
+### 105 · P1 · recommended · COMPLETE
 
 > Set bounded concurrency, queue sizes, memory limits and cancellation policies for heavy jobs.
 
-- **Evidence:** No bounded concurrency, queue limits or cancellation for heavy jobs.
+- **Evidence:** Pictures (modules/heavy_work.py): one at a time on this machine, across processes (a lock file), for the local pipeline, Automatic1111 and ComfyUI workflows; at most two requests wait, for up to 10 minutes, and one more is turned down at once with a message saying the machine is busy; a time limit (30 minutes) and a cancel checked between denoising steps, with nothing half-made kept; memory checked and room made before loading (item 098). Background jobs (agent/jobs.py): a total capacity and a limit per kind (one model-heavy coding task at a time), priorities, a time limit per job, cancelling of waiting and running jobs, leases and retries; the queue is now bounded (10 coding tasks and 100 jobs of any other kind may wait; one more is refused with a message, and a scheduled firing over the limit is skipped with a notice). Programs the agent runs have memory, process and time limits enforced by the operating system (agent/sandbox.py). Register entry R-D12 lists the limits and how to change them. Not covered here: web research in the chat tab runs inside the request (item 102), and a picture cannot be cancelled from the Images tab while it is made (it stops at its time limit).
+- **Tests:** tests/test_heavy_work.py, tests/test_agent_jobs.py, tests/test_agent_sandbox.py
+- **Commits:** 854e55c
 
 ### 106 · P1 · recommended · PARTIAL
 
@@ -1306,11 +1312,14 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_url_safety.py; Android repository backend/test_api.py
 - **Commits:** 56aad2d; Android b016756
 
-### 109 · P0 · recommended · MISSING
+### 109 · P0 · recommended · PARTIAL
 
 > Limit tool execution to sandboxed, permissioned directories, commands and network destinations.
 
-- **Evidence:** The engine has no tool execution yet, so there is nothing sandboxed.
+- **Evidence:** Tool execution now exists, in the coding agent and in tool runs, and it is limited. Every path is resolved inside the task's own checkout and anything outside is refused (agent/workspace.py). Programs come from a list of allowed names and run without a shell (agent/tools.py). Each action is allowed, asked about or refused by its declared effect, and anything that reaches outside the machine always asks (agent/approvals.py). Programs run with a clean environment holding no keys, with memory, process and time limits, and on Windows the operating system refuses writes outside the task's folder (agent/sandbox.py). In a tool run, private text is not sent out and pages are fetched only from addresses that came from the request, a search or a page already read (agent/toolcall.py, register entry R-D11). Not enforced by the operating system: network destinations (with the network off, the proxy settings point at a closed port, which stops well-behaved tools only) and reading outside the workspace.
+- **Tests:** tests/test_agent_workspace.py, tests/test_agent_tools.py, tests/test_agent_sandbox.py, tests/test_agent_toolcall.py, tests/test_agent_registry.py
+- **Commits:** 854e55c
+- **Needs:** Docker or a WSL distribution, so that reading and the network can be confined by the operating system (as for items 057 and 077).
 
 ### 110 · P0 · recommended · PARTIAL
 
@@ -1375,11 +1384,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** CI 'checks' job; tools/run_checks.py --audit.
 - **Commits:** ce2c584
 
-### 118 · P0 · recommended · MISSING
+### 118 · P0 · recommended · COMPLETE
 
 > Create a consent and approval flow for risky operations and show exactly what changed.
 
-- **Evidence:** No consent or approval flow exists because the engine performs no risky operations yet.
+- **Evidence:** Risky operations ask first and show what they change. The coding agent: each action that writes, runs a program, uses the network or reaches outside the machine is allowed, asked about or refused by its declared effect (agent/approvals.py, setting agent_autonomy); a request is for that one action (tied to its key, used once) and is decided in the Agent tab or with python -m agent approve/deny. The Agent tab now shows exactly what each requested action would do (the tool, its arguments, and the changes on the task's branch it would act on), a change is shown as a diff before it is accepted, and every file change takes a checkpoint first so it can be undone exactly (agent/tools.py). Saved data: a restore shows what it will replace and takes a snapshot first so it can be undone, and a wipe needs the confirmation word typed (ui/data_panel.py, modules/backup.py). "forget ..." in chat acts at once on the owner's own instruction and says how many items it removed, without repeating their text, so that what was forgotten is not written into the chat history again; the Memory tab lists every saved fact beforehand.
+- **Tests:** tests/test_agent_panel.py, tests/test_agent_registry.py, tests/test_agent_tools.py, tests/test_data_panel.py, tests/test_backup.py
+- **Commits:** 854e55c
 
 ### 119 · P0 · recommended · COMPLETE
 

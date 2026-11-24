@@ -566,8 +566,10 @@
   "tests": "tests/test_speed_benchmark.py"
  },
  "098": {
-  "evidence": "Image generation loads Stable Diffusion without unloading the chat model first.",
-  "status": "MISSING"
+  "commits": "854e55c",
+  "evidence": "modules/heavy_work.py, used by modules/image_gen.generate_images: before the local Stable Diffusion pipeline loads, the memory free is compared with what the picture needs plus 1.5 GB to spare. The need was measured on the development machine with tools/picture_memory_check.py: a peak of 7.1 GB at 512x512 and 8.5 GB at 768x768 (the higher of two runs; the peak varied by 1.4 GB). When the picture would not fit, the chat model is taken out of Ollama's memory first (keep_alive 0), unless the owner's setting picture_memory (Images tab, settings file) keeps it loaded, and the note under the picture says what was done. While a picture is being made, a chat request whose model is not loaded and would not fit waits for the picture (modules/provider_router.py), and loading the model ahead of time is skipped. Measured with the chat model loaded and about 8.8 GB free (docs/benchmarks/picture_memory.json): the lowest free memory during a 768x768 picture was 0.35 GB and 1.8 GB before the change, 8.8 GB after; the next chat answer then waited 11.7 s for Ollama to load the model again. A 512x512 picture fitted, and the chat model stayed loaded.",
+  "status": "COMPLETE",
+  "tests": "tests/test_heavy_work.py"
  },
  "099": {
   "commits": "ba0708c",
@@ -599,8 +601,10 @@
   "status": "MISSING"
  },
  "105": {
-  "evidence": "No bounded concurrency, queue limits or cancellation for heavy jobs.",
-  "status": "MISSING"
+  "commits": "854e55c",
+  "evidence": "Pictures (modules/heavy_work.py): one at a time on this machine, across processes (a lock file), for the local pipeline, Automatic1111 and ComfyUI workflows; at most two requests wait, for up to 10 minutes, and one more is turned down at once with a message saying the machine is busy; a time limit (30 minutes) and a cancel checked between denoising steps, with nothing half-made kept; memory checked and room made before loading (item 098). Background jobs (agent/jobs.py): a total capacity and a limit per kind (one model-heavy coding task at a time), priorities, a time limit per job, cancelling of waiting and running jobs, leases and retries; the queue is now bounded (10 coding tasks and 100 jobs of any other kind may wait; one more is refused with a message, and a scheduled firing over the limit is skipped with a notice). Programs the agent runs have memory, process and time limits enforced by the operating system (agent/sandbox.py). Register entry R-D12 lists the limits and how to change them. Not covered here: web research in the chat tab runs inside the request (item 102), and a picture cannot be cancelled from the Images tab while it is made (it stops at its time limit).",
+  "status": "COMPLETE",
+  "tests": "tests/test_heavy_work.py, tests/test_agent_jobs.py, tests/test_agent_sandbox.py"
  },
  "106": {
   "commits": "34d7d67, d728af1",
@@ -621,8 +625,11 @@
   "tests": "tests/test_url_safety.py; Android repository backend/test_api.py"
  },
  "109": {
-  "evidence": "The engine has no tool execution yet, so there is nothing sandboxed.",
-  "status": "MISSING"
+  "commits": "854e55c",
+  "evidence": "Tool execution now exists, in the coding agent and in tool runs, and it is limited. Every path is resolved inside the task's own checkout and anything outside is refused (agent/workspace.py). Programs come from a list of allowed names and run without a shell (agent/tools.py). Each action is allowed, asked about or refused by its declared effect, and anything that reaches outside the machine always asks (agent/approvals.py). Programs run with a clean environment holding no keys, with memory, process and time limits, and on Windows the operating system refuses writes outside the task's folder (agent/sandbox.py). In a tool run, private text is not sent out and pages are fetched only from addresses that came from the request, a search or a page already read (agent/toolcall.py, register entry R-D11). Not enforced by the operating system: network destinations (with the network off, the proxy settings point at a closed port, which stops well-behaved tools only) and reading outside the workspace.",
+  "needs": "Docker or a WSL distribution, so that reading and the network can be confined by the operating system (as for items 057 and 077).",
+  "status": "PARTIAL",
+  "tests": "tests/test_agent_workspace.py, tests/test_agent_tools.py, tests/test_agent_sandbox.py, tests/test_agent_toolcall.py, tests/test_agent_registry.py"
  },
  "110": {
   "commits": "351c51d, ce2c584",
@@ -672,8 +679,10 @@
   "tests": "CI 'checks' job; tools/run_checks.py --audit."
  },
  "118": {
-  "evidence": "No consent or approval flow exists because the engine performs no risky operations yet.",
-  "status": "MISSING"
+  "commits": "854e55c",
+  "evidence": "Risky operations ask first and show what they change. The coding agent: each action that writes, runs a program, uses the network or reaches outside the machine is allowed, asked about or refused by its declared effect (agent/approvals.py, setting agent_autonomy); a request is for that one action (tied to its key, used once) and is decided in the Agent tab or with python -m agent approve/deny. The Agent tab now shows exactly what each requested action would do (the tool, its arguments, and the changes on the task's branch it would act on), a change is shown as a diff before it is accepted, and every file change takes a checkpoint first so it can be undone exactly (agent/tools.py). Saved data: a restore shows what it will replace and takes a snapshot first so it can be undone, and a wipe needs the confirmation word typed (ui/data_panel.py, modules/backup.py). \"forget ...\" in chat acts at once on the owner's own instruction and says how many items it removed, without repeating their text, so that what was forgotten is not written into the chat history again; the Memory tab lists every saved fact beforehand.",
+  "status": "COMPLETE",
+  "tests": "tests/test_agent_panel.py, tests/test_agent_registry.py, tests/test_agent_tools.py, tests/test_data_panel.py, tests/test_backup.py"
  },
  "119": {
   "commits": "de2332c, 725edd5",

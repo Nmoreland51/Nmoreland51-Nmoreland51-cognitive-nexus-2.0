@@ -38,6 +38,7 @@ NEEDS_WHAT_THIS_MACHINE_LACKS = {
     "090": "an Android phone, or an emulator and a JDK",
     "092": "an Android phone, or an emulator and a JDK",
     "093": "ComfyUI or Automatic1111 running, and a phone",
+    "109": "Docker or WSL",
     "128": "an Android phone, or an emulator and a JDK",
     "126": "an OpenAI or Anthropic key for the cloud half",
     "134": "code-signing certificates and Android signing keys",
