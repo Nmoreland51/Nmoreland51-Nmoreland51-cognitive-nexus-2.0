@@ -155,11 +155,11 @@
   "tests": "test_trusted_sources_that_do_not_address_the_claim_prove_nothing."
  },
  "028": {
-  "commits": "1eb0e4a, 5278dea",
-  "evidence": "Every passage the claim check counts carries the quoted passage, source URL and title, when the page was retrieved, the date the page gives for itself, and the reason it was classed as it was; all of it is in the saved report and shown in the app. Search results and fetched pages record a retrieval time.",
-  "needs": "The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.",
+  "commits": "1eb0e4a, 5278dea, 6c967ca",
+  "evidence": "Every sentence of a web answer the model writes is matched to the passage of a page read that states it, with the page's title, address and when it was fetched, or reported as stated on no page read, as being about the sources, or as advice (modules/claim_map.py). It is recorded with the answer and shown in Diagnostics, How the last answer was made, by sentence number, without quoting the answer. Claim checks already carried the passage, address and retrieval time for every passage they count. Measured on labelled sentences written before the rules (tools/claim_map_benchmark.py, docs/benchmarks/claim_map.json): the sentences the local model actually wrote, 27 of 27 matched to the right page; written paraphrases, held out, 8 of 12; unsupported sentences reported as on no page, 10 of 12 and 8 of 10, with 4 of 22 shown as stated.",
+  "needs": "A reading of meaning: the rules miss a fact put in other words (a third of the held-out paraphrases) and pass a sentence that uses a page's words to say something else (\"the current mayor\" for a former one). A model's second reading, as the claim check has, would need its own measurement on a new held-out set.",
   "status": "PARTIAL",
-  "tests": "tests/test_claim_check_evidence.py::test_evidence_records_reason_and_dates_from_the_source, test_dates_travel_from_the_fetched_page_to_the_source_record, test_report_shows_reasons_dates_the_second_reading_and_what_was_left_out."
+  "tests": "tests/test_claim_map.py"
  },
  "029": {
   "commits": "1eb0e4a, 5278dea",
@@ -552,8 +552,8 @@
   "status": "MISSING"
  },
  "096": {
-  "commits": "ba0708c, 44c49e7, cfab5f3",
-  "evidence": "Measured on this machine with dolphin3:8b: first word 2.9 s for a short new question, 60 s for a 2,105-token text read the first time, writing 5.1 tokens a second, reading 58, 5.0 GB of memory, 56% of the processor; no graphics card, so no VRAM or GPU figures (docs/benchmarks/speed_dolphin3-8b.json). The app's own share of the time to the first word was measured against Ollama alone with the same window and limit (quality_after.json, profile; docs/GENERATION_RELIABILITY_REPORT.md). Only the installed model was measured.",
+  "commits": "ba0708c, 44c49e7, cfab5f3, 6c967ca",
+  "evidence": "Measured on this machine with dolphin3:8b (docs/benchmarks/speed_dolphin3-8b.json, measured again on 2026-11-24 with one connection kept open): first word 0.7 s for a short new question and 0.24 s for a follow-up, 57 s for a 2,105-token text read the first time, writing 5.1 tokens a second, reading 61, 5.6 GB of memory, 72% of the processor; no graphics card, so no VRAM or GPU figures. The first published first-word figures (2.9 s and 2.4 s) were about 2 s too long: the tool opened a new connection to localhost for every run, which on Windows waits for an IPv6 attempt first.",
   "needs": "Your choice of other models to install (Ollama was to be left alone).",
   "status": "PARTIAL",
   "tests": "tests/test_speed_benchmark.py"
@@ -584,8 +584,10 @@
   "tests": "tests/test_research_hardening.py::test_cache_reuses_a_result_then_forgets_it, test_cache_keeps_only_what_is_worth_keeping_and_stays_bounded, test_search_and_page_caches_have_an_expiry; tests/test_knowledge_store.py (embedding cache, unchanged document)."
  },
  "101": {
-  "evidence": "Provider and core status are cached with st.cache_data (15-45 s); the chat model is warmed once per model. Duplicate calls on reruns were not measured.",
-  "status": "PARTIAL"
+  "commits": "6c967ca",
+  "evidence": "Measured with tools/app_profile.py (docs/benchmarks/app_profile.json): app.py drawn by Streamlit's test runner with a stand-in model, every HTTP request counted. Before: the first visit took 16.0 s with 15 requests (Ollama's model list 7 times, each image server twice), every rerun (each click) 1.81 s for one request to a ComfyUI that was not running, a chat turn 1.97 s of the app's own time. After: 4.95 s with 7 requests, 0.42 s with none, 0.58 s. Fixed: ComfyUI's status is kept for 30 s and asked again before a workflow runs (modules/comfyui_client.py); Ollama's model list is asked once and shared for 5 s (modules/providers.ollama_tags, also used by the knowledge search); the two image servers are asked at the same time and the best one is picked from the same list; servers on this machine are addressed as 127.0.0.1 (modules/local_address.py), because on Windows a new connection to localhost waited 2.05 s for an IPv6 attempt first; and a streamed answer is read to its end, so its connection is kept.",
+  "status": "COMPLETE",
+  "tests": "tests/test_local_servers.py"
  },
  "102": {
   "evidence": "Chat web answers use a brief mode and casual turns use a fast path; long research still runs inside the chat request instead of a separate job.",
@@ -597,8 +599,10 @@
   "status": "PARTIAL"
  },
  "104": {
-  "evidence": "No profiling has been done.",
-  "status": "MISSING"
+  "commits": "6c967ca",
+  "evidence": "Profiled before refactoring (tools/app_profile.py; docs/benchmarks/app_profile.json): import times (modules.nexus_core 1.15 s, app 1.89 s), and for a first visit, a rerun and a chat turn the share of samples each function of this repository was on the stack for, with the HTTP requests made. Finding: the large modules' own code was not where the time went. 84% of the first visit and 94% of each rerun was waiting on connections to local servers, and a chat turn's planning, prompt building and checks took about 50 ms of its 2 s. Those causes were fixed (item 101). The profile is there to be run again before and after a refactoring of app.py or modules/nexus_core.py (items 120, 121).",
+  "status": "COMPLETE",
+  "tests": "tests/test_local_servers.py (the request counter)"
  },
  "105": {
   "commits": "854e55c",
@@ -929,11 +933,10 @@
   "tests": "tests/test_research_plan.py, tests/test_answer_diagnostics.py; tools/research_relevance_benchmark.py with the real model; the live Omaha question through the chat path"
  },
  "CN-QA-007": {
-  "commits": "e5d289e, 2a06d88, aab9c45",
-  "evidence": "Measured before and after on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile; docs/GENERATION_RELIABILITY_REPORT.md). Two delays of the app's were removed: the first 160 characters of every answer were held back (about 8 s here), fixed in e5d289e; and the \"Fast\" profile's num_batch made Ollama reload the model whenever a chat answer followed another kind of call (4.1 to 4.6 s each, \"runner options changed\" in Ollama's log), fixed in 2a06d88. First word, app against Ollama alone: +10.2 to +11.4 s with the code before this phase (44c49e7), +1.9 to +2.6 s after (f7b4892); writing speed the same, about 5 tokens a second. Corrected on 2026-11-24: this entry first said +5.0 to +6.2 s before and -0.2 to +1.6 s after, and called the rest the model's. The measuring tool opened a new connection to localhost for every call straight to Ollama, which on Windows waits about 2 s for an IPv6 attempt first, so Ollama alone looked 2 s slower than it is. The phase added model calls to web questions (planning about 17 to 21 s, judging 9 to 30 s); measured, disclosed, and switched off with the setting plan_web_search.",
-  "needs": "The remaining 2 s is the app's: it opened a new connection to localhost for every answer (2.05 s each on this machine). Fixed on the branch audit/remaining-items (local servers addressed as 127.0.0.1, a streamed answer read to its end so its connection is kept), where it is measured.",
-  "status": "PARTIAL",
-  "tests": "tests/test_quality_corrective.py (first word, no load-time options); tools/quality_check.py --only profile with the real model"
+  "commits": "e5d289e, 2a06d88, aab9c45, 6c967ca",
+  "evidence": "Measured on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile, with the calls straight to Ollama on a kept-open connection to 127.0.0.1; docs/GENERATION_RELIABILITY_REPORT.md, quality_after.json). Time to the first word, the app's share: +10.2 to +11.4 s with the code before the corrective phase (44c49e7), +1.9 to +2.6 s after it (f7b4892), +0.5 to +0.8 s on this branch. Removed: holding back the first 160 characters (about 8 s, e5d289e); the Fast profile's num_batch, which made Ollama reload the model between kinds of call (4.1 to 4.6 s, 2a06d88); and a new connection to localhost for every answer (about 2 s; on Windows localhost is tried over IPv6 first). What remains is about as long as the model takes to write the first few words, which the app waits for before showing text. Writing speed is the same as Ollama alone, about 5 tokens a second. The first published comparison (+5.0 to +6.2 s, -0.2 to +1.6 s) was wrong and is corrected in aab9c45. Web questions cost one or two more model calls for planning and judging (measured, disclosed, setting plan_web_search).",
+  "status": "COMPLETE",
+  "tests": "tests/test_quality_corrective.py, tests/test_local_servers.py; tools/quality_check.py --only profile with the real model"
  },
  "OC-0": {
   "commits": "4adc3d1",

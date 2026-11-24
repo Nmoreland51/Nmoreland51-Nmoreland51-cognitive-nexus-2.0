@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 71 |
-| PARTIAL | 53 |
-| MISSING | 21 |
+| COMPLETE | 73 |
+| PARTIAL | 52 |
+| MISSING | 20 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -23,12 +23,12 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 5. Build the autonomous software engineer you actually want (P1) | 13 | 4 | 0 | 0 |
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
-| 8. Performance and local hardware (P1) | 4 | 6 | 1 | 0 |
+| 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
 | 9. Security, privacy and data integrity (P0) | 5 | 7 | 1 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
-Owner-control requirement (Priority 0, cuts across the items above): 29 complete, 10 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
+Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
 
 ## How to continue
 
@@ -72,6 +72,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, tools and the gate: agent/capabilities.py (one list of tools, apps, accounts; web_search, read_page, search_knowledge as tools with declared input and output shapes), modules/model_capabilities.py, agent/toolcall.py (the local model picks a tool as JSON held to a schema by Ollama's `format`; two data rules, R-D11), tools/tool_choice_benchmark.py (held-out: 11 of 12; re-run it when the prompt, tools or schema change: a test says so), tools/evaluation_gate.py (model-free comparison of two versions; the agent's changes to this app need it to be accepted, R-C09). The chat tab does not use the tool loop: it still routes by rules. Windows CI was red for a day because the benchmark's clone followed Git's global line-ending setting; to reproduce the runner locally set GIT_CONFIG_GLOBAL to a file with core.autocrlf=true.
 - 2026-11-24, corrective quality phase (the owner's CN-QA-001 to 007), branch quality/corrective-phase: reports docs/QUALITY_BASELINE.md, CONTENT_RULE_VERIFICATION.md, GENERATION_RELIABILITY_REPORT.md, FACTUAL_RELIABILITY_REPORT.md, WEB_RESEARCH_QUALITY_REPORT.md, QUALITY_FINAL_VERIFICATION.md. Measure before and after with tools/quality_check.py (--root for another checkout; --only profile for app against Ollama alone). Lessons: (1) Ollama reloads the model whenever a load-time option differs from the last request (num_ctx, num_batch, num_thread; its log says "reloading model, runner options changed", about 4 to 6.5 s here). The app sends none but num_ctx, and the router never shrinks the window; keep it that way, and run timing-sensitive measurements alone. (2) The relevance benchmark has a new held-out set for every round (heldout, heldout2, heldout3): write the next set before running a changed planner on any held-out question. (3) Saved real-model results are tied to the prompts by fingerprint; changing the web answer prompt means running tools/research_benchmark.py and tools/injection_benchmark.py again.
 - 2026-11-24, resuming the 146 items on branch audit/remaining-items (stacked on quality/corrective-phase, whose pull request the owner has to open: the in-app form never reached GitHub). Heavy work (098, 105): modules/heavy_work.py makes one picture at a time across processes, makes room in memory before the local pipeline loads (the chat model is taken out of Ollama's memory when the picture would not fit beside it; setting picture_memory), keeps chat from loading the model beside a picture, and stops a picture at its time limit; the agent's job queue is bounded (agent/jobs.py QUEUE_LIMITS). Measured with tools/picture_memory_check.py (docs/benchmarks/picture_memory.json); the peak varies by about 1.4 GB between runs, so the higher figure is used. Register entry R-D12. Ledger corrections from code that already existed: 109 (the agent's permissioned tools and sandbox) and 118 (approvals, now with the exact arguments and the branch's changes shown). Next: 104 and 101 with tools/app_profile.py (the app's own time and its HTTP requests per rerun, stand-in model), then 030 and 028 (research claims by meaning), then the security documents (114, 110, 117), then 120 and 121 guided by the profile.
+- 2026-11-24, later: profiling (104, 101) found that on Windows every new connection to "localhost" waits 2.05 s for an IPv6 attempt (Ollama listens on IPv4 only), and that the measuring tools opened one per call: the published CN-QA-007 comparison and the speed benchmark's first-word times were about 2 s off. Corrected on quality/corrective-phase (aab9c45, CN-QA-007 back to partial there) and merged here; here local servers are 127.0.0.1 (modules/local_address.py), streamed answers keep their connection, ComfyUI's status and Ollama's model list are cached, and the app's share of the first word is +0.5 to +0.8 s (CN-QA-007 complete here). Lesson: time anything against a local server only on a kept-open connection to 127.0.0.1, or the 2 s lands in the figure. 028: modules/claim_map.py maps answer sentences to pages by rules; its held-out set (tests/fixtures/claim_map_cases.json) has now been seen, so a change to the rules needs a new held-out set before a figure is quoted. Next: 030 (one rumour on many sites), then 114, 110, 117, then 120 and 121 with tools/app_profile.py before and after.
 
 ## Items that need the owner
 
@@ -82,7 +83,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **004** (PARTIAL): Owner to merge the work branch into main (pull request not opened yet).
 - **014** (PARTIAL): An OpenAI and/or Anthropic API key, to send a real test prompt (Diagnostics > Send a test prompt) and confirm the requests work. The owner may also prefer a different Claude tier than claude-sonnet-5-5.
 - **023** (PARTIAL): Your choice of other models to install (Ollama was to be left alone), and a cloud key, to measure more than one model.
-- **028** (PARTIAL): The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.
+- **028** (PARTIAL): A reading of meaning: the rules miss a fact put in other words (a third of the held-out paraphrases) and pass a sentence that uses a page's words to say something else ("the current mayor" for a former one). A model's second reading, as the claim check has, would need its own measurement on a new held-out set.
 - **030** (PARTIAL): A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
 - **051** (PARTIAL): An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
 - **057** (PARTIAL): Docker or a WSL distribution for confinement of reading and of the network. Neither is installed on this machine.
@@ -115,7 +116,6 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **145** (MISSING): Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.
 - **146** (MISSING): Owner decision (the audit marks this 'if desired').
 - **CN-GR-010** (PARTIAL): Review by the owner or another person; a register for the phone app's repository.
-- **CN-QA-007** (PARTIAL): The remaining 2 s is the app's: it opened a new connection to localhost for every answer (2.05 s each on this machine). Fixed on the branch audit/remaining-items (local servers addressed as 127.0.0.1, a streamed answer read to its end so its connection is kept), where it is measured.
 - **OC-2** (COMPLETE): The owner's answers to D5 to D13 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
 - **OC-4** (PARTIAL): An OpenAI or Anthropic API key and a GitHub token to exercise the live services; an Android device or emulator for the phone.
 - **OC-5** (PARTIAL): An independent reviewer.
@@ -437,14 +437,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_research_plan.py, tests/test_answer_diagnostics.py; tools/research_relevance_benchmark.py with the real model; the live Omaha question through the chat path
 - **Commits:** 543daf9, 7a07f56, e5d289e, 2a06d88
 
-#### CN-QA-007 · PARTIAL
+#### CN-QA-007 · COMPLETE
 
 > P1. Poor performance for incomplete responses. Before-and-after measurements on the same hardware, model, prompts and settings, Ollama alone against the app, separating delays that are the model's from the app's own.
 
-- **Evidence:** Measured before and after on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile; docs/GENERATION_RELIABILITY_REPORT.md). Two delays of the app's were removed: the first 160 characters of every answer were held back (about 8 s here), fixed in e5d289e; and the "Fast" profile's num_batch made Ollama reload the model whenever a chat answer followed another kind of call (4.1 to 4.6 s each, "runner options changed" in Ollama's log), fixed in 2a06d88. First word, app against Ollama alone: +10.2 to +11.4 s with the code before this phase (44c49e7), +1.9 to +2.6 s after (f7b4892); writing speed the same, about 5 tokens a second. Corrected on 2026-11-24: this entry first said +5.0 to +6.2 s before and -0.2 to +1.6 s after, and called the rest the model's. The measuring tool opened a new connection to localhost for every call straight to Ollama, which on Windows waits about 2 s for an IPv6 attempt first, so Ollama alone looked 2 s slower than it is. The phase added model calls to web questions (planning about 17 to 21 s, judging 9 to 30 s); measured, disclosed, and switched off with the setting plan_web_search.
-- **Tests:** tests/test_quality_corrective.py (first word, no load-time options); tools/quality_check.py --only profile with the real model
-- **Commits:** e5d289e, 2a06d88, aab9c45
-- **Needs:** The remaining 2 s is the app's: it opened a new connection to localhost for every answer (2.05 s each on this machine). Fixed on the branch audit/remaining-items (local servers addressed as 127.0.0.1, a streamed answer read to its end so its connection is kept), where it is measured.
+- **Evidence:** Measured on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile, with the calls straight to Ollama on a kept-open connection to 127.0.0.1; docs/GENERATION_RELIABILITY_REPORT.md, quality_after.json). Time to the first word, the app's share: +10.2 to +11.4 s with the code before the corrective phase (44c49e7), +1.9 to +2.6 s after it (f7b4892), +0.5 to +0.8 s on this branch. Removed: holding back the first 160 characters (about 8 s, e5d289e); the Fast profile's num_batch, which made Ollama reload the model between kinds of call (4.1 to 4.6 s, 2a06d88); and a new connection to localhost for every answer (about 2 s; on Windows localhost is tried over IPv6 first). What remains is about as long as the model takes to write the first few words, which the app waits for before showing text. Writing speed is the same as Ollama alone, about 5 tokens a second. The first published comparison (+5.0 to +6.2 s, -0.2 to +1.6 s) was wrong and is corrected in aab9c45. Web questions cost one or two more model calls for planning and judging (measured, disclosed, setting plan_web_search).
+- **Tests:** tests/test_quality_corrective.py, tests/test_local_servers.py; tools/quality_check.py --only profile with the real model
+- **Commits:** e5d289e, 2a06d88, aab9c45, 6c967ca
 
 
 ## 1. Fix the foundations and release confusion (P0)
@@ -668,10 +667,10 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Map every factual claim to the exact cited passage, source URL, and retrieval timestamp.
 
-- **Evidence:** Every passage the claim check counts carries the quoted passage, source URL and title, when the page was retrieved, the date the page gives for itself, and the reason it was classed as it was; all of it is in the saved report and shown in the app. Search results and fetched pages record a retrieval time.
-- **Tests:** tests/test_claim_check_evidence.py::test_evidence_records_reason_and_dates_from_the_source, test_dates_travel_from_the_fetched_page_to_the_source_record, test_report_shows_reasons_dates_the_second_reading_and_what_was_left_out.
-- **Commits:** 1eb0e4a, 5278dea
-- **Needs:** The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.
+- **Evidence:** Every sentence of a web answer the model writes is matched to the passage of a page read that states it, with the page's title, address and when it was fetched, or reported as stated on no page read, as being about the sources, or as advice (modules/claim_map.py). It is recorded with the answer and shown in Diagnostics, How the last answer was made, by sentence number, without quoting the answer. Claim checks already carried the passage, address and retrieval time for every passage they count. Measured on labelled sentences written before the rules (tools/claim_map_benchmark.py, docs/benchmarks/claim_map.json): the sentences the local model actually wrote, 27 of 27 matched to the right page; written paraphrases, held out, 8 of 12; unsupported sentences reported as on no page, 10 of 12 and 8 of 10, with 4 of 22 shown as stated.
+- **Tests:** tests/test_claim_map.py
+- **Commits:** 1eb0e4a, 5278dea, 6c967ca
+- **Needs:** A reading of meaning: the rules miss a fact put in other words (a third of the held-out paraphrases) and pass a sentence that uses a page's words to say something else ("the current mayor" for a former one). A model's second reading, as the claim check has, would need its own measurement on a new held-out set.
 
 ### 029 · P0 · recommended · COMPLETE
 
@@ -1216,9 +1215,9 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Measure first-token latency, total latency, tokens/sec, RAM, VRAM, CPU and GPU across target models.
 
-- **Evidence:** Measured on this machine with dolphin3:8b: first word 2.9 s for a short new question, 60 s for a 2,105-token text read the first time, writing 5.1 tokens a second, reading 58, 5.0 GB of memory, 56% of the processor; no graphics card, so no VRAM or GPU figures (docs/benchmarks/speed_dolphin3-8b.json). The app's own share of the time to the first word was measured against Ollama alone with the same window and limit (quality_after.json, profile; docs/GENERATION_RELIABILITY_REPORT.md). Only the installed model was measured.
+- **Evidence:** Measured on this machine with dolphin3:8b (docs/benchmarks/speed_dolphin3-8b.json, measured again on 2026-11-24 with one connection kept open): first word 0.7 s for a short new question and 0.24 s for a follow-up, 57 s for a 2,105-token text read the first time, writing 5.1 tokens a second, reading 61, 5.6 GB of memory, 72% of the processor; no graphics card, so no VRAM or GPU figures. The first published first-word figures (2.9 s and 2.4 s) were about 2 s too long: the tool opened a new connection to localhost for every run, which on Windows waits for an IPv6 attempt first.
 - **Tests:** tests/test_speed_benchmark.py
-- **Commits:** ba0708c, 44c49e7, cfab5f3
+- **Commits:** ba0708c, 44c49e7, cfab5f3, 6c967ca
 - **Needs:** Your choice of other models to install (Ollama was to be left alone).
 
 ### 097 · P1 · recommended · PARTIAL
@@ -1254,11 +1253,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_research_hardening.py::test_cache_reuses_a_result_then_forgets_it, test_cache_keeps_only_what_is_worth_keeping_and_stays_bounded, test_search_and_page_caches_have_an_expiry; tests/test_knowledge_store.py (embedding cache, unchanged document).
 - **Commits:** 3a1c1e5, 5278dea
 
-### 101 · P1 · recommended · PARTIAL
+### 101 · P1 · recommended · COMPLETE
 
 > Reduce duplicate provider/status/network calls triggered by Streamlit reruns.
 
-- **Evidence:** Provider and core status are cached with st.cache_data (15-45 s); the chat model is warmed once per model. Duplicate calls on reruns were not measured.
+- **Evidence:** Measured with tools/app_profile.py (docs/benchmarks/app_profile.json): app.py drawn by Streamlit's test runner with a stand-in model, every HTTP request counted. Before: the first visit took 16.0 s with 15 requests (Ollama's model list 7 times, each image server twice), every rerun (each click) 1.81 s for one request to a ComfyUI that was not running, a chat turn 1.97 s of the app's own time. After: 4.95 s with 7 requests, 0.42 s with none, 0.58 s. Fixed: ComfyUI's status is kept for 30 s and asked again before a workflow runs (modules/comfyui_client.py); Ollama's model list is asked once and shared for 5 s (modules/providers.ollama_tags, also used by the knowledge search); the two image servers are asked at the same time and the best one is picked from the same list; servers on this machine are addressed as 127.0.0.1 (modules/local_address.py), because on Windows a new connection to localhost waited 2.05 s for an IPv6 attempt first; and a streamed answer is read to its end, so its connection is kept.
+- **Tests:** tests/test_local_servers.py
+- **Commits:** 6c967ca
 
 ### 102 · P1 · recommended · PARTIAL
 
@@ -1273,11 +1274,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Evidence:** Chat web answers stream as they are written and the Research tab shows step progress. Bloodhound and report synthesis show no intermediate output.
 - **Commits:** e7d690b
 
-### 104 · P1 · recommended · MISSING
+### 104 · P1 · recommended · COMPLETE
 
 > Profile large core, planner, and Streamlit UI modules before refactoring.
 
-- **Evidence:** No profiling has been done.
+- **Evidence:** Profiled before refactoring (tools/app_profile.py; docs/benchmarks/app_profile.json): import times (modules.nexus_core 1.15 s, app 1.89 s), and for a first visit, a rerun and a chat turn the share of samples each function of this repository was on the stack for, with the HTTP requests made. Finding: the large modules' own code was not where the time went. 84% of the first visit and 94% of each rerun was waiting on connections to local servers, and a chat turn's planning, prompt building and checks took about 50 ms of its 2 s. Those causes were fixed (item 101). The profile is there to be run again before and after a refactoring of app.py or modules/nexus_core.py (items 120, 121).
+- **Tests:** tests/test_local_servers.py (the request counter)
+- **Commits:** 6c967ca
 
 ### 105 · P1 · recommended · COMPLETE
 
