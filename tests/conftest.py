@@ -54,3 +54,32 @@ def accounts_file_per_test(tmp_path, monkeypatch):
     from modules import accounts
 
     monkeypatch.setattr(accounts, "ACCOUNTS_FILE", tmp_path / "accounts.json")
+
+
+def _workflow_text(text: str, *, for_property: bool = False) -> str:
+    """Escape text for a GitHub Actions workflow command."""
+
+    text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return text.replace(":", "%3A").replace(",", "%2C") if for_property else text
+
+
+def failure_annotations(reports: list, limit: int = 10) -> list[str]:
+    """One GitHub Actions error line per failed test: the test's name, and the end of its failure text."""
+
+    lines = []
+    for report in reports[:limit]:
+        detail = str(getattr(report, "longreprtext", "") or getattr(report, "longrepr", "") or "").strip().splitlines()
+        text = "\n".join(detail[-30:])[-3500:] or "failed"
+        path, line, _name = report.location
+        lines.append(f"::error file={_workflow_text(str(path), for_property=True)},line={int(line or 0) + 1},title={_workflow_text(report.nodeid[-180:], for_property=True)}::{_workflow_text(text)}")
+    return lines
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """On GitHub Actions, put each failure on the run's summary page instead of only deep in the log."""
+
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    failed = list(terminalreporter.stats.get("failed", [])) + list(terminalreporter.stats.get("error", []))
+    for line in failure_annotations(failed):
+        terminalreporter.write_line(line)
