@@ -11,8 +11,9 @@ A tool is a function with a name, a JSON Schema for its arguments, and a declare
 Nothing runs except through ToolRegistry.call, which does the same things for every tool, in this
 order: check the arguments against the schema, ask the approval policy, refuse to repeat a
 completed non-repeatable action (so a resumed task does not redo its writes), write the action down
-before running it, run it, check the outcome against observable state where the tool can, and write
-down how it ended. The record is the user's action history.
+before running it, run it, check what came back against the schema the tool declares for its
+result (where it declares one), check the outcome against observable state where the tool can, and
+write down how it ended. The record is the user's action history.
 """
 
 from __future__ import annotations
@@ -94,6 +95,9 @@ class Tool:
     verify: Callable[[ToolContext, dict[str, Any], ToolResult], tuple[bool, str]] | None = None
     # One line describing a call for approval requests and the history.
     summarize: Callable[[dict[str, Any]], str] | None = None
+    # JSON Schema of the data a successful call returns. A result that does not match is a failure:
+    # whatever reads the data next (a model, the app) is promised this shape.
+    returns: dict[str, Any] | None = None
 
     def summary(self, arguments: dict[str, Any]) -> str:
         if self.summarize is not None:
@@ -137,6 +141,8 @@ class ToolRegistry:
         if tool.parameters.get("type") != "object":
             raise ValueError(f"{tool.name}: the parameter schema must describe an object.")
         jsonschema.Draft202012Validator.check_schema(tool.parameters)
+        if tool.returns is not None:
+            jsonschema.Draft202012Validator.check_schema(tool.returns)
         self._tools[tool.name] = tool
         return tool
 
@@ -158,6 +164,7 @@ class ToolRegistry:
                 "repeatable": tool.repeatable,
                 "checks_its_outcome": tool.verify is not None,
                 "parameters": tool.parameters,
+                "returns": tool.returns,
             }
             for tool in sorted(self._tools.values(), key=lambda item: (item.adapter, item.name))
             if (effects is None or tool.effect in effects) and (adapters is None or tool.adapter in adapters)
@@ -231,6 +238,12 @@ class ToolRegistry:
             result = ToolResult(ok=False, error=str(exc))
         except Exception as exc:  # a bug in a tool must not take the agent down with it
             result = ToolResult(ok=False, error=f"{name} failed unexpectedly: {type(exc).__name__}: {exc}")
+        if result.ok and tool.returns is not None:
+            wrong = sorted(jsonschema.Draft202012Validator(tool.returns).iter_errors(result.data), key=lambda item: list(item.path))
+            if wrong:
+                where = "; ".join(f"{'/'.join(map(str, problem.path)) or 'result'}: {problem.message[:160]}" for problem in wrong[:3])
+                result.ok = False
+                result.error = f"{name} returned data that does not match what it declares: {where}"
         if result.ok and tool.verify is not None:
             try:
                 result.verified, result.verification = tool.verify(context, arguments, result)

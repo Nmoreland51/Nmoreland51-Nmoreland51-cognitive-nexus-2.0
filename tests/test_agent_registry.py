@@ -416,3 +416,25 @@ def test_two_processes_can_write_at_the_same_time(tmp_path):
     store.close()
     assert len(recorded) == 120 and {item["status"] for item in recorded} == {"ok"}
     assert len({item["key"] for item in recorded}) == 120
+
+
+def test_what_a_tool_returns_is_checked_against_what_it_declares(store):
+    """Whatever reads a tool's data next is promised a shape. A result that breaks it is a failure, and is recorded as one."""
+
+    registry = ToolRegistry()
+    shape = {"type": "object", "properties": {"count": {"type": "integer", "minimum": 0}, "names": {"type": "array", "items": {"type": "string"}}}, "required": ["count", "names"], "additionalProperties": False}
+    no_arguments = {"type": "object", "properties": {}, "additionalProperties": False}
+    registry.register(Tool("count_right", "Counts.", no_arguments, "read", lambda context: ToolResult(ok=True, output="2", data={"count": 2, "names": ["a", "b"]}), returns=shape, repeatable=True))
+    registry.register(Tool("count_wrong", "Counts.", no_arguments, "read", lambda context: ToolResult(ok=True, output="two", data={"count": "two", "names": ["a", 3]}), returns=shape, repeatable=True))
+    context = ToolContext(store=store, policy=ApprovalPolicy("workspace"))
+
+    right = registry.call("count_right", {}, context)
+    wrong = registry.call("count_wrong", {}, context)
+
+    assert right.ok and right.status == "ok"
+    assert not wrong.ok and wrong.status == "failed"
+    assert "returned data that does not match what it declares" in wrong.error and "count" in wrong.error
+    assert store.actions()[0]["status"] == "failed" and event_log.event_counts()["tool_failure"] == 1
+    assert next(tool for tool in registry.describe() if tool["name"] == "count_right")["returns"] == shape
+    with pytest.raises(Exception, match="is not valid under any of the given schemas|is not of type|Failed validating"):
+        registry.register(Tool("broken", "Bad schema.", no_arguments, "read", lambda context: ToolResult(ok=True), returns={"type": "no-such-type"}))
