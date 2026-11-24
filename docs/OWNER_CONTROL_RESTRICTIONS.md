@@ -658,7 +658,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B05 · The image model's built-in content checker is not loaded · active
 
-- **Where:** `modules/image_gen.py:356` — `"safety_checker": None,`
+- **Where:** `modules/image_gen.py:360` — `"safety_checker": None,`
 - **Trigger:** Local image generation with Diffusers.
 - **Effect:** Stable Diffusion's own "safety checker", which blacks out pictures it classifies as adult, is switched off, so adult images are produced as asked.
 - **Owner requested:** Consistent with the owner's wish for adult content; not asked for in these words.
