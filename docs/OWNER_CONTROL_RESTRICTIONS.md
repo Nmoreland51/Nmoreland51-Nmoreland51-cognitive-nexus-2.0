@@ -66,7 +66,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | R-D05 | Research does not fetch addresses only this machine can reach | active | On | Yes | Pending review by the owner |
 | R-D06 | The sandbox for commands the agent starts | active | On | Limits: yes (agent_command_seconds_max, agent_memory_mb, agent_processes) | Pending review by the owner |
 | R-D07 | Each agent task works in its own checkout | active | On | The folder: COGNITIVE_NEXUS_AGENT_WORKSPACES | Pending review by the owner |
-| R-D08 | Keys and tokens stay out of the settings file, the logs, backups and the sandbox | active | On | No | Pending review by the owner |
+| R-D08 | Keys and tokens stay out of the settings file, the logs, picture metadata, backups and the sandbox | active | On | No | Pending review by the owner |
 | R-D09 | Cloud fallback is off unless the owner allows it | active | Off | Yes | Pending review by the owner |
 | R-D10 | Limits on uploaded files and on deleting data | active | On | No setting | Pending review by the owner |
 | R-D11 | In a tool run, private text is not sent out and pages are fetched only from known addresses | active | On | Rule 1: yes, per run | Pending review by the owner |
@@ -341,9 +341,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:324` — `_CREATIVE = re.compile(`
 - **Where:** `modules/behavior_policy.py:446` — `JUDGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:467` — `JUDGE_EXAMPLES_B = """`
-- **Where:** `modules/nexus_core.py:1079` — `rule = self.content_rule(user_message, settings, recent_turns)`
-- **Where:** `modules/nexus_core.py:329` — `def _require_content_rule(`
-- **Where:** `modules/event_log.py:32` — `"content_rule",`
+- **Where:** `modules/nexus_core.py:1080` — `rule = self.content_rule(user_message, settings, recent_turns)`
+- **Where:** `modules/nexus_core.py:330` — `def _require_content_rule(`
+- **Where:** `modules/event_log.py:33` — `"content_rule",`
 - **Where:** `agent/toolcall.py:285` — `decision = check_content_rule(request, "", judge, "text")`
 - **Where:** `modules/behavior_policy.py:420` — `def history_counts(message: str, recent: str) -> bool:`
 - **Where:** `modules/behavior_policy.py:370` — `_NEGATED_MINOR = re.compile(`
@@ -455,9 +455,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A17 · Length and format rules added to each message · active
 
-- **Where:** `modules/nexus_core.py:775` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
+- **Where:** `modules/nexus_core.py:776` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
 - **Where:** `modules/response_planner.py:720` — `def apply_auto_precision_settings(`
-- **Where:** `modules/nexus_core.py:673` — `routed_system = "Answer only the current message.`
+- **Where:** `modules/nexus_core.py:674` — `routed_system = "Answer only the current message.`
 - **Trigger:** Every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.
 - **Effect:** Lines such as "Answer in 1-3 short sentences", "Maximum output: about N tokens", and for small talk a list of stock phrases to avoid, are added to the prompt; the reply length limit is set to match. For quick turns the prompt also says "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics."
 - **Owner requested:** Yes, in part: the owner asked for fast answers (about 60 seconds for web answers) and less filler.
@@ -477,9 +477,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A18 · Replies the app writes itself, without a model · active
 
-- **Where:** `modules/nexus_core.py:172` — `def _direct_response_instruction(`
-- **Where:** `modules/nexus_core.py:1324` — `"provider": "local_followup_clarification",`
-- **Where:** `modules/nexus_core.py:1289` — `"provider": "local_fast_path",`
+- **Where:** `modules/nexus_core.py:173` — `def _direct_response_instruction(`
+- **Where:** `modules/nexus_core.py:1325` — `"provider": "local_followup_clarification",`
+- **Where:** `modules/nexus_core.py:1290` — `"provider": "local_fast_path",`
 - **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). (d) A bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?". (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
 - **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject.
 - **Owner requested:** No.
@@ -499,9 +499,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A19 · Edits made to a model's answer after it is written · active
 
-- **Where:** `modules/nexus_core.py:886` — `def _clean_model_answer(`
-- **Where:** `modules/nexus_core.py:934` — `def _repair_social_presence_answer(`
-- **Where:** `modules/nexus_core.py:1036` — `def _reduce_hedging(`
+- **Where:** `modules/nexus_core.py:887` — `def _clean_model_answer(`
+- **Where:** `modules/nexus_core.py:935` — `def _repair_social_presence_answer(`
+- **Where:** `modules/nexus_core.py:1037` — `def _reduce_hedging(`
 - **Trigger:** (a) An answer that begins with leaked prompt text ("User request:", "Response plan:"). (b) Small talk containing stock phrases ("It's great to hear...", "How's it going?"). (c) The research-simulation route with the persona's default settings.
 - **Effect:** (a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. (c) Phrases such as "However,", "Note that", "I think" are deleted from the app's stored copy of the answer; the text already shown while streaming is not changed. None of this depends on the subject and none of it turns an answer into a refusal or back.
 - **Owner requested:** No.
@@ -521,8 +521,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A20 · Memory notes and self-critique hints added to the prompt · active
 
-- **Where:** `modules/nexus_core.py:351` — `def _memory_context(`
-- **Where:** `modules/nexus_core.py:835` — `def _self_critic_prompt_hints(`
+- **Where:** `modules/nexus_core.py:352` — `def _memory_context(`
+- **Where:** `modules/nexus_core.py:836` — `def _self_critic_prompt_hints(`
 - **Where:** `modules/context_manager.py:431` — `Relevant memory (the app's notes about the owner)`
 - **Trigger:** Memory switched on: an "Adaptive response policy" (tone, detail, directness) inferred from the owner's earlier messages, with saved preferences and facts. Always: up to three hints from the app's notes on its own earlier answers ("use warmer, less formal wording").
 - **Effect:** Added to the prompt as plain notes. They shape tone and length. They are not about subjects.
@@ -547,8 +547,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:541` — `IMAGE_CLOTHED_QUESTION = """`
 - **Where:** `modules/behavior_policy.py:493` — `IMAGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:57` — `CONTENT_RULE_PICTURE_REPLY = (`
-- **Where:** `modules/nexus_core.py:2054` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
-- **Where:** `modules/nexus_core.py:2077` — `self._require_content_rule(str(prompt or ""), kind="image")`
+- **Where:** `modules/nexus_core.py:2055` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
+- **Where:** `modules/nexus_core.py:2078` — `self._require_content_rule(str(prompt or ""), kind="image")`
 - **Trigger:** Every request for a picture (image generation, ComfyUI workflows) that names a minor. Naming a minor is enough: no sexual word is needed.
 - **Effect:** A request that also uses a word for nudity (nude, naked, topless, undressed, no clothes) is stopped at once, without a model. For the rest the model is asked three things: two wordings of whether the picture would show a minor nude, undressed or sexualised, and directly whether the child would be clothed. Any answer against it stops the request with the text "Not drawn. This app does not make pictures that show anyone under 18 nude or undressed, whatever the scene." An innocent scene such as a toddler in the bath is stopped too.
 - **Owner requested:** No. The owner's rule is about sexual content. This line is stricter and is the assistant's own: it would not wire up the generation of pictures of unclothed children, innocent scene or not.
@@ -658,7 +658,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B05 · The image model's built-in content checker is not loaded · active
 
-- **Where:** `modules/image_gen.py:360` — `"safety_checker": None,`
+- **Where:** `modules/image_gen.py:361` — `"safety_checker": None,`
 - **Trigger:** Local image generation with Diffusers.
 - **Effect:** Stable Diffusion's own "safety checker", which blacks out pictures it classifies as adult, is switched off, so adult images are produced as asked.
 - **Owner requested:** Consistent with the owner's wish for adult content; not asked for in these words.
@@ -833,9 +833,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-C08 · A linked account is used only for what the owner ticked · active
 
-- **Where:** `modules/accounts.py:496` — `def credential(service: str, permission: str, *, path: Path | None = None) -> str:`
-- **Where:** `modules/accounts.py:504` — `raise NotPermitted(`
-- **Where:** `modules/accounts.py:255` — `def _checked_address(address: str, what: str) -> str:`
+- **Where:** `modules/accounts.py:497` — `def credential(service: str, permission: str, *, path: Path | None = None) -> str:`
+- **Where:** `modules/accounts.py:505` — `raise NotPermitted(`
+- **Where:** `modules/accounts.py:256` — `def _checked_address(address: str, what: str) -> str:`
 - **Where:** `agent/github.py:55` — `def token_for(permission: str) -> str:`
 - **Where:** `agent/github.py:246` — `if not _is_github(context, address):`
 - **Where:** `modules/provider_router.py:507` — `usable, why = accounts.available("openai", "chat")`
@@ -1049,29 +1049,31 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Known limitations:** None.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
-### R-D08 · Keys and tokens stay out of the settings file, the logs, backups and the sandbox · active
+### R-D08 · Keys and tokens stay out of the settings file, the logs, picture metadata, backups and the sandbox · active
 
 - **Where:** `modules/nexus_config.py:221` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
-- **Where:** `modules/nexus_core.py:326` — `record_event("content_rule",`
+- **Where:** `modules/nexus_core.py:327` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
 - **Where:** `modules/data_stores.py:233` — `holds_credentials=True,`
-- **Where:** `modules/accounts.py:144` — `def _dpapi(data: bytes, *, protect: bool) -> bytes:`
-- **Trigger:** Saving settings; linking an account; publishing to GitHub; recording events; making a backup, an export or a snapshot.
-- **Effect:** Settings whose name contains "key" are not written to the settings file. A credential the owner chooses to store goes into one file only, the linked accounts (R-C08): encrypted for the Windows user on Windows, readable by the user only elsewhere, never shown again after it was typed. That file is left out of every backup, export and snapshot, cannot be asked for by name, and an archive that contains one is refused on restore. The GitHub token travels in Git's environment configuration and is not written to any record of an action. Events about accounts record the service and the permissions, never the secret. The event recorded when the content rule stops a request holds the stage, not the message.
+- **Where:** `modules/accounts.py:145` — `def _dpapi(data: bytes, *, protect: bool) -> bytes:`
+- **Where:** `modules/redaction.py:90` — `def redact(text: str) -> str:`
+- **Where:** `modules/nexus_core.py:132` — `redaction.install_log_redaction()`
+- **Trigger:** Saving settings; linking an account; publishing to GitHub; recording events; writing the log file or the answer checks; saving a picture's metadata or a ComfyUI picture; making a backup, an export or a snapshot.
+- **Effect:** Settings whose name contains "key" are not written to the settings file. A credential the owner chooses to store goes into one file only, the linked accounts (R-C08): encrypted for the Windows user on Windows, readable by the user only elsewhere, never shown again after it was typed. That file is left out of every backup, export and snapshot, cannot be asked for by name, and an archive that contains one is refused on restore. The GitHub token travels in Git's environment configuration and is not written to any record of an action. Events about accounts record the service and the permissions, never the secret. The event recorded when the content rule stops a request holds the stage, not the message. Everything the app writes to its log file, its event log and its answer checks, and the metadata saved with pictures (including the workflow text a ComfyUI picture carries inside it), passes through modules/redaction.py first: text shaped like a key or token, a password or key in a web address, the value of an Authorization header, and this machine's own secrets (secret-named environment variables, and credentials the app has read this session) become "[redacted: ...]". The owner's chat, the prompts sent to the model and the answers are not changed (item 110).
 - **Owner requested:** Yes (owner's test OC-T15).
-- **Evidence:** modules/nexus_config.py, modules/accounts.py, modules/backup.py, modules/data_stores.py, agent/github.py, modules/nexus_core.py.
+- **Evidence:** modules/nexus_config.py, modules/accounts.py, modules/backup.py, modules/data_stores.py, agent/github.py, modules/nexus_core.py, modules/redaction.py, modules/event_log.py, modules/response_verifier.py, modules/image_gen.py, modules/comfyui_client.py.
 - **Origin:** Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.
 - **Technical reason:** A leaked key gives someone else the owner's account.
-- **Affected workflows:** Settings, publishing, exports.
+- **Affected workflows:** Settings, publishing, exports; reading the logs, where a key appears as [redacted: ...].
 - **Default:** On.
 - **Effective now:** On.
 - **Alternatives:** None.
 - **Can the owner change it?:** No.
 - **Owner decision:** Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.
-- **Tests:** tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_backup.py: test_stored_credentials_never_travel; tests/test_accounts.py: test_a_stored_credential_comes_back_and_is_not_readable_in_the_file, test_what_the_owner_sees_never_contains_a_secret; tests/test_agent_github.py; tests/test_repo_hygiene.py
+- **Tests:** tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_backup.py: test_stored_credentials_never_travel; tests/test_accounts.py: test_a_stored_credential_comes_back_and_is_not_readable_in_the_file, test_what_the_owner_sees_never_contains_a_secret; tests/test_agent_github.py; tests/test_repo_hygiene.py; tests/test_redaction.py
 - **Regression risk:** Low.
-- **Known limitations:** Outside Windows a stored credential is not encrypted (the app says so where it is shown).
+- **Known limitations:** Outside Windows a stored credential is not encrypted (the app says so where it is shown). A key in a format the patterns do not know, that is not one of this machine's own, is not recognised; text that only looks like a key is redacted too. The coding agent's journal (agent.db) keeps tool output as it was, because a resumed run replays it: it stays on this computer and goes into the encrypted backup only.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
 ### R-D09 · Cloud fallback is off unless the owner allows it · active
@@ -1186,7 +1188,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
-- **Where:** `modules/nexus_core.py:1212` — `reality_check != "off"`
+- **Where:** `modules/nexus_core.py:1213` — `reality_check != "off"`
 - **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
@@ -1207,7 +1209,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-E02 · Notes about grounding and checks after an answer · active
 
-- **Where:** `modules/nexus_core.py:953` — `def _audit_answer(`
+- **Where:** `modules/nexus_core.py:954` — `def _audit_answer(`
 - **Trigger:** Every answer, when reality grounding is on.
 - **Effect:** The answer is examined for unsupported claims and a short note may be added under it in the advanced views (never in ordinary conversation). The result is logged and shown in Diagnostics. The answer is not withheld.
 - **Owner requested:** Not specifically.

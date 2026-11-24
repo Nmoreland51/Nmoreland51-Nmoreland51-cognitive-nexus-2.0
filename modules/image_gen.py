@@ -22,6 +22,7 @@ import requests
 from modules import heavy_work
 from modules.data_stores import DATA_ROOT, KNOWLEDGE_ROOT
 from modules.local_address import loopback_ipv4
+from modules.redaction import redact_data
 
 logger = logging.getLogger(__name__)
 
@@ -477,7 +478,7 @@ def save_generated_image(image: Any, metadata: dict[str, Any], index: int = 1) -
 def save_generation_metadata(metadata: dict[str, Any], index: int = 1) -> str:
     ensure_image_dirs()
     path = METADATA_DIR / f"{_base_filename(metadata, index)}.json"
-    path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
+    path.write_text(json.dumps(redact_data(metadata), indent=2, ensure_ascii=False), encoding="utf-8")
     return str(path)
 
 
@@ -510,7 +511,7 @@ def _package_generation_result(
             metadata["filename"] = Path(image_path).name
             metadata_path = str(METADATA_DIR / f"{_base_filename(metadata, index)}.json")
             metadata["metadata_path"] = metadata_path
-            Path(metadata_path).write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
+            Path(metadata_path).write_text(json.dumps(redact_data(metadata), indent=2, ensure_ascii=False), encoding="utf-8")
         else:
             metadata["file_path"] = None
             metadata["filename"] = None

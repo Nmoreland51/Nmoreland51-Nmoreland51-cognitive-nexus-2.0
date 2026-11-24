@@ -235,10 +235,13 @@ STORES: tuple[Store, ...] = (
     Store(
         key="logs",
         title="Logs",
-        holds="Problem events by kind and per-answer verification records. No prompts or answers.",
+        holds=(
+            "Problem events by kind, per-answer verification records and the app's log file (cognitive_nexus.log). No prompts "
+            "or answers. Keys and tokens are redacted before anything is written (modules/redaction.py)."
+        ),
         locations=(("logs", ""),),
         sensitivity="log",
-        written_by="modules/event_log.py, modules/response_verifier.py",
+        written_by="modules/event_log.py, modules/response_verifier.py, the log file set up in modules/nexus_core.py",
         in_backup=False,
     ),
 )

@@ -1,6 +1,11 @@
 """Fail when the repository tracks secrets or private runtime data.
 
 Run by CI on every push:  python tools/check_repo_hygiene.py
+Other files and folders:  python tools/check_repo_hygiene.py --scan logs data app-release.apk
+
+--scan looks for secrets in the files given, in every file under a folder given, and inside zip-based
+archives (an Android .apk or .aab, .jar, .whl, .zip), so the app's own logs from before item 110 and
+a phone build can be checked too. It does not look for private data, which is what those folders hold.
 
 Two checks over the files git tracks:
 1. Secrets: API keys, tokens and private keys in file contents.
@@ -15,10 +20,12 @@ private file fails the check.
 
 from __future__ import annotations
 
+import argparse
 import fnmatch
 import re
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,6 +114,54 @@ def find_secrets(files: list[str]) -> list[str]:
     return problems
 
 
+ARCHIVE_SUFFIXES = (".apk", ".aab", ".jar", ".whl", ".zip")
+MAX_SCANNED_BYTES = 20_000_000
+
+
+def _secrets_in(text: str, where: str) -> list[str]:
+    found = []
+    for label, pattern in SECRET_PATTERNS.items():
+        for match in pattern.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            found.append(f"{where}:{line}: looks like a {label}")
+    return found
+
+
+def _decoded(data: bytes) -> str:
+    """Text from a file's bytes, binary or not: keys in compiled code are stored as plain characters."""
+
+    return data.decode("utf-8", errors="replace")
+
+
+def scan_paths(paths: list[str]) -> tuple[list[str], int]:
+    """Secrets in the given files, folders and archives. Returns (problems, files looked at)."""
+
+    problems: list[str] = []
+    looked_at = 0
+    for given in paths:
+        path = Path(given)
+        candidates = [path] if path.is_file() else sorted(item for item in path.rglob("*") if item.is_file()) if path.is_dir() else []
+        if not candidates:
+            problems.append(f"{given}: not found")
+        for item in candidates:
+            try:
+                if item.stat().st_size > MAX_SCANNED_BYTES and item.suffix.lower() not in ARCHIVE_SUFFIXES:
+                    continue
+                if item.suffix.lower() in ARCHIVE_SUFFIXES and zipfile.is_zipfile(item):
+                    with zipfile.ZipFile(item) as archive:
+                        for entry in archive.infolist():
+                            if entry.is_dir() or entry.file_size > MAX_SCANNED_BYTES:
+                                continue
+                            looked_at += 1
+                            problems.extend(_secrets_in(_decoded(archive.read(entry)), f"{item}!{entry.filename}"))
+                    continue
+                looked_at += 1
+                problems.extend(_secrets_in(_decoded(item.read_bytes()), str(item)))
+            except (OSError, zipfile.BadZipFile) as exc:
+                problems.append(f"{item}: could not be read ({exc})")
+    return problems, looked_at
+
+
 def find_private_data(files: list[str]) -> tuple[list[str], list[str]]:
     """Return (new private files that fail the check, grandfathered ones to warn about)."""
 
@@ -119,7 +174,19 @@ def find_private_data(files: list[str]) -> tuple[list[str], list[str]]:
     return failures, warnings
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--scan", nargs="+", metavar="PATH", help="look for secrets in these files, folders or archives instead")
+    args = parser.parse_args(argv)
+    if args.scan:
+        problems, looked_at = scan_paths(args.scan)
+        for problem in problems:
+            print(f"SECRET  {problem}", file=sys.stderr)
+        if problems:
+            return 1
+        print(f"ok: {looked_at} files looked at, no secrets")
+        return 0
+
     files = tracked_files()
     secrets = find_secrets(files)
     private, grandfathered = find_private_data(files)

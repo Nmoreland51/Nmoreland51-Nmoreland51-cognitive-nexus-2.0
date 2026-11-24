@@ -45,6 +45,7 @@ import requests
 from modules.data_stores import CONFIG_ROOT
 from modules.event_log import record_event
 from modules.file_lock import read_json, update_json
+from modules.redaction import remember
 
 ACCOUNTS_FILE = CONFIG_ROOT / "accounts.json"
 # Renew this long before the service would start refusing the credential.
@@ -515,6 +516,7 @@ def credential(service: str, permission: str, *, path: Path | None = None) -> st
             record = _load(path)[key]
         secret = _open(record["secret"])
         _touch(key, record, path)
+        remember(secret, f"{described.name} credential")
         return secret
     value, variable = _from_environment(described)
     if value:
@@ -522,6 +524,7 @@ def credential(service: str, permission: str, *, path: Path | None = None) -> st
             raise NotPermitted(f"{described.name} is linked through {variable}, but you have withheld '{permission}' in Settings, Linked accounts.")
         if permission not in described.permissions:
             raise NotPermitted(f"{described.name} has no permission named '{permission}'.")
+        remember(value, variable)
         return value
     how = f" {described.how_to_get}" if described.how_to_get else ""
     variables = f" or set {described.variables[0]}" if described.variables else ""

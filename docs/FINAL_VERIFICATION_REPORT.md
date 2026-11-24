@@ -104,7 +104,7 @@ You asked to be told about every limit the app has that you did not request. The
 | R-D05 | Research does not fetch addresses only this machine can reach | Yes. Environment variable ALLOW_PRIVATE_URL_FETCH=true. |
 | R-D06 | The sandbox for commands the agent starts | Limits: yes (agent_command_seconds_max, agent_memory_mb, agent_processes). The sandbox: no. |
 | R-D07 | Each agent task works in its own checkout | The folder: COGNITIVE_NEXUS_AGENT_WORKSPACES. |
-| R-D08 | Keys and tokens stay out of the settings file, the logs, backups and the sandbox | No. |
+| R-D08 | Keys and tokens stay out of the settings file, the logs, picture metadata, backups and the sandbox | No. |
 | R-D09 | Cloud fallback is off unless the owner allows it | Yes. Sidebar: Allow cloud fallback. |
 | R-D10 | Limits on uploaded files and on deleting data | No setting. |
 | R-D11 | In a tool run, private text is not sent out and pages are fetched only from known addresses | Rule 1: yes, per run. Rule 2: no. |

@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from modules.data_stores import LOG_ROOT
+from modules.redaction import redact
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,9 @@ def record_event(kind: str, message: str, **fields: Any) -> dict[str, Any]:
     event: dict[str, Any] = {
         "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "kind": kind if kind in EVENT_KINDS else "error",
-        "message": str(message)[:500],
+        "message": redact(str(message))[:500],
     }
-    event.update({key: (value if isinstance(value, (int, float, bool)) or value is None else str(value)[:300]) for key, value in fields.items()})
+    event.update({key: (value if isinstance(value, (int, float, bool)) or value is None else redact(str(value))[:300]) for key, value in fields.items()})
     with _lock:
         _counts[event["kind"]] += 1
         _recent.append(event)

@@ -20,7 +20,7 @@ from modules.context_manager import (
     handle_local_memory_command,
     load_user_fact_records,
 )
-from modules import heavy_work, retellings
+from modules import heavy_work, redaction, retellings
 from modules.image_gen import ImageGenerationRequest, generate_images
 from modules.behavior_policy import (
     JUDGE_OPTIONS,
@@ -129,6 +129,7 @@ class NexusCore:
             level=logging.INFO,
             format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         )
+        redaction.install_log_redaction()  # keys and tokens never reach the log file (item 110)
         self.project_root = project_root or Path(__file__).resolve().parents[1]
         self.config = load_runtime_config()
         self.response_preferences_path = self._configured_response_preferences_path()

@@ -16,6 +16,7 @@ import requests
 from modules.data_stores import DATA_ROOT
 from modules.local_address import loopback_ipv4
 from modules.nexus_config import load_runtime_config
+from modules.redaction import redact_data, redact_png_text
 
 
 BASE_DIR = DATA_ROOT / "comfyui"
@@ -240,6 +241,8 @@ class ComfyUIClient:
             saved_images = []
             for index, ref in enumerate(refs, start=1):
                 path = self.download_image(ref, prompt_id, index)
+                # A ComfyUI picture carries its whole workflow, which can hold a custom node's key.
+                redact_png_text(path)
                 saved_images.append({"path": str(path), **ref})
 
             metadata = {
@@ -251,7 +254,7 @@ class ComfyUIClient:
                 "images": saved_images,
             }
             metadata_path = METADATA_DIR / f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{prompt_id}.json"
-            metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
+            metadata_path.write_text(json.dumps(redact_data(metadata), indent=2, ensure_ascii=False), encoding="utf-8")
 
             return ComfyUIResult(
                 success=True,

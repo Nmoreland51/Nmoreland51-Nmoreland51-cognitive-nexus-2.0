@@ -10,6 +10,7 @@ from typing import Any
 
 from modules.file_lock import append_line
 from modules.nexus_config import LOG_DIR, ensure_runtime_dirs
+from modules.redaction import redact_data
 
 
 UNCERTAINTY_PATTERNS = [
@@ -83,11 +84,13 @@ def log_verification(result: VerificationResult, label: str = "chat") -> None:
 
     ensure_runtime_dirs()
     path = LOG_DIR / "uncertainty.jsonl"
-    payload = {
-        "timestamp": datetime.now().isoformat(),
-        "label": label,
-        **result.to_dict(),
-    }
+    payload = redact_data(
+        {
+            "timestamp": datetime.now().isoformat(),
+            "label": label,
+            **result.to_dict(),
+        }
+    )
     try:
         append_line(path, json.dumps(payload, ensure_ascii=False), timeout=3.0)
     except Exception:
