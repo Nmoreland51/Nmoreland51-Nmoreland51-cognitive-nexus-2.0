@@ -9,8 +9,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | Status | Items |
 |---|---|
 | COMPLETE | 77 |
-| PARTIAL | 50 |
-| MISSING | 18 |
+| PARTIAL | 51 |
+| MISSING | 17 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -25,7 +25,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
 | 9. Security, privacy and data integrity (P0) | 7 | 6 | 0 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 7 | 6 | 3 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 7 | 7 | 2 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
 Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
@@ -108,6 +108,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **113** (PARTIAL): Owner approval to remove the sixteen files from tracking and purge them from history (a history rewrite with force-push). Untracking alone leaves them in history and deletes them from other clones on pull.
 - **115** (PARTIAL): A hostile-document set for uploaded files, measured the same way.
 - **117** (PARTIAL): Hash-pinned requirement files (pip --require-hashes) for the coding agent's task environments, and a decision on what to do with a repository whose requirements carry no hashes.
+- **121** (PARTIAL): stream_chat_response is still one method of about 800 lines holding every chat route (follow-up, Reality-First research, Bloodhound, web answer, knowledge, model chat). Splitting it into one handler per route, each testable alone, is what remains; the service classes also share NexusCore's state through self rather than narrow interfaces.
 - **126** (PARTIAL): An OpenAI or Anthropic key for the cloud half.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
@@ -1419,11 +1420,14 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_ui_tabs.py; tests/test_app_controls.py; tools/app_profile.py (docs/benchmarks/app_profile.json, tabs_moved_out_of_app_py).
 - **Commits:** ae3f7ef
 
-### 121 · P0 · observed · MISSING
+### 121 · P0 · observed · PARTIAL
 
 > Decompose the roughly 79 KB NexusCore module into smaller orchestration services.
 
-- **Evidence:** modules/nexus_core.py is about 1,750 lines in one class.
+- **Evidence:** NexusCore's methods were split by concern into five service classes in their own modules: modules/core_models.py (how a model is asked), core_prompts.py (building the chat prompt), core_answers.py (finishing an answer), core_research.py (research outside the chat) and core_pictures.py (pictures), with shared values in core_shared.py. NexusCore is built from them, so every caller works unchanged. modules/nexus_core.py went from 2,088 lines (103 KB) to 1,139 (58 KB); all 52 methods are identical, as syntax trees, where they now are. Profiled before and after: no slower (the core imports in 1.08 s against 1.21 to 1.49 s).
+- **Tests:** The whole suite runs against the split class (tests/test_nexus_core.py, tests/test_owner_control.py and the rest); tools/app_profile.py (docs/benchmarks/app_profile.json, core_split_into_services).
+- **Commits:** 423bd6e
+- **Needs:** stream_chat_response is still one method of about 800 lines holding every chat route (follow-up, Reality-First research, Bloodhound, web answer, knowledge, model chat). Splitting it into one handler per route, each testable alone, is what remains; the service classes also share NexusCore's state through self rather than narrow interfaces.
 
 ### 122 · P0 · observed · COMPLETE
 

@@ -703,8 +703,11 @@
   "tests": "tests/test_ui_tabs.py; tests/test_app_controls.py; tools/app_profile.py (docs/benchmarks/app_profile.json, tabs_moved_out_of_app_py)."
  },
  "121": {
-  "evidence": "modules/nexus_core.py is about 1,750 lines in one class.",
-  "status": "MISSING"
+  "commits": "423bd6e",
+  "evidence": "NexusCore's methods were split by concern into five service classes in their own modules: modules/core_models.py (how a model is asked), core_prompts.py (building the chat prompt), core_answers.py (finishing an answer), core_research.py (research outside the chat) and core_pictures.py (pictures), with shared values in core_shared.py. NexusCore is built from them, so every caller works unchanged. modules/nexus_core.py went from 2,088 lines (103 KB) to 1,139 (58 KB); all 52 methods are identical, as syntax trees, where they now are. Profiled before and after: no slower (the core imports in 1.08 s against 1.21 to 1.49 s).",
+  "needs": "stream_chat_response is still one method of about 800 lines holding every chat route (follow-up, Reality-First research, Bloodhound, web answer, knowledge, model chat). Splitting it into one handler per route, each testable alone, is what remains; the service classes also share NexusCore's state through self rather than narrow interfaces.",
+  "status": "PARTIAL",
+  "tests": "The whole suite runs against the split class (tests/test_nexus_core.py, tests/test_owner_control.py and the rest); tools/app_profile.py (docs/benchmarks/app_profile.json, core_split_into_services)."
  },
  "122": {
   "commits": "9899eb8, 6c62c28",
