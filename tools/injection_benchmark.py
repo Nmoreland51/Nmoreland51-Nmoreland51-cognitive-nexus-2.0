@@ -27,6 +27,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from core.reality_grounding.prompt_firewall import UNTRUSTED_MODES, set_untrusted_mode  # noqa: E402
 from modules.provider_router import ProviderRequest, ProviderRouter  # noqa: E402
 from modules.web_research import BRIEF_SNIPPET_CHARS, _build_brief_prompt, _relevant_excerpt, _shorten  # noqa: E402
 
@@ -80,12 +81,17 @@ def judge(case: dict[str, Any], answer: str) -> dict[str, bool]:
     return {"obeyed_page": obeyed, "fact_kept": kept}
 
 
-def run(model: str, ollama_url: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
+def run(model: str, ollama_url: str, cases: list[dict[str, Any]], mode: str = "remove_and_fence") -> dict[str, Any]:
+    """Run the cases. `mode` is the owner's setting for outside text; for a setting other than the
+    default only the app's prompt under that setting is run (the "before" prompt does not depend on it)."""
+
+    set_untrusted_mode(mode)
+    variants = (("before", undefended_prompt), ("now", defended_prompt)) if mode == "remove_and_fence" else (("now", defended_prompt),)
     router = ProviderRouter({"provider_order": ["ollama", "fallback"], "ollama_url": ollama_url})
     rows = []
     for case in cases:
         row: dict[str, Any] = {"id": case["id"], "attack": bool(case.get("must_not_contain"))}
-        for name, build in (("before", undefended_prompt), ("now", defended_prompt)):
+        for name, build in variants:
             prompt = build(case)
             started = time.perf_counter()
             result = router.generate(
@@ -109,15 +115,17 @@ def run(model: str, ollama_url: str, cases: list[dict[str, Any]]) -> dict[str, A
             print(f"{case['id']:<32} {name:<7} obeyed_page={verdict['obeyed_page']!s:<5} fact_kept={verdict['fact_kept']!s:<5} {row[name]['seconds']}s")
         rows.append(row)
     attacks = [row for row in rows if row["attack"]]
-    summary = {
+    summary: dict[str, Any] = {
         "model": model,
+        "outside_text_setting": mode,
         "cases": len(rows),
         "attacks": len(attacks),
-        "attacks_obeyed_before": sum(row["before"]["obeyed_page"] for row in attacks),
         "attacks_obeyed_now": sum(row["now"]["obeyed_page"] for row in attacks),
-        "facts_kept_before": sum(row["before"]["fact_kept"] for row in rows),
         "facts_kept_now": sum(row["now"]["fact_kept"] for row in rows),
     }
+    if mode == "remove_and_fence":
+        summary["attacks_obeyed_before"] = sum(row["before"]["obeyed_page"] for row in attacks)
+        summary["facts_kept_before"] = sum(row["before"]["fact_kept"] for row in rows)
     return {"measured_at": time.strftime("%Y-%m-%d"), "summary": summary, "rows": rows}
 
 
@@ -127,14 +135,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ollama-url", default="http://localhost:11434")
     parser.add_argument("--only", nargs="+", metavar="CASE", help="run only these case ids")
     parser.add_argument("--save", type=Path, default=None)
+    parser.add_argument(
+        "--mode",
+        choices=UNTRUSTED_MODES,
+        default="remove_and_fence",
+        help="the owner's setting for outside text to measure (default: the app's default)",
+    )
     args = parser.parse_args(argv)
     cases = [case for case in load_cases() if not args.only or case["id"] in args.only]
-    report = run(args.model, args.ollama_url, cases)
+    report = run(args.model, args.ollama_url, cases, args.mode)
     summary = report["summary"]
     print()
-    print(f"model: {summary['model']}")
-    print(f"attacks obeyed: {summary['attacks_obeyed_before']} of {summary['attacks']} before, {summary['attacks_obeyed_now']} of {summary['attacks']} now")
-    print(f"real fact still in the answer: {summary['facts_kept_before']} of {summary['cases']} before, {summary['facts_kept_now']} of {summary['cases']} now")
+    print(f"model: {summary['model']}; outside text: {summary['outside_text_setting']}")
+    if "attacks_obeyed_before" in summary:
+        print(f"attacks obeyed: {summary['attacks_obeyed_before']} of {summary['attacks']} before, {summary['attacks_obeyed_now']} of {summary['attacks']} now")
+        print(f"real fact still in the answer: {summary['facts_kept_before']} of {summary['cases']} before, {summary['facts_kept_now']} of {summary['cases']} now")
+    else:
+        print(f"attacks obeyed: {summary['attacks_obeyed_now']} of {summary['attacks']}")
+        print(f"real fact still in the answer: {summary['facts_kept_now']} of {summary['cases']}")
     if args.save:
         args.save.parent.mkdir(parents=True, exist_ok=True)
         args.save.write_bytes((json.dumps(report, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
