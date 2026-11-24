@@ -341,8 +341,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:324` — `_CREATIVE = re.compile(`
 - **Where:** `modules/behavior_policy.py:446` — `JUDGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:467` — `JUDGE_EXAMPLES_B = """`
-- **Where:** `modules/nexus_core.py:1080` — `rule = self.content_rule(user_message, settings, recent_turns)`
-- **Where:** `modules/nexus_core.py:330` — `def _require_content_rule(`
+- **Where:** `modules/nexus_core.py:356` — `rule = self.content_rule(user_message, settings, recent_turns)`
+- **Where:** `modules/nexus_core.py:307` — `def _require_content_rule(`
 - **Where:** `modules/event_log.py:33` — `"content_rule",`
 - **Where:** `agent/toolcall.py:285` — `decision = check_content_rule(request, "", judge, "text")`
 - **Where:** `modules/behavior_policy.py:420` — `def history_counts(message: str, recent: str) -> bool:`
@@ -455,9 +455,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A17 · Length and format rules added to each message · active
 
-- **Where:** `modules/nexus_core.py:776` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
+- **Where:** `modules/core_prompts.py:328` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
 - **Where:** `modules/response_planner.py:720` — `def apply_auto_precision_settings(`
-- **Where:** `modules/nexus_core.py:674` — `routed_system = "Answer only the current message.`
+- **Where:** `modules/core_prompts.py:226` — `routed_system = "Answer only the current message.`
 - **Trigger:** Every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.
 - **Effect:** Lines such as "Answer in 1-3 short sentences", "Maximum output: about N tokens", and for small talk a list of stock phrases to avoid, are added to the prompt; the reply length limit is set to match. For quick turns the prompt also says "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics."
 - **Owner requested:** Yes, in part: the owner asked for fast answers (about 60 seconds for web answers) and less filler.
@@ -477,9 +477,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A18 · Replies the app writes itself, without a model · active
 
-- **Where:** `modules/nexus_core.py:173` — `def _direct_response_instruction(`
-- **Where:** `modules/nexus_core.py:1325` — `"provider": "local_followup_clarification",`
-- **Where:** `modules/nexus_core.py:1290` — `"provider": "local_fast_path",`
+- **Where:** `modules/nexus_core.py:150` — `def _direct_response_instruction(`
+- **Where:** `modules/nexus_core.py:601` — `"provider": "local_followup_clarification",`
+- **Where:** `modules/nexus_core.py:566` — `"provider": "local_fast_path",`
 - **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). (d) A bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?". (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
 - **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject.
 - **Owner requested:** No.
@@ -499,9 +499,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A19 · Edits made to a model's answer after it is written · active
 
-- **Where:** `modules/nexus_core.py:887` — `def _clean_model_answer(`
-- **Where:** `modules/nexus_core.py:935` — `def _repair_social_presence_answer(`
-- **Where:** `modules/nexus_core.py:1037` — `def _reduce_hedging(`
+- **Where:** `modules/core_answers.py:46` — `def _clean_model_answer(`
+- **Where:** `modules/core_answers.py:94` — `def _repair_social_presence_answer(`
+- **Where:** `modules/core_answers.py:196` — `def _reduce_hedging(`
 - **Trigger:** (a) An answer that begins with leaked prompt text ("User request:", "Response plan:"). (b) Small talk containing stock phrases ("It's great to hear...", "How's it going?"). (c) The research-simulation route with the persona's default settings.
 - **Effect:** (a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. (c) Phrases such as "However,", "Note that", "I think" are deleted from the app's stored copy of the answer; the text already shown while streaming is not changed. None of this depends on the subject and none of it turns an answer into a refusal or back.
 - **Owner requested:** No.
@@ -521,8 +521,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A20 · Memory notes and self-critique hints added to the prompt · active
 
-- **Where:** `modules/nexus_core.py:352` — `def _memory_context(`
-- **Where:** `modules/nexus_core.py:836` — `def _self_critic_prompt_hints(`
+- **Where:** `modules/core_prompts.py:36` — `def _memory_context(`
+- **Where:** `modules/core_prompts.py:388` — `def _self_critic_prompt_hints(`
 - **Where:** `modules/context_manager.py:431` — `Relevant memory (the app's notes about the owner)`
 - **Trigger:** Memory switched on: an "Adaptive response policy" (tone, detail, directness) inferred from the owner's earlier messages, with saved preferences and facts. Always: up to three hints from the app's notes on its own earlier answers ("use warmer, less formal wording").
 - **Effect:** Added to the prompt as plain notes. They shape tone and length. They are not about subjects.
@@ -547,8 +547,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:541` — `IMAGE_CLOTHED_QUESTION = """`
 - **Where:** `modules/behavior_policy.py:493` — `IMAGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:57` — `CONTENT_RULE_PICTURE_REPLY = (`
-- **Where:** `modules/nexus_core.py:2055` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
-- **Where:** `modules/nexus_core.py:2078` — `self._require_content_rule(str(prompt or ""), kind="image")`
+- **Where:** `modules/core_pictures.py:29` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
+- **Where:** `modules/core_pictures.py:52` — `self._require_content_rule(str(prompt or ""), kind="image")`
 - **Trigger:** Every request for a picture (image generation, ComfyUI workflows) that names a minor. Naming a minor is enough: no sexual word is needed.
 - **Effect:** A request that also uses a word for nudity (nude, naked, topless, undressed, no clothes) is stopped at once, without a model. For the rest the model is asked three things: two wordings of whether the picture would show a minor nude, undressed or sexualised, and directly whether the child would be clothed. Any answer against it stops the request with the text "Not drawn. This app does not make pictures that show anyone under 18 nude or undressed, whatever the scene." An innocent scene such as a toddler in the bath is stopped too.
 - **Owner requested:** No. The owner's rule is about sexual content. This line is stricter and is the assistant's own: it would not wire up the generation of pictures of unclothed children, innocent scene or not.
@@ -1053,12 +1053,12 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `modules/nexus_config.py:221` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
-- **Where:** `modules/nexus_core.py:327` — `record_event("content_rule",`
+- **Where:** `modules/nexus_core.py:304` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
 - **Where:** `modules/data_stores.py:233` — `holds_credentials=True,`
 - **Where:** `modules/accounts.py:145` — `def _dpapi(data: bytes, *, protect: bool) -> bytes:`
 - **Where:** `modules/redaction.py:90` — `def redact(text: str) -> str:`
-- **Where:** `modules/nexus_core.py:132` — `redaction.install_log_redaction()`
+- **Where:** `modules/nexus_core.py:109` — `redaction.install_log_redaction()`
 - **Trigger:** Saving settings; linking an account; publishing to GitHub; recording events; writing the log file or the answer checks; saving a picture's metadata or a ComfyUI picture; making a backup, an export or a snapshot.
 - **Effect:** Settings whose name contains "key" are not written to the settings file. A credential the owner chooses to store goes into one file only, the linked accounts (R-C08): encrypted for the Windows user on Windows, readable by the user only elsewhere, never shown again after it was typed. That file is left out of every backup, export and snapshot, cannot be asked for by name, and an archive that contains one is refused on restore. The GitHub token travels in Git's environment configuration and is not written to any record of an action. Events about accounts record the service and the permissions, never the secret. The event recorded when the content rule stops a request holds the stage, not the message. Everything the app writes to its log file, its event log and its answer checks, and the metadata saved with pictures (including the workflow text a ComfyUI picture carries inside it), passes through modules/redaction.py first: text shaped like a key or token, a password or key in a web address, the value of an Authorization header, and this machine's own secrets (secret-named environment variables, and credentials the app has read this session) become "[redacted: ...]". The owner's chat, the prompts sent to the model and the answers are not changed (item 110).
 - **Owner requested:** Yes (owner's test OC-T15).
@@ -1188,7 +1188,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
-- **Where:** `modules/nexus_core.py:1213` — `reality_check != "off"`
+- **Where:** `modules/nexus_core.py:489` — `reality_check != "off"`
 - **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
@@ -1209,7 +1209,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-E02 · Notes about grounding and checks after an answer · active
 
-- **Where:** `modules/nexus_core.py:954` — `def _audit_answer(`
+- **Where:** `modules/core_answers.py:113` — `def _audit_answer(`
 - **Trigger:** Every answer, when reality grounding is on.
 - **Effect:** The answer is examined for unsupported claims and a short note may be added under it in the advanced views (never in ordinary conversation). The result is logged and shown in Diagnostics. The answer is not withheld.
 - **Owner requested:** Not specifically.
@@ -1390,6 +1390,10 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/chat_profile.py` | 5 | R-A08, R-A15, R-A16 | - |
 | `modules/chunking.py` | 1 | - | The keyword "protected" in a list of programming-language keywords used to split code files. |
 | `modules/context_manager.py` | 6 | R-A20, R-D01, R-D02 | - |
+| `modules/core_answers.py` | 3 | R-A19, R-E02 | - |
+| `modules/core_pictures.py` | 4 | R-A21 | - |
+| `modules/core_prompts.py` | 6 | R-A17, R-A20 | - |
+| `modules/core_research.py` | 6 | - | NexusCore's research outside the chat (web research, Bloodhound search, Reality-First research, knowledge answers): each request is put to the one content rule before it runs, through NexusCore._require_content_rule in modules/nexus_core.py (R-A11, R-A12). Nothing else is checked or restricted here. |
 | `modules/data_stores.py` | 1 | R-D08 | A description of what the agent's database holds, for the Your data panel. |
 | `modules/event_log.py` | 3 | R-A12 | - |
 | `modules/file_utils.py` | 1 | - | A comment about Windows file locking. |
@@ -1397,7 +1401,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/image_gen.py` | 2 | R-B05 | - |
 | `modules/ingest.py` | 1 | R-D10 | - |
 | `modules/nexus_config.py` | 2 | R-A14, R-B03, R-C01, R-C07, R-D01, R-D08, R-E01, R-F05 | - |
-| `modules/nexus_core.py` | 46 | R-A04, R-A05, R-A12, R-A17, R-A18, R-A19, R-A20, R-A21, R-D08, R-E01, R-E02 | - |
+| `modules/nexus_core.py` | 28 | R-A04, R-A05, R-A12, R-A18, R-D08, R-E01 | - |
 | `modules/profile_store.py` | 1 | - | A comment about error handling when forgetting a fact. |
 | `modules/provider_router.py` | 4 | R-B02, R-B03, R-C08, R-D09 | - |
 | `modules/reality_research_agent.py` | 11 | R-D01, R-E03 | - |

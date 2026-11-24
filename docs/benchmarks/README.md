@@ -680,6 +680,11 @@ so a click no longer redefines some 60 functions. The first visit was slower in 
 and after, than in the morning's measurement (4.95 s), with its time spread over the same parts of the
 page in much the same proportions; the cause was not found, and it is not the move.
 
+Splitting NexusCore into service classes (item 121, key `core_split_into_services`), two runs after,
+against the two runs after item 120: importing the core 1.08 s and 1.08 s (1.49 s and 1.21 s), the app
+1.76 s and 1.73 s (2.31 s and 1.77 s), first visit 6.65 s and 6.49 s (7.50 s and 6.36 s), a rerun 0.25 s
+and 0.15 s (0.29 s and 0.22 s), a chat turn 0.33 s and 0.24 s (0.38 s and 0.28 s). No slower.
+
 ## Making a picture beside the chat model (`picture_memory.json`)
 
 ```

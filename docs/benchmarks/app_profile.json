@@ -1084,5 +1084,31 @@
         "chat_turn_requests": 1
       }
     ]
+  },
+  "core_split_into_services": {
+    "what": "Item 121: groups of NexusCore's methods moved into service classes in their own modules, unchanged. Two runs after; the runs before are those after item 120 (tabs_moved_out_of_app_py.after).",
+    "code_before": "8f48a5b",
+    "after": [
+      {
+        "measured_at": "2026-11-24T23:41:22+00:00",
+        "import_seconds": {
+          "modules.nexus_core": 1.08,
+          "app": 1.76
+        },
+        "first_visit_seconds": 6.65,
+        "rerun_seconds": 0.25,
+        "chat_turn_seconds": 0.33
+      },
+      {
+        "measured_at": "2026-11-24T23:41:41+00:00",
+        "import_seconds": {
+          "modules.nexus_core": 1.08,
+          "app": 1.73
+        },
+        "first_visit_seconds": 6.49,
+        "rerun_seconds": 0.15,
+        "chat_turn_seconds": 0.24
+      }
+    ]
   }
 }
