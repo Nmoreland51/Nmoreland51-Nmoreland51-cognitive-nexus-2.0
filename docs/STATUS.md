@@ -25,6 +25,13 @@ This page replaces the readiness claims in the older reports in this repository 
 | Bloodhound search | Mocked | No | |
 | Files / Knowledge storage and retrieval | Yes | Yes | Search by meaning with the `all-minilm` embedding model through Ollama: right document first for 91% of reworded questions, about 20 ms each. Without an embedding model it matches words only and says so |
 | Agent tools: sandbox, Git workspaces, approvals, action history | Yes | Yes | On Windows the sandbox was seen refusing writes outside the task folder and ending runaway process trees. Not containers: reading and network access are not confined (see below) |
+| Coding agent: reproduce a failing test, edit, test, review, commit | Yes | Yes | Real model on ten seeded bugs: 7 of 9 solvable ones fixed, the unsolvable one handed to a person, no failure reported as a success. The tasks were also what the harness was improved against, so this is not an independent estimate (`docs/benchmarks`) |
+| Agent publishing: push its own branch, open a draft pull request | Yes | No | A real push to a local Git remote and real HTTP to a local stand-in for the GitHub API. github.com was not called: no token |
+| Background jobs, schedules, reminders, page watching | Yes | No | Tested with a real database across simulated restarts; not left running for days |
+| One content rule (no sexual content involving minors), no topic filters | Yes | Yes | Real model as the judge: on requests the check was never adjusted on, 36 of 36 forbidden requests stopped, 43 of 44 ordinary ones answered. See `docs/OWNER_CONTROL.md` for what it does not catch |
+| Legitimate questions are not stopped by the app | Yes | Yes | Real model, 20 questions on adult subjects, drugs, money, controversial subjects, the owner's own style instructions and ordinary questions about minors: 0 stopped by the app, 0 declined by the model, every message delivered unchanged (`docs/benchmarks`) |
+| Your own messages are never scanned or fenced; handling of outside text is a setting | Yes | Yes | Real model, 12 pages with planted instructions: obeyed 0 with the default, 6 with marking only, 7 with no handling |
+| Behaviour settings: saved, shown word for word, used on the next message | Yes | Yes | In the running app: text and settings saved, app stopped and started, the saved text was in the prompt of the next chat message |
 | Image generation through Automatic1111 or ComfyUI | Mocked | No | Neither was installed on the test machine |
 | OpenAI and Anthropic providers | Mocked | No | No API keys were available, so neither has answered a real request. The Anthropic request was rewritten for the current API and its retired default model replaced (`claude-sonnet-5-5`). OpenAI's default `gpt-4.1-mini` works until 2027-01-14 according to OpenAI's deprecation page |
 | Cloud fallback stays off unless chosen | Yes | Partly | Tested with stand-in cloud providers. Live, only the no-key case could be run: with the local model unreachable, the reply said what failed |
@@ -35,9 +42,12 @@ This page replaces the readiness claims in the older reports in this repository 
 
 ## Known limits
 
+- **What the assistant may say** is set by the owner (Settings, Behaviour). The app has one content rule and no topic filters; a model can still decline something on its own, and the line under the answer then says it was the model. A small local model follows a style instruction unevenly: "talk like a pirate" was followed 4 times in 5, "call me skipper" once.
+- **The one content rule's check** picks requests out with a list of English words before asking the model. A request in another language, or in unusual wording that also asks for nothing to be written, is not checked. It reads the request and the last four turns, never what the model wrote. Its numbers are for `dolphin3:8b`.
+- **Pictures** are held to a stricter line than the owner's rule: none that would show anyone under 18 nude or undressed, whatever the scene. An innocent picture of a child can be refused (1 of 21 in the measurement). The check reads the request, not the picture.
 - **Web search** scrapes free search pages by default, and they rate-limit often. Set `SEARXNG_URL` or `BRAVE_SEARCH_API_KEY` for a dependable source. Wikipedia is the last fallback and cannot answer "latest version" questions.
 - **Research verdicts** come from rules about wording, with the model re-reading the passages counted as support. Measured on passages the rules were not written for: about four in five judged correctly, and one passage in ten wrongly counted as supporting a claim. They quote every passage with the reason it was counted, never say more than "LIKELY", and are not calibrated probabilities. A passage that says the same thing in other words is missed.
-- **Hidden instructions in web pages**: sentences aimed at an AI model are removed and the rest is fenced as untrusted before the model sees it. That stopped all twelve test attacks on the local model; it is a layer, not a guarantee.
+- **Hidden instructions in web pages**: by default, sentences aimed at an AI model are removed and the rest is fenced as untrusted before the model sees it. That stopped all twelve test attacks on the local model; it is a layer, not a guarantee. The handling is a setting; with marking only, 6 of the 12 were obeyed.
 - **When pages do not contain the answer**, the small local model tends to recite what they do contain instead of saying so. It does not invent an answer.
 - **Answers from a small local model** can state outdated facts. Web answers flag version numbers and years that are not in their sources, but other errors can get through.
 - **Saved data** is in JSON files changed under a lock and, for the knowledge index and the agent's records, SQLite databases, so two programs writing at once do not overwrite each other.
@@ -59,5 +69,5 @@ This page replaces the readiness claims in the older reports in this repository 
 
 These files describe the project as it was in mid-2026 and are kept for history. Where they disagree with this page, this page is current.
 
-- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has about 500 tests, and the limits above still apply.
+- `FINAL_PROJECT_AUDIT.md` and `COGNITIVE_NEXUS_UPGRADE_SUMMARY.md` say the project is ready for commercial release and that 2 of 2 tests pass. The suite now has more than 1,100 tests, and the limits above still apply.
 - `QUICK_START.md` describes a packaged `.exe` build. The scripts it names (`build_executable.bat`, `launch_cognitive_nexus.bat`) are not in this repository. Use the Install and Run sections of `README.md`.

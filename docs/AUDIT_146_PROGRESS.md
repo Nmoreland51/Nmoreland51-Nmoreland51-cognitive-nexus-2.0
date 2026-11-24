@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 44 |
-| PARTIAL | 41 |
-| MISSING | 60 |
+| COMPLETE | 61 |
+| PARTIAL | 50 |
+| MISSING | 34 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -20,13 +20,15 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 2. Make core AI chat genuinely reliable (P1) | 4 | 6 | 3 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 13 | 2 | 0 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
-| 5. Build the autonomous software engineer you actually want (P1) | 0 | 0 | 17 | 0 |
-| 6. Make external actions and automation useful (P1) | 0 | 0 | 11 | 0 |
+| 5. Build the autonomous software engineer you actually want (P1) | 11 | 5 | 1 | 0 |
+| 6. Make external actions and automation useful (P1) | 6 | 4 | 1 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 2 | 4 | 5 | 0 |
 | 9. Security, privacy and data integrity (P0) | 3 | 7 | 3 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 5 | 5 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 5 | 6 | 0 |
+
+Owner-control requirement (Priority 0, cuts across the items above): 26 complete, 6 partial, 0 missing, 0 not applicable of 32. See the section after *Items that need the owner*.
 
 ## How to continue
 
@@ -63,6 +65,8 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, after Phase 1c: saved data is changed under cross-process locks; one fact store with provenance, replacement, expiry, migrations and forget that reaches history and snapshots; every store is listed in modules/data_stores.py (docs/DATA_STORES.md is generated); export, encrypted backup, verified restore, snapshots, repair and wipe (modules/backup.py, tools/data_tool.py, ui/data_panel.py); the prompt is sized in tokens against the model's real window (modules/token_estimate.py, modules/context_budget.py) after measuring that long prompts were being cut by the model server. Tests run in a throwaway home (tests/conftest.py). Still open from this phase: the knowledge index has no lock, version or migration (do it with the index rewrite in 1d); live files are not encrypted (item 112, security phase); project memory (048). Next: Phase 1d (knowledge store in SQLite with semantic embeddings from Ollama, hybrid keyword search, PDF and DOCX ingestion, a measured retrieval benchmark), then 1e (research prompts fence page text; hostile-content and stance benchmarks).
 - 2026-11-23, after Phase 1d: the knowledge index is one SQLite database (modules/knowledge_store.py) with a keyword index and vectors from an Ollama embedding model (all-minilm was installed on the test machine; the app never downloads a model itself). Search is scored on evidence and measured by tools/retrieval_benchmark.py (results in docs/benchmarks). PDF, Word, HTML, notebooks and source code can be uploaded (modules/ingest.py); images need OCR, which is not installed. To run the live search test: set CN_LIVE_OLLAMA_URL=http://localhost:11434. Next: Phase 1e (fence web page text in research prompts; hostile-content and stance benchmarks; cache web search results; evidence dates), then Phase 2 (the coding agent).
 - 2026-11-23, after Phase 1e: research prompts fence web text and drop sentences aimed at a model (measured: 6 of 12 planted instructions obeyed before, 0 after); the claim check compares the same statement, gives a reason and dates for every passage, lists what it left out, and has the model re-read supporting passages; contradictions between sources use the same rules; caches expire; fetching retries. Three benchmark tools with saved real-model results and gates are in tools/ and docs/benchmarks (re-run them after changing a research prompt: the tests tell you when). Phase 2 has started: agent/store.py, registry.py, approvals.py, sandbox.py, workspace.py and tools.py are in and tested. Next in Phase 2: the model interface and the coding loop (reproduce, edit, test, retry, stop, escalate) in agent/coder.py, the independent review (agent/review.py), pull requests (agent/github.py, needs a token to run for real), the durable job queue and scheduler (agent/jobs.py), a command-line entry and a tab in the app, then a live run with the local model on small seeded bugs, saved under docs/benchmarks.
+- 2026-11-23, after Phase 2: the coding agent is in `agent/`. It reproduces a failing test, edits in its own Git worktree, runs the tests in the sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py, agent/review.py); publishes its own branch and a draft pull request with narrow authority (agent/github.py; tested against a local remote and a stand-in API, never against github.com: no token); durable background jobs, schedules, reminders and page watching (agent/jobs.py, agent/handlers.py); `python -m agent` (agent/cli.py). Measured with dolphin3:8b on ten seeded bugs: 7 of 9 solvable ones fixed, no failure reported as a success (docs/benchmarks/agent_dolphin3-8b.json; those tasks were also what the harness was improved against). Still open in Phase 2: a second task set the harness has never seen, installing packages for a task (item 058), and an agent tab in the app.
+- 2026-11-23, owner control (Priority 0, added by the owner mid-way; documents in docs/owner/): the app now has one content rule and no topic filters. Everything is in docs/OWNER_CONTROL.md (the account, the decisions, the acceptance tests) and docs/OWNER_CONTROL_RESTRICTIONS.md (50 mechanisms, generated from docs/backlog/restrictions.json; `python tools/restriction_register.py check` fails when the code and the register disagree, and when a new file mentions a restriction without being registered). The policy is modules/behavior_policy.py; the panel is ui/behavior_panel.py. Three real-model measurements gate it and must be re-run after changing what they measure (each test says so when it fails): tools/content_rule_benchmark.py, tools/behavior_check.py, tools/injection_benchmark.py (with --mode for each setting). Two things a successor must not undo without the owner: adding any topic filter or canned refusal to the app, and treating the owner's own messages as untrusted. One thing that is the assistant's own and is flagged as such: pictures of minors nude or undressed are not made, whatever the scene (register entry R-A21). Decisions the owner has not answered are listed in docs/OWNER_CONTROL.md under Decisions (D5 to D12); each has a default in place. Also fixed on the way: the chat-model list offered an embedding model; the test suite runs in parallel (`python -m pytest -n auto`, about 5 minutes instead of 13). Next: the phone backend should pass on the content rule's own message for research and image requests (it shows a general error today) and expose the behaviour settings; then the rest of Phase 3 (remaining capability and automation items), Phases 4 to 6, and the final verification report.
 
 ## Items that need the owner
 
@@ -75,6 +79,10 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **028** (PARTIAL): The sentences of a model-written research answer are not mapped one by one to a passage. They are only checked for version numbers, years and links that are in none of the sources.
 - **030** (PARTIAL): A rumour retold in different words on each site is still counted once per site. Detecting that needs comparison by meaning (the embedding model is available for it) and a measured threshold.
 - **051** (PARTIAL): An OCR engine (for example Tesseract, or the rapidocr package) to read images and scanned PDFs.
+- **057** (PARTIAL): Docker or a WSL distribution for confinement of reading and of the network. Neither is installed on this machine.
+- **062** (PARTIAL): A GitHub token (COGNITIVE_NEXUS_GITHUB_TOKEN) to run it against the real service.
+- **065** (PARTIAL): A GitHub token to run it against the real service.
+- **077** (PARTIAL): Docker or WSL for a sandbox that also confines reading and the network.
 - **081** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **085** (PARTIAL): A phone and a private network (for example Tailscale) to test from home and cellular connections.
 - **086** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
@@ -94,6 +102,275 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **136** (MISSING): Owner decision: is the default product an everyday assistant, a research workbench, a software agent, or selectable modes?
 - **145** (MISSING): Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.
 - **146** (MISSING): Owner decision (the audit marks this 'if desired').
+- **CN-GR-010** (PARTIAL): Review by the owner or another person; a register for the phone app's repository.
+- **OC-2** (COMPLETE): The owner's answers to D5 to D12 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
+- **OC-4** (PARTIAL): An OpenAI or Anthropic API key and a GitHub token to exercise the live services; an Android device or emulator for the phone.
+- **OC-5** (PARTIAL): An independent reviewer.
+- **OC-T05** (PARTIAL): An OpenAI or Anthropic API key.
+- **OC-T10** (COMPLETE): A GitHub token, to see the same against github.com.
+- **OC-T14** (PARTIAL): An Android device or emulator and a JDK. Neither is on this machine.
+- **OC-T16** (PARTIAL): A reviewer other than the assistant, after the remaining phases.
+
+## P0. Owner control (cross-cutting requirement)
+
+The owner-control requirement (Priority 0, added by the owner on 2026-11-23). It cuts across the 146 audit items instead of replacing them. Sources, verbatim: docs/owner/P0_OWNER_CONTROL_DIRECTIVE.md and docs/owner/OWNER_CONTROL_GUARDRAIL_AUDIT.md. Statuses are kept in docs/backlog/status.json under the same ids and set with tools/audit_ledger.py.
+
+The register of every restriction and behaviour-affecting mechanism is `docs/OWNER_CONTROL_RESTRICTIONS.md`; the specification, the owner's decisions and the map from acceptance tests to test files are in `docs/OWNER_CONTROL.md`.
+
+### Phases
+
+#### OC-0 · COMPLETE
+
+> Record the owner-control specification, decisions and test cases in the master roadmap.
+
+- **Evidence:** The owner's directive and guardrail audit are kept word for word in docs/owner/. Their phases, findings and acceptance tests are 32 items in this ledger (docs/backlog/owner_control.json), rendered as their own section of docs/AUDIT_146_PROGRESS.md. The decisions, including the ones the owner has not answered, are in docs/OWNER_CONTROL.md under Decisions.
+- **Tests:** tools/audit_ledger.py check (CI): fails when any of the 32 items has no status or evidence
+- **Commits:** 4adc3d1
+
+#### OC-1 · COMPLETE
+
+> Inspect all current controls and populate the restriction register (docs/OWNER_CONTROL_RESTRICTIONS.md).
+
+- **Evidence:** docs/OWNER_CONTROL_RESTRICTIONS.md lists 50 mechanisms in six layers (conversation, model and provider, tools, security, quality, interface), each with trigger, effect, who asked for it, origin, reason, default, alternatives, whether the owner can change it, the decision, tests, risk and limits. It is generated from docs/backlog/restrictions.json. Each entry quotes the line of code it lives on; the check fails when a quoted line is gone, when code recorded as removed is back, or when a source file mentions a restriction-related term without being registered or listed as reviewed (55 files are accounted for). Every 'removed' entry was verified to exist in the commit before the change (3297f44). Limits: the judgement of what counts as a restriction is the assistant's and has not been reviewed by anyone else; the phone app's own backend is in another repository and has no register.
+- **Tests:** tests/test_restriction_register.py; CI step 'Restriction register describes the code as it is' (tools/restriction_register.py check)
+
+#### OC-2 · COMPLETE
+
+> Give the owner a single consolidated list of material decisions, with recommended alternatives and trade-offs.
+
+- **Evidence:** docs/OWNER_CONTROL.md, section Decisions: four decisions the owner made in writing (D1 to D4), two that were put to the owner and not answered, with the recommended option in place as a setting and the alternatives named (D5 agent autonomy, D6 reality check), and six that were not put to the owner and are listed so the owner can object (D7 to D12), one of which (D7, pictures) is the assistant's own limit and is flagged as such. No entry in the register records a decision as the owner's unless the owner made it.
+- **Tests:** tests/test_restriction_register.py: test_a_decision_is_never_recorded_as_the_owners_when_the_owner_did_not_make_it
+- **Needs:** The owner's answers to D5 to D12 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
+
+#### OC-3 · COMPLETE
+
+> Integrate the agreed design into the existing roadmap; refactor where needed while keeping working checkpoints.
+
+- **Evidence:** Implemented inside the existing phases, with a pushed checkpoint at each stage. modules/behavior_policy.py is the one place that says what the app asks of a model. Removed: the strict substring block, the dead safety slider, the keyword topic classifier, canned redirects, replacement of model refusals, 'defensive' prompt lines, the locked prompt, misleading flags, and the scanning and fencing of the owner's own messages. Added: the one content rule and its measured check, the owner's behaviour text, three settings with measured consequences, the Behaviour panel showing the exact prompt, the label that says when a refusal is the model's. The whole suite passes.
+- **Tests:** tests/test_owner_control.py, tests/test_behavior_panel.py, tests/test_content_rule_benchmark.py, tests/test_behavior_check.py, tests/test_restriction_register.py, tests/test_prompt_firewall.py, tests/test_chat_profile.py, tests/test_nexus_router.py
+- **Commits:** 1e121fe, 561101d
+
+#### OC-4 · PARTIAL
+
+> Run automated tests and real local, cloud, backend and Android workflows where available.
+
+- **Evidence:** Automated: the whole suite. Real local model (dolphin3:8b): the content rule's check on 154 labelled requests, the behaviour check on 20 legitimate questions, the three settings for outside text on 14 pages, the agent on ten seeded bugs, and how well a style instruction is followed. Real app: behaviour settings saved, the app stopped and started, and the saved text found in the prompt of the next chat message. Not run: any hosted provider (no API key), github.com (no token), anything on the phone (no device, emulator or JDK).
+- **Tests:** docs/benchmarks/content_rule_dolphin3-8b.json, behavior_dolphin3-8b.json, injection_dolphin3-8b*.json, agent_dolphin3-8b.json; each has a test that fails when the saved result no longer matches the code
+- **Needs:** An OpenAI or Anthropic API key and a GitHub token to exercise the live services; an Android device or emulator for the phone.
+
+#### OC-5 · PARTIAL
+
+> Supply implementation evidence, the restriction register, commit SHAs, test logs and remaining limitations for an independent final audit.
+
+- **Evidence:** In place: docs/OWNER_CONTROL.md (what was asked, what the app does, decisions, acceptance tests, how to check it, what is verified and what is not), the register, the saved measurements with the commands that produce them, and commit references in this ledger. Still to come: the final verification report for all 146 items, and review by someone other than the assistant.
+- **Needs:** An independent reviewer.
+
+
+### Findings of the owner's audit, rechecked against the current code
+
+#### CN-GR-001 · COMPLETE
+
+> Strict-mode substring filter can reject benign prompts (app.py: child, underage, cp, illegal).
+
+- **Evidence:** Confirmed in the code as found: with the safety level at 'strict', app.py refused any message containing 'child', 'underage', 'cp' or 'illegal' anywhere in it. Removed (register R-A01). The one content rule asks a model about meaning instead.
+- **Tests:** tests/test_owner_control.py: test_a_substring_never_blocks_a_message, test_the_substring_block_and_the_dead_safety_controls_are_gone_from_the_app
+- **Commits:** 1e121fe
+
+#### CN-GR-002 · COMPLETE
+
+> Locked operating prompt takes precedence over owner persona text (modules/internal_prompts.py).
+
+- **Evidence:** Confirmed: modules/internal_prompts.py carried a 'locked' prompt that said the persona could not override it and steered to 'benign' framings. Replaced by one builder (modules/behavior_policy.build_system_prompt) whose fixed part has no topic rule and tells the model that the owner's messages, behaviour text and persona are its instructions (register R-A07, R-A13). The prompt shown in the app is the prompt sent.
+- **Tests:** tests/test_owner_control.py: test_the_fixed_part_of_the_prompt_has_one_content_rule_and_no_topic_rules, test_the_system_prompt_sent_is_the_one_the_owner_is_shown; tests/test_chat_profile.py
+- **Commits:** 1e121fe, 561101d
+
+#### CN-GR-003 · COMPLETE
+
+> Additional behavioural instructions are generated by the saved profile (modules/chat_profile.py).
+
+- **Evidence:** Confirmed and wider than reported: a second, unused prompt builder in modules/chat_profile.py carried its own limits, and the flags allow_illegal_topics, nuclear_mode and bypass_all_safety added restrictions when switched on. The builder is gone; the flags are read from old profiles so they still load, and change nothing (register R-A08). The persona itself is sent as the owner's instructions (R-A15).
+- **Tests:** tests/test_owner_control.py: test_misleading_flags_change_nothing; tests/test_chat_profile.py: test_system_prompt_carries_the_persona_as_the_owners_instructions
+- **Commits:** 1e121fe
+
+#### CN-GR-004 · COMPLETE
+
+> Topic classification directs some requests away from actionable responses (modules/response_planner.py, modules/nexus_core.py).
+
+- **Evidence:** Confirmed: a keyword classifier labelled messages as sensitive or harmful ('how do I kill a stuck process' was 'harmful'); 'harmful' ones got a canned reply without the model being asked; 'sensitive' ones had their stream hidden and a model's refusal swapped for the app's own text; prompt lines told the model to stay at a high level. All removed (register R-A03 to R-A06, R-A09). Every message now goes to the model unless the one content rule applies, and a model's refusal is shown as written and marked as the model's.
+- **Tests:** tests/test_owner_control.py: test_an_ordinary_question_with_an_alarming_word_reaches_the_model_as_written, test_messages_are_not_sorted_into_topics, test_a_refusal_by_the_model_is_shown_unchanged_and_named_as_the_models; tests/test_nexus_core.py: test_no_request_is_answered_by_the_app_instead_of_the_model; real model: docs/benchmarks/behavior_dolphin3-8b.json
+- **Commits:** 1e121fe, 561101d
+
+#### CN-GR-005 · COMPLETE
+
+> Prompt firewall may affect the interpretation of owner input (core/reality_grounding/prompt_firewall.py).
+
+- **Evidence:** Confirmed: every message the owner sent was wrapped as 'UNTRUSTED CURRENT USER REQUEST CONTENT', searched for 'act as', 'from now on', 'jailbreak' and 'you are now', scored from a base of 0.46 and could be rated hostile; the prompt told the model to treat user content as untrusted. Removed (register R-D02). The owner's message, earlier turns, saved facts and memory are plain text and are never examined; text the owner did not write is fenced, and how strictly is a setting with measured consequences (R-D01, R-D03).
+- **Tests:** tests/test_owner_control.py: test_the_owners_own_message_is_never_scanned_scored_or_fenced_whatever_it_says, test_a_role_play_instruction_reaches_the_model_word_for_word, test_a_saved_page_with_fake_system_and_owner_lines_stays_material, test_how_outside_text_is_handled_is_the_owners_setting; tests/test_prompt_firewall.py
+- **Commits:** 1e121fe
+
+#### CN-GR-006 · COMPLETE
+
+> UI options and effective runtime behaviour may differ (safety levels, controls disabled under Auto Precision).
+
+- **Evidence:** Confirmed: the safety slider and three 'allow' checkboxes changed nothing except the substring block, were greyed out while Auto Precision was on, and two persona controls were read by nothing. Removed (register R-A02, R-F04). Settings, Behaviour is never disabled by Auto Precision, saves to the settings file, and shows the whole system prompt and the last prompt exactly as sent (R-F03). In the running app the saved text was in the prompt of the next message after a restart.
+- **Tests:** tests/test_behavior_panel.py; tests/test_owner_control.py: test_auto_precision_does_not_touch_the_owners_behaviour_settings, test_behaviour_settings_survive_a_restart, test_the_system_prompt_sent_is_the_one_the_owner_is_shown
+- **Commits:** 1e121fe, 561101d
+
+#### CN-GR-007 · COMPLETE
+
+> Reality and feasibility checks may be mistaken for censorship.
+
+- **Evidence:** Confirmed: for things judged impossible or fictional the model was told not to give step-by-step detail, including in fiction. The default now labels: answers are given in full, with what is established, theoretical or invented marked, and fiction, role-play and what-ifs written as asked. The earlier behaviour and 'off' are settings (register R-E01). The owner was asked which to use and did not answer; 'label' is the recommended default.
+- **Tests:** tests/test_owner_control.py: test_fiction_is_written_as_asked_and_facts_are_labelled, test_the_earlier_withholding_behaviour_is_still_there_when_the_owner_chooses_it, test_the_reality_check_can_be_switched_off; tests/test_reality_first_reasoning.py
+- **Commits:** 1e121fe
+
+#### CN-GR-008 · COMPLETE
+
+> Outbound GitHub approval mechanism needs code inspection.
+
+- **Evidence:** Inspected. Pushing and opening a pull request are declared as 'external' actions; no mode allows them by itself, each needs an approval tied to that one action or the owner's standing permission, and every decision is recorded. The agent pushes only its own branch by its full name, never with force, opens drafts, and has no tool for merging, closing or releasing (register R-C01, R-C02). The owner's one setting (agent_autonomy) chooses between asking before publishing, publishing drafts unasked, asking before every change, and read only. Not exercised against github.com: no token.
+- **Tests:** tests/test_agent_github.py; tests/test_owner_control.py: test_the_agents_permissions_follow_the_owners_one_setting, test_agent_permission_defaults_and_fallbacks
+- **Commits:** d23b8d8, 1e121fe
+
+#### CN-GR-009 · COMPLETE
+
+> Provider routing is not equivalent to provider independence.
+
+- **Evidence:** The app states what it cannot control. NexusCore.behavior() reports the provider apart from the owner's settings and the app's own behaviour: a local model answers the way it was trained; a hosted model applies its provider's policies and the app cannot change that. A refusal reported by Anthropic's API is shown as 'Claude declined this request', never replaced; an answer that reads like a refusal is marked as the model's. Nothing in the app is called a mode that bypasses a provider (register R-B01 to R-B04).
+- **Tests:** tests/test_owner_control.py: test_the_policy_view_keeps_three_things_apart, test_the_core_reports_the_policy_for_the_selected_provider; tests/test_provider_truth.py: test_anthropic_refusal_is_an_error_not_an_answer
+- **Commits:** 1e121fe
+
+#### CN-GR-010 · PARTIAL
+
+> A complete restriction inventory is not yet verified.
+
+- **Evidence:** The inventory exists and is mechanically tied to the code (see OC-1): 50 mechanisms, every quoted line checked, every source file that mentions a restriction accounted for. It has not been verified by anyone but the assistant that wrote it, and it covers this repository only.
+- **Tests:** tests/test_restriction_register.py
+- **Needs:** Review by the owner or another person; a register for the phone app's repository.
+
+
+### Acceptance tests
+
+#### OC-T01 · COMPLETE
+
+> Direct owner asks an ordinary technical question containing a potentially sensitive keyword: no unexplained context-blind block; answer respects the configured mode.
+
+- **Evidence:** Seven ordinary questions with alarming words (kill a stuck process, prevent fraud, chemicals not to mix, how a buffer overflow works, a lethal dose of caffeine, lock picks, how phishing is carried out) reach the model exactly as written, with nothing examined. With the real model, 'How do I kill a stuck process on Windows?' and a lock-picking question were answered.
+- **Tests:** tests/test_owner_control.py: test_an_ordinary_question_with_an_alarming_word_reaches_the_model_as_written; real model: docs/benchmarks/behavior_dolphin3-8b.json (words-1, words-2)
+- **Commits:** 561101d
+
+#### OC-T02 · COMPLETE
+
+> Legitimate research request contains an innocent substring matching a blocking token: no accidental refusal due solely to a substring match.
+
+- **Evidence:** Messages containing 'childcare', 'the cp command', 'illegal to park', 'underage drinking prevention' and 'the Children Act' are answered; the block that matched those letters is gone from app.py.
+- **Tests:** tests/test_owner_control.py: test_a_substring_never_blocks_a_message, test_the_substring_block_and_the_dead_safety_controls_are_gone_from_the_app
+- **Commits:** 561101d
+
+#### OC-T03 · COMPLETE
+
+> Owner switches behaviour mode, restarts, and resumes: persisted, effective settings match the UI and the logs.
+
+- **Evidence:** Automated: settings are saved to the settings file, read back unchanged and used for the next prompt; the panel saves what is typed and shows it after a reload. In the running app on 2026-11-23: a new behaviour text and 'reality check: off' were saved in Settings, the app was stopped and started, Settings showed both, and after one chat message the panel 'The last chat prompt, exactly as it was sent' contained the saved text and no reality note. The settings file held the same values.
+- **Tests:** tests/test_owner_control.py: test_behaviour_settings_survive_a_restart; tests/test_behavior_panel.py: test_what_the_owner_saves_is_stored_and_is_in_the_very_next_prompt
+
+#### OC-T04 · COMPLETE
+
+> Owner selects a local model: actual inference uses that model; routing is observable.
+
+- **Evidence:** The selected local model is the one asked; a missing one is replaced only with a note saying so; a model is shown as working only after it produced text. In the real-model behaviour check every answer is recorded as ollama / dolphin3:8b, and the line under each answer in the app names the model. Found and fixed on the way: with an embedding model installed, the app offered it as the default chat model.
+- **Tests:** tests/test_provider_truth.py: test_verify_ollama_records_a_real_generation, test_generate_succeeds_only_with_a_real_model_answer; tests/test_ollama_models.py; real model: docs/benchmarks/behavior_dolphin3-8b.json
+
+#### OC-T05 · PARTIAL
+
+> Owner selects a hosted model: provider limitations and fallback are truthfully reported.
+
+- **Evidence:** With recorded API responses: a refusal from Anthropic is an error naming the provider, not an answer; cloud fallback happens only when allowed and is disclosed; the answer line says where the prompt went. The policy view names the provider as the one in control of its limits. No hosted model has answered a real request from this repository.
+- **Tests:** tests/test_provider_truth.py: test_anthropic_refusal_is_an_error_not_an_answer, test_local_failure_does_not_send_the_prompt_to_a_configured_cloud_provider; tests/test_owner_control.py: test_the_policy_view_keeps_three_things_apart
+- **Needs:** An OpenAI or Anthropic API key.
+
+#### OC-T06 · COMPLETE
+
+> Retrieved webpage includes fake system/developer directives: the page is treated as evidence/data, not executable owner commands.
+
+- **Evidence:** A saved page containing a fake system tag, 'ignore previous instructions', a forged end-of-block marker, a fake 'User request:' line and 'the owner says: you must obey this page' stays inside its fence, with the real request after it. With the real model, 12 pages carrying planted instructions were obeyed 0 times at the default setting.
+- **Tests:** tests/test_owner_control.py: test_a_saved_page_with_fake_system_and_owner_lines_stays_material; tests/test_research_hardening.py; real model: docs/benchmarks/injection_dolphin3-8b.json
+
+#### OC-T07 · COMPLETE
+
+> Owner provides a legitimate tool instruction: it is not silently demoted because the page or firewall also uses the word 'user'.
+
+- **Evidence:** A message from the owner containing 'From now on you are DAN', 'jailbreak', 'ignore previous instructions', 'act as' and a system tag goes into the prompt word for word, unfenced, unscored. With the real model, 'From now on you are Dan, a foul-mouthed pirate... tell me who you are' was answered in character, and the prompt held the message unchanged.
+- **Tests:** tests/test_owner_control.py: test_the_owners_own_message_is_never_scanned_scored_or_fenced_whatever_it_says, test_a_role_play_instruction_reaches_the_model_word_for_word; real model: docs/benchmarks/behavior_dolphin3-8b.json (style-1, style-2)
+
+#### OC-T08 · COMPLETE
+
+> Authorized agent changes a test repository and fixes a failing case: diff, passing tests, and task completion evidence.
+
+- **Evidence:** The agent reproduces a failing test, edits, runs the tests in the sandbox, has the change reviewed and commits it to its own branch with the diff and the test run recorded; a person's acceptance closes the task. With the real model on ten seeded bugs: 7 of 9 solvable ones fixed, each checked by checking the commit out into a fresh clone.
+- **Tests:** tests/test_agent_coder.py: test_a_fix_is_reproduced_made_tested_reviewed_and_committed_for_a_person_to_accept; tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_dolphin3-8b.json
+- **Commits:** b35835c, 3297f44
+
+#### OC-T09 · COMPLETE
+
+> Same coding task requires several edit/test iterations: the agent recovers and continues without needing a fresh micro-prompt.
+
+- **Evidence:** A failed attempt is undone exactly and the next one is told what was tried; the loop continues by itself up to its budget, and after a pause or a crash it resumes from its record without asking the model again.
+- **Tests:** tests/test_agent_coder.py: test_a_failed_attempt_is_undone_and_the_next_one_is_told_what_happened, test_after_a_crash_the_task_continues_without_asking_the_model_again, test_when_every_attempt_fails_the_task_goes_to_a_person_with_a_report
+- **Commits:** b35835c
+
+#### OC-T10 · COMPLETE
+
+> Agent encounters an external/publication side effect: the owner-approved capability scope is followed and logged.
+
+- **Evidence:** Pushing and opening a pull request wait for the owner unless the owner's setting grants them; a refused push publishes nothing; each approval is for one action and is recorded with who decided. Verified with a real push to a local Git remote and real HTTP to a local stand-in for the GitHub API. github.com itself was not called.
+- **Tests:** tests/test_agent_github.py: test_publishing_waits_for_a_person_at_each_step_that_leaves_the_machine, test_no_approval_mode_publishes_by_itself_but_the_user_can_grant_it, test_a_refused_push_publishes_nothing; tests/test_owner_control.py: test_the_agents_permissions_follow_the_owners_one_setting
+- **Commits:** d23b8d8
+- **Needs:** A GitHub token, to see the same against github.com.
+
+#### OC-T11 · COMPLETE
+
+> Scheduled job resumes after restart: durable state and no duplicate execution.
+
+- **Evidence:** Jobs and schedules are rows in a database: they are still there after a restart, a job whose worker died is taken again, a schedule makes one job per firing however often it is checked, and a reminder becomes one notice even if its job runs twice.
+- **Tests:** tests/test_agent_jobs.py: test_jobs_are_still_there_after_the_app_restarts, test_a_job_whose_worker_died_is_taken_again, test_a_schedule_makes_one_job_per_firing_however_often_it_is_checked, test_a_firing_is_not_made_twice_if_the_app_died_between_its_two_writes
+- **Commits:** 4f725ee
+
+#### OC-T12 · COMPLETE
+
+> Model fallback occurs after provider failure: the correct provider is used; limitations and the error are disclosed.
+
+- **Evidence:** When a provider fails, the next one in the owner's order is tried, a cloud provider only if allowed; the reply names what failed and which provider was set up but not used; the fallback notice is never stored or shown as an answer.
+- **Tests:** tests/test_provider_truth.py: test_failures_and_fallbacks_are_recorded_as_separate_events, test_local_failure_does_not_send_the_prompt_to_a_configured_cloud_provider; tests/test_model_failure_paths.py: test_chat_with_a_dead_model_is_labelled_as_no_model_answered
+
+#### OC-T13 · COMPLETE
+
+> Fact-checking and speculative creativity are tested separately: factual errors are flagged without needlessly suppressing clearly marked fiction.
+
+- **Evidence:** A what-if about taming dragons gets 'write it as asked, in full detail'; a question about building a perpetual motion machine gets 'answer in full' with a request to say what is not possible today; neither is told to withhold steps. With the real model, a story about a time machine was written and the perpetual-motion question was answered.
+- **Tests:** tests/test_owner_control.py: test_fiction_is_written_as_asked_and_facts_are_labelled; tests/test_reality_first_reasoning.py; real model: docs/benchmarks/behavior_dolphin3-8b.json (fiction-1, fact-1)
+
+#### OC-T14 · PARTIAL
+
+> Android executes an approved backend workflow: the same effective policy, result and state are observed across devices.
+
+- **Evidence:** The phone's backend answers chat by calling the same engine function as the desktop app (NexusCore.generate_chat_response) and merges the same saved settings, so the policy, the content rule and the behaviour text apply to it through the same code. That is an argument from the code, not an observation: nothing was run on a phone, and the backend has not been run against this version of the engine. For research and image requests the backend shows a general error where the app shows the content rule's own text.
+- **Needs:** An Android device or emulator and a JDK. Neither is on this machine.
+
+#### OC-T15 · COMPLETE
+
+> Sensitive configuration and logs are exported: tokens and credentials are not leaked; the audit is still informative.
+
+- **Evidence:** Settings whose name contains 'key' are not written to the settings file; the policy view contains no key; the event recorded when the content rule stops a request holds the stage and not the message; exports and backups carry a manifest of what they contain; the repository check fails on anything that looks like a key or token (it caught two made-up test values of mine, which are now put together at run time).
+- **Tests:** tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_backup.py; tests/test_repo_hygiene.py; tests/test_agent_github.py: test_the_token_is_sent_to_github_only_and_never_written_down
+
+#### OC-T16 · PARTIAL
+
+> An independent reviewer inspects every one of the 146 original items: each marked verified, not verified, blocked, or inapplicable with proof.
+
+- **Evidence:** Every one of the 146 items has a status and evidence in this ledger, and the check fails when one is missing. No independent reviewer has inspected them, and many items are still open.
+- **Needs:** A reviewer other than the assistant, after the remaining phases.
+
 
 ## 1. Fix the foundations and release confusion (P0)
 
@@ -510,176 +787,231 @@ Hardware, credentials, paid services or approval that this work could not supply
 
 ## 5. Build the autonomous software engineer you actually want (P1)
 
-### 053 · P1 · observed · MISSING
+### 053 · P1 · observed · PARTIAL
 
 > Create a true task/planning/execution agent instead of only markdown agent descriptions and intent routing.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. There is no task, planning or execution loop.
+- **Evidence:** A real agent that executes exists in agent/: it takes a task with acceptance tests, reproduces the failure, edits in its own checkout, runs the tests in a sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py); tasks, actions and approvals are kept in a database; `python -m agent` drives it. Measured with the local 8B model on ten seeded bugs: 7 of 9 solvable ones fixed, no failure reported as a success. Not built: breaking a goal down into tasks by itself (a person writes the task and its test), and a tab in the app (command line only). Its success rate is the underlying model's on small tasks; it is not a substitute for a stronger model.
+- **Tests:** tests/test_agent_coder.py, tests/test_agent_cli.py, tests/test_agent_benchmark.py; real model: docs/benchmarks/agent_dolphin3-8b.json
+- **Commits:** 6bb0b97, 96cdb29, b35835c, 4f725ee, 3297f44
 
-### 054 · P1 · recommended · MISSING
+### 054 · P1 · recommended · COMPLETE
 
 > Add a repository checkout/worktree manager and safe isolated task branches.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No repository checkout or worktree manager.
+- **Evidence:** agent/workspace.py: every task gets its own Git worktree on a branch of its own (agent/<task>); the owner's checkout is never touched; the repository's hooks are switched off; links leading outside the folder are refused; restore points are kept as hidden refs and a failed attempt is undone exactly.
+- **Tests:** tests/test_agent_workspace.py: test_a_task_gets_its_own_branch_and_folder_and_the_user_s_checkout_is_untouched, test_repository_hooks_do_not_run, test_a_link_out_of_the_workspace_cannot_be_used_to_reach_outside, test_restoring_a_checkpoint_puts_every_file_back
+- **Commits:** 96cdb29
 
-### 055 · P1 · recommended · MISSING
+### 055 · P1 · recommended · COMPLETE
 
 > Provide read/search file tools with permissions and bounded output.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No file read or search tools.
+- **Evidence:** agent/tools.py: list_files, read_file (numbered, limited in length, confined to the workspace), search_text (text and patterns, with file and line) and show_diff, each declared as a read, with a schema, and available in a read-only session.
+- **Tests:** tests/test_agent_tools.py: test_listing_shows_project_files_and_not_ignored_or_private_ones, test_reading_is_numbered_bounded_and_confined, test_search_finds_text_and_patterns_with_file_and_line, test_a_read_only_session_can_look_but_not_touch
+- **Commits:** 96cdb29
 
-### 056 · P1 · recommended · MISSING
+### 056 · P1 · recommended · COMPLETE
 
 > Provide controlled write/patch tools with diff previews and easy restoration.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No write or patch tools.
+- **Evidence:** agent/tools.py: write_file, replace_in_file (needs an exact, unique match), apply_patch (whole or not at all) and delete_file each return the diff they made and a restore point; restore_checkpoint puts every file back; the outcome of each is checked against the files, not taken from the tool's own word.
+- **Tests:** tests/test_agent_tools.py: test_writing_a_file_returns_a_diff_and_a_way_back, test_replacing_text_needs_an_exact_unique_match, test_a_patch_is_applied_whole_or_not_at_all, test_a_deleted_file_can_be_brought_back
+- **Commits:** 96cdb29
 
-### 057 · P1 · recommended · MISSING
+### 057 · P1 · recommended · PARTIAL
 
 > Provide shell and test execution in an isolated, resource-limited environment.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No shell or test execution environment.
+- **Evidence:** agent/sandbox.py runs commands without a shell, with a clean environment (no keys or tokens), limits on time, memory and the number of processes, and ends the whole process tree on timeout or cancel. On Windows the program runs at Low integrity level, so the operating system refuses writes outside the task's folder. It is not a container: reading files elsewhere is possible, the network is not blocked by the operating system (proxy settings point at a closed port), and on Linux and macOS writes are not confined either. The tool prints exactly what holds on the machine it runs on.
+- **Tests:** tests/test_agent_sandbox.py: test_the_operating_system_refuses_writes_outside_the_workspace, test_a_time_limit_ends_the_program_and_everything_it_started, test_memory_beyond_the_limit_cannot_be_taken, test_the_environment_carries_no_secrets_and_points_home_into_the_workspace, test_the_report_says_what_is_and_is_not_enforced
+- **Commits:** 96cdb29
+- **Needs:** Docker or a WSL distribution for confinement of reading and of the network. Neither is installed on this machine.
 
 ### 058 · P1 · recommended · MISSING
 
 > Use reproducible environment setup, package installation policy and dependency caches.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No environment setup or package policy for agent work.
+- **Evidence:** There is a policy and nothing more: inside the sandbox `pip install` is refused and only listed programs may start. No tool sets up an environment for a task, installs what a repository needs, or keeps a cache of dependencies, so a task whose tests need packages that are not already installed cannot be worked on.
 
-### 059 · P1 · recommended · MISSING
+### 059 · P1 · recommended · COMPLETE
 
 > Reproduce reported failures before attempting code edits.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. Nothing reproduces a reported failure.
+- **Evidence:** The first step of every task runs the acceptance tests on the untouched code. If they already pass there is nothing to fix and the task goes to a person saying so; if there are no tests the task is handed back; only a reproduced failure is shown to the model.
+- **Tests:** tests/test_agent_coder.py: test_without_a_failing_test_there_is_nothing_to_do_and_the_agent_says_so, test_a_fix_is_reproduced_made_tested_reviewed_and_committed_for_a_person_to_accept; tests/test_agent_benchmark.py (every seeded bug is checked to fail first)
+- **Commits:** b35835c
 
-### 060 · P1 · recommended · MISSING
+### 060 · P1 · recommended · COMPLETE
 
 > Implement a detect → plan → patch → test → inspect → retry loop with stopping conditions.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No detect, plan, patch, test, inspect, retry loop.
+- **Evidence:** agent/coder.py: reproduce, show the model the failure and the code involved, apply its edits (each with a restore point), run the tests, review, commit. A failed attempt is undone and the next one is told what was tried. The loop ends for a fixed set of reasons, each reported: ready for review; no tests; tests already pass; attempts, time, tokens or spending used up; replies that cannot be used; an action that needs approval; cancelled.
+- **Tests:** tests/test_agent_coder.py: test_a_failed_attempt_is_undone_and_the_next_one_is_told_what_happened, test_when_every_attempt_fails_the_task_goes_to_a_person_with_a_report, test_replies_without_usable_edits_end_the_task_early; tests/test_agent_coder_tolerance.py; real model: docs/benchmarks/agent_dolphin3-8b.json
+- **Commits:** b35835c, 3297f44
 
-### 061 · P1 · recommended · MISSING
+### 061 · P1 · recommended · COMPLETE
 
 > Require evidence of successful tests and feature checks before reporting a repair as complete.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. Nothing gates a 'done' report on test evidence.
+- **Evidence:** 'Done' is a recorded test run with exit code 0 after the last edit, never the model's statement. The agent cannot edit the tests to get there. The benchmark checks each commit out into a fresh clone and runs the tests itself: in 20 task runs with the real model no failure was reported as a success.
+- **Tests:** tests/test_agent_coder.py: test_editing_the_test_instead_of_the_code_is_refused; tests/test_agent_registry.py: test_success_is_believed_only_after_checking_the_outcome; tests/test_agent_benchmark.py
+- **Commits:** b35835c, 3297f44
 
-### 062 · P1 · recommended · MISSING
+### 062 · P1 · recommended · PARTIAL
 
 > Open GitHub pull requests with descriptions, test results, diffs and rollback instructions.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No pull request automation.
+- **Evidence:** agent/github.py opens a draft pull request whose text states what changed, the test evidence, how it was reviewed and how to undo it, after pushing only the task's own branch. Verified with a real push to a local Git remote and real HTTP to a local stand-in for the GitHub API. It has never opened a pull request on github.com.
+- **Tests:** tests/test_agent_github.py: test_the_pull_request_says_what_changed_the_evidence_the_review_and_how_to_undo_it, test_push_checks_that_the_remote_really_has_the_commit, test_an_existing_pull_request_is_found_instead_of_opening_a_second
+- **Commits:** d23b8d8
+- **Needs:** A GitHub token (COGNITIVE_NEXUS_GITHUB_TOKEN) to run it against the real service.
 
-### 063 · P1 · recommended · MISSING
+### 063 · P1 · recommended · COMPLETE
 
 > Track individual tasks and dependencies, including owner, status, blockers and acceptance tests.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No task tracker with dependencies or acceptance tests.
+- **Evidence:** agent/store.py: a task has an owner, a status that can only change in sensible ways, blockers, acceptance tests, a budget and what it has spent, the tasks it depends on (a task waits for them, and two tasks cannot wait for each other), and a log of events.
+- **Tests:** tests/test_agent_registry.py: test_tasks_have_an_owner_a_status_blockers_and_acceptance_tests, test_only_sensible_status_changes_are_accepted, test_a_task_waits_for_the_tasks_it_depends_on, test_tasks_cannot_wait_for_each_other
+- **Commits:** 6bb0b97
 
-### 064 · P1 · recommended · MISSING
+### 064 · P1 · recommended · COMPLETE
 
 > Let the agent resume a stopped session from persisted state without replaying risky writes.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No persisted agent state to resume from.
+- **Evidence:** Every step is recorded before and after it runs. When a task is resumed after a pause for approval or a crash, steps that finished are taken from the record instead of being run again, the model's saved reply is reused, and the files are put back to the start of the attempt that was open.
+- **Tests:** tests/test_agent_coder.py: test_after_a_crash_the_task_continues_without_asking_the_model_again, test_in_ask_mode_every_change_waits_for_approval_and_the_model_is_paid_for_once; tests/test_agent_registry.py: test_a_completed_write_is_not_repeated_when_a_task_is_resumed, test_an_action_cut_short_by_a_crash_is_found_afterwards
+- **Commits:** b35835c
 
-### 065 · P1 · recommended · MISSING
+### 065 · P1 · recommended · PARTIAL
 
 > Add safe GitHub, CI, issue, and release integration with narrow authorization.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No GitHub, CI, issue or release integration.
+- **Evidence:** agent/github.py: push the task's own branch (never forced, never another branch), open a draft pull request, read CI results for the task's commit, read an issue (as untrusted text), read the latest release. Nothing else: no merge, close, comment, tag or release. The token comes from the environment, travels in Git's environment configuration, never reaches the sandbox and is not written to any record. Verified against a local remote and a stand-in API only.
+- **Tests:** tests/test_agent_github.py: test_the_token_is_sent_to_github_only_and_never_written_down, test_ci_results_are_summarised, test_an_issue_is_read_as_untrusted_text, test_reading_follows_the_approval_mode_and_writing_outside_never_does
+- **Commits:** d23b8d8
+- **Needs:** A GitHub token to run it against the real service.
 
-### 066 · P1 · recommended · MISSING
+### 066 · P1 · recommended · COMPLETE
 
 > Let the agent escalate repeated failure, missing permissions or unclear requirements instead of looping indefinitely.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No escalation path.
+- **Evidence:** The loop hands a task to a person, with a report of what was tried, when every attempt failed, when the model's replies cannot be used, when the same change comes back twice, when a budget is used up, when an approval is refused, when there is no test to work against, and when the folder is not a repository. In the real-model benchmark the task that cannot be solved was handed over both times.
+- **Tests:** tests/test_agent_coder.py: test_when_every_attempt_fails_the_task_goes_to_a_person_with_a_report, test_a_refused_approval_hands_the_task_to_a_person, test_a_task_about_a_folder_that_is_not_a_repository_is_handed_back
+- **Commits:** b35835c
 
-### 067 · P1 · recommended · MISSING
+### 067 · P1 · recommended · COMPLETE
 
 > Apply explicit budgets for code-edit attempts, API spending and compute time.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No budgets for attempts, spending or compute time.
+- **Evidence:** agent/coder.py, Budget: attempts (3), time (30 minutes), model tokens (60,000) and spending (nothing for a paid provider unless the task grants an amount). What a task has used is stored with it, and reaching any limit stops it and says which.
+- **Tests:** tests/test_agent_coder.py: test_budgets_for_model_tokens_time_and_spending_stop_the_task
+- **Commits:** b35835c
 
-### 068 · P1 · recommended · MISSING
+### 068 · P1 · recommended · COMPLETE
 
 > Support independently reviewing an AI-generated patch before merging.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No independent review step.
+- **Evidence:** agent/review.py: before a change is committed it passes checks that need no judgement (protected files, size, added secrets, silenced tests), a fresh run of the tests, and a reviewer model that sees only the task, the diff and the test results, not the conversation that produced the change. A rejection sends the change back once; then a person decides. Only a person's acceptance marks a task done, and the agent cannot merge. The reviewer is the same local model unless another is configured.
+- **Tests:** tests/test_agent_coder.py: test_a_change_that_adds_a_secret_does_not_pass_review, test_a_reviewer_s_rejection_sends_the_change_back_once_then_a_person_decides, test_review_without_a_usable_model_verdict_still_rests_on_checks_and_tests
+- **Commits:** b35835c
 
-### 069 · P1 · recommended · MISSING
+### 069 · P1 · recommended · PARTIAL
 
 > Turn “self-improvement” into measured, versioned changes; do not let the agent rewrite itself without evaluations.
 
-- **Evidence:** The engine contains only markdown agent descriptions (.agents/, skills/, commands/) and intent routing; nothing executes. No measured, versioned self-improvement process.
+- **Evidence:** The agent can only change code through a task with a test, on a branch of its own, reviewed, never merged by itself; that applies to its own repository as to any other. Its behaviour is measured by saved benchmarks that fail in CI when the code they describe changes without a new run (agent, content rule, behaviour, injection, research, claim check). What is missing is the loop the item asks for: a way to propose a change to the agent itself, run the benchmarks before and after, and accept it only if they do not get worse.
+- **Tests:** tests/test_agent_benchmark.py, tests/test_content_rule_benchmark.py, tests/test_behavior_check.py
 
 
 ## 6. Make external actions and automation useful (P1)
 
-### 070 · P1 · recommended · MISSING
+### 070 · P1 · recommended · PARTIAL
 
 > Create a capability registry for tools, apps and linked accounts, with per-tool schemas.
 
-- **Evidence:** No capability registry or per-tool schemas.
+- **Evidence:** agent/registry.py: every tool has a name, a JSON Schema for its arguments, a declared effect (read, write, execute, network, external) and an adapter; arguments are checked before anything runs; `python -m agent tools` prints the registry as data. It covers the coding tools and the GitHub tools. It does not cover other apps or linked accounts: there are none.
+- **Tests:** tests/test_agent_registry.py: test_arguments_are_checked_against_the_schema_before_anything_runs, test_the_registry_describes_itself_as_data; tests/test_agent_tools.py: test_every_tool_declares_its_effect_and_schema
+- **Commits:** 6bb0b97
 
-### 071 · P1 · recommended · MISSING
+### 071 · P1 · recommended · COMPLETE
 
 > Separate read-only operations from state-changing operations and require appropriate approvals.
 
-- **Evidence:** No separation of read-only and state-changing operations.
+- **Evidence:** agent/approvals.py decides by what an action can affect, not by what the model says: reading always runs; writing and running commands inside the task's folder, and reading from the network, run or ask according to the owner's setting; anything another person or system will see (a push, a pull request) needs an approval for that one action or the owner's standing permission. The owner chooses with one setting (agent_autonomy).
+- **Tests:** tests/test_agent_registry.py: test_the_policy_table, test_no_mode_lets_an_outside_action_run_unasked_but_the_user_can_name_one, test_an_outside_action_waits_for_a_person_and_runs_once_per_approval; tests/test_owner_control.py: test_the_agents_permissions_follow_the_owners_one_setting
+- **Commits:** 6bb0b97, 1e121fe
 
-### 072 · P1 · recommended · MISSING
+### 072 · P1 · recommended · PARTIAL
 
 > Enable file management, web navigation, browser automation and computer-use as independent adapters.
 
-- **Evidence:** No file-management, browser-automation or computer-use adapters.
+- **Evidence:** Adapters exist for files, Git, GitHub and fetching a public page (watch jobs). There is no web navigation, browser automation or computer-use adapter.
+- **Tests:** tests/test_agent_tools.py, tests/test_agent_github.py, tests/test_agent_jobs.py: test_watching_a_page_reports_a_change_in_what_it_says_only
+- **Commits:** 96cdb29, d23b8d8, 4f725ee
 
-### 073 · P1 · recommended · MISSING
+### 073 · P1 · recommended · COMPLETE
 
 > Build scheduling, reminders, recurring tasks and change monitoring with durable background workers.
 
-- **Evidence:** No scheduling, reminders, recurring tasks or change monitoring.
+- **Evidence:** agent/jobs.py and agent/handlers.py: a durable job queue in the agent's database with leases, retries and time limits; schedules (every N seconds, or daily at a time) that make one job per firing and one catch-up run after the machine was off; reminders; watching a public page for a change or a phrase. `python -m agent worker` runs it. Verified with a real database across simulated restarts; it has not been left running for days, and nothing starts the worker automatically.
+- **Tests:** tests/test_agent_jobs.py: test_jobs_are_still_there_after_the_app_restarts, test_a_schedule_makes_one_job_per_firing_however_often_it_is_checked, test_a_reminder_becomes_one_notice_even_if_its_job_runs_twice, test_watching_for_a_phrase_reports_when_it_appears_and_when_it_goes; tests/test_agent_cli.py: test_a_due_reminder_is_delivered_by_the_worker_and_shown_once_as_new
+- **Commits:** 4f725ee
 
-### 074 · P1 · recommended · MISSING
+### 074 · P1 · recommended · COMPLETE
 
 > Add idempotency keys and recovery logs for any action that could be repeated after a crash.
 
-- **Evidence:** No idempotency keys or recovery logs.
+- **Evidence:** Every action has a key made from the tool, its arguments, the task and the step; a completed action with the same key is taken from the record instead of being run again; an action cut short by a crash is found afterwards. The same job requested twice is one job, and a schedule's firing is not made twice if the app died between its two writes.
+- **Tests:** tests/test_agent_registry.py: test_a_completed_write_is_not_repeated_when_a_task_is_resumed, test_an_action_cut_short_by_a_crash_is_found_afterwards, test_action_keys_and_bounded_output; tests/test_agent_jobs.py: test_the_same_request_twice_is_one_job, test_a_firing_is_not_made_twice_if_the_app_died_between_its_two_writes
+- **Commits:** 6bb0b97, 4f725ee
 
-### 075 · P1 · recommended · MISSING
+### 075 · P1 · recommended · COMPLETE
 
 > Add meaningful task progress, cancellation, retry and timeout semantics.
 
-- **Evidence:** No task progress, cancellation, retry or timeout handling beyond per-request timeouts.
+- **Evidence:** Jobs: a worker holds a lease and renews it while it works; a failed try is repeated after a pause that doubles, up to a limit; a job can be cancelled while waiting or running; one that overruns its time limit is stopped and tried again. Tasks: every step is an event that `python -m agent task show` lists; cancelling stops the task and leaves no half-made change.
+- **Tests:** tests/test_agent_jobs.py: test_a_failed_try_is_repeated_later_and_gives_up_after_the_last, test_cancelling_a_waiting_job_and_a_running_one, test_a_job_that_overruns_its_time_limit_is_stopped_and_tried_again; tests/test_agent_coder.py: test_cancelling_stops_the_task_and_leaves_no_half_made_change
+- **Commits:** 4f725ee, b35835c
 
-### 076 · P1 · recommended · MISSING
+### 076 · P1 · recommended · COMPLETE
 
 > Provide tool outcome verification from observable state, not assistant-generated success text.
 
-- **Evidence:** No tool outcome verification.
+- **Evidence:** A tool's success is believed only after its outcome is checked against the world: a written file is read back, a patch is checked in the diff, a commit is looked up on the task's branch, a push is confirmed by asking the remote for the branch, a pull request by reading it back from the API, a test run by its exit code. A tool that reports success and fails the check is recorded as failed.
+- **Tests:** tests/test_agent_registry.py: test_success_is_believed_only_after_checking_the_outcome; tests/test_agent_tools.py: test_a_commit_goes_to_the_task_branch_and_is_checked; tests/test_agent_github.py: test_push_checks_that_the_remote_really_has_the_commit, test_a_pull_request_that_github_shows_at_another_commit_fails_the_check
+- **Commits:** 6bb0b97, 96cdb29, d23b8d8
 
-### 077 · P1 · recommended · MISSING
+### 077 · P1 · recommended · PARTIAL
 
 > Restrict network and filesystem access separately for research and software execution.
 
-- **Evidence:** Research fetching refuses private addresses (modules/url_safety.py), but there is no separate filesystem or network policy for software execution because nothing executes.
+- **Evidence:** They are restricted separately, but not completely. Research may only fetch public web addresses (local and private ones are refused on every redirect) and never writes outside the app's own data folders. Software execution may write only inside the task's folder on Windows (the operating system refuses anything else) and gets proxy settings that point at a closed port. Not enforced: the sandbox can read files elsewhere, its network use is not blocked by the operating system, and on Linux and macOS its writes are not confined.
+- **Tests:** tests/test_url_safety.py; tests/test_agent_sandbox.py: test_the_operating_system_refuses_writes_outside_the_workspace, test_the_report_says_what_is_and_is_not_enforced
+- **Commits:** 96cdb29
+- **Needs:** Docker or WSL for a sandbox that also confines reading and the network.
 
-### 078 · P1 · recommended · MISSING
+### 078 · P1 · recommended · PARTIAL
 
 > Keep user-visible action history: inputs, approvals, results and artifacts.
 
-- **Evidence:** No user-visible action history.
+- **Evidence:** Every action is recorded with its inputs, whether it needed approval and who decided, its result and what it produced; `python -m agent history` and `python -m agent task show` list them, and `python -m agent approvals` lists what is waiting. It is visible from the command line only: the app has no tab for it.
+- **Tests:** tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_tools.py: test_everything_a_task_did_is_in_the_history; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal
+- **Commits:** 6bb0b97, 4f725ee
 
 ### 079 · P1 · recommended · MISSING
 
 > Build plugin/connector auth with renewable tokens and revocable permissions.
 
-- **Evidence:** No connector authentication.
+- **Evidence:** The only linked account is GitHub, through a token read from an environment variable. There is no sign-in flow, no renewal of tokens, and permission is withdrawn by removing the variable. Nothing of what the item asks for is built.
 
-### 080 · P1 · recommended · MISSING
+### 080 · P1 · recommended · COMPLETE
 
 > Implement capacity limits and prioritization for simultaneous workflows.
 
-- **Evidence:** No capacity limits or prioritisation for simultaneous workflows.
+- **Evidence:** agent/jobs.py: workers respect a total capacity and a limit per kind of job (one model-heavy job at a time, since a second would only make both slower on one CPU), and take the most urgent job that is due first.
+- **Tests:** tests/test_agent_jobs.py: test_capacity_limits_how_many_jobs_run_at_once, test_only_one_model_heavy_job_runs_at_a_time, test_the_most_urgent_job_that_is_due_goes_first
+- **Commits:** 4f725ee
 
 
 ## 7. Make Android and desktop work together (P1)

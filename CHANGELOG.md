@@ -4,7 +4,21 @@ Notable changes to the engine and desktop app. Versions follow `cognitive_nexus/
 
 ## 2.1.0 (unreleased)
 
+### Owner control
+
+What the assistant may say is now the owner's decision, visible in one place. The full account is `docs/OWNER_CONTROL.md`; every mechanism is listed in `docs/OWNER_CONTROL_RESTRICTIONS.md`.
+
+- **The app has one content rule (no sexual content involving minors) and no topic filters.** Removed: a keyword classifier that labelled "how do I kill a stuck process" as harmful and answered such messages with a canned text without asking the model; a block on the letters "child", "cp" and "illegal"; prompt lines telling the model to stay "defensive" and "high level"; a "locked" prompt the persona could not override; a safety slider and checkboxes that changed nothing; and flags named "allow" and "bypass" that added restrictions.
+- A model's own refusal is shown as written and marked as the model's. The app used to replace it with a text of its own.
+- **Your own messages are never scanned, scored or fenced.** The prompt firewall used to wrap every message you sent as "untrusted" and rate phrases such as "act as" and "from now on" as hostile. It now applies only to text you did not write (web pages, documents, tool output).
+- **Settings, Behaviour**: your own text for how the assistant should answer, saved and applied on every turn; the whole system prompt shown word for word; the last prompt exactly as it was sent; what the selected model or its provider may do; and the permissions and protections, each with whether you can change it.
+- Three settings with measured consequences: how text from web pages and files is handled (planted instructions obeyed 0, 6 or 7 times out of 12), what the reality check does (label, withhold, or off; it used to withhold detail even in fiction), and how far the coding agent goes unasked.
+- The one content rule is checked before anything is written or drawn, and the check was measured with the real model: on requests it was never adjusted on, 36 of 36 forbidden requests were stopped and 43 of 44 ordinary ones answered. The first version of the check stopped 2 of 13; `docs/benchmarks/README.md` has the history.
+- **Pictures are held to a stricter line than you asked for**: no picture that would show anyone under 18 nude or undressed, whatever the scene. This is the assistant's own limit, not the owner's rule, and is described as such wherever it appears.
+- The greeting no longer claims limits the app does not have.
+
 ### Fixed
+- The chat-model list no longer offers embedding models. With `all-minilm` installed for knowledge search, the app picked it as the default chat model, and it cannot chat.
 - Chat no longer falls back after 12 seconds on CPU-only machines; Ollama gets at least 120 seconds for the first token and stays loaded between requests.
 - Chat web search now runs when asked, answers in under a minute on CPU with sources, and says so when search finds nothing instead of inventing an answer.
 - Research verdicts are based on passages that address the claim. "TRUE at 0.8 confidence" from unrelated trusted sites is gone.
