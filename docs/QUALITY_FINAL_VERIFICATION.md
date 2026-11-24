@@ -33,8 +33,11 @@ Branch `quality/corrective-phase`, made from `44c49e7` (CI green). Pull request:
   which is built, never ran, because the model always left it empty.
 - **Speed.** The app's own delays were two: it held back the first words until 160 characters had
   arrived (about 8 seconds here), and one speed setting made Ollama reload the model between calls
-  (about 4.6 seconds each time). Both are gone: the first word now comes within 0 to 1.6 seconds of
-  what Ollama alone takes. The rest is the model, writing about five tokens (roughly four words) a
+  (about 4.6 seconds each time). Both are gone. The first word now comes 1.9 to 2.6 seconds after
+  Ollama alone would give it (10 to 11 seconds before), not "within 0 to 1.6 seconds" as this report
+  first said: that figure came from a faulty measurement, corrected on 2026-11-24 (see CN-QA-007
+  below). Almost all of the remaining 2 seconds is a new connection opened for every answer, fixed
+  on the next branch. The rest is the model, writing about five tokens (roughly four words) a
   second here: a 500-word story takes about two and a half minutes. Web questions take longer than
   before (41 to 48 seconds for yours, 32 in your run) because the model now plans the search and
   checks the results.
@@ -71,7 +74,7 @@ sets, not rates.
 | CN-QA-006 | Research answers from fixed sources (9 answerable, 3 not) | 9 right, 0 outside the sources, 1 of 3 said so | 9 right, 0 outside the sources, 1 of 3 said so | real model |
 | CN-QA-006 | Planted instructions in web pages obeyed | 0 of 12 | 0 of 12 | real model |
 | CN-QA-007 | Time to the first word, the seven length requests (median) | 16.2 s | **6.9 s** | full chat path |
-| CN-QA-007 | First word, app against Ollama alone with the same settings | +5.0 to +6.2 s (a reload on both sides) | **-0.2 to +1.6 s** | real model |
+| CN-QA-007 | First word, app against Ollama alone with the same settings (corrected 2026-11-24) | +10.2 to +11.4 s (`44c49e7`) | **+1.9 to +2.6 s** | real model |
 | CN-QA-007 | Writing speed, app and Ollama alone | 4.8 to 5.1 tokens a second | the same | real model |
 | CN-QA-007 | The owner's Omaha question, start to finish | 32.3 s (the owner's run) | 41 to 48 s (planning and judging added) | full chat path, live web |
 
@@ -156,13 +159,13 @@ sets, not rates.
 - **Real model, fixed pools:** on five questions written before round three ran, off-topic results reaching the model fell from 10 to 0, with 1 of 15 relevant results thrown out. Across the three held-out sets the judge threw out 7 of the 51 relevant results it saw and let 1 of 33 off-topic ones through. Round one achieved nothing (the model wrote no other-meaning words); round two halved the off-topic results on the set it had not seen.
 - **Full integration, live web:** the owner's question. The old search read a lawn-care page among five; the planned search read none in both later runs (dispensaries, medical-marijuana cards, a news report on legal status). The answer stayed one sentence, "The web results do not say which weed in Omaha is the best.", and the search for legal context never ran: the model left it empty, for all 19 benchmark questions too. 41 to 48 s, against 32.3 s in the owner's run.
 
-### CN-QA-007 (P1): slow answers — the app's own share measured and cut; the rest is the model
+### CN-QA-007 (P1): slow answers — the app's own share measured and cut from 10 to 11 s to about 2 s; that 2 s is a new connection per answer, fixed on the next branch
 
 - **Root cause:** two delays of the app's own. The first 160 characters of every answer were held back in case the model echoed the prompt (about 8 s at this machine's speed). And the "Fast" profile sent `num_batch` 256 with chat answers while no other call did, so Ollama reloaded the model (4.6 s) whenever a chat answer followed a content-rule check, a search plan or a judgement, and again after it. The rest is the model: reading the prompt and writing at about 5 tokens a second.
 - **Fix** (`e5d289e`, `2a06d88`): text is shown as soon as it cannot be leaked prompt scaffolding
   (usually after a few words) instead of after 160 characters, short conversational replies still
   held until complete; the speed profiles send no load-time option.
-- **Real model:** time to the first word through the app against Ollama alone with the same settings: +5.0 to +6.2 s before the reload fix (both sides paying a reload), -0.2 to +1.6 s after; writing speed the same, about 5 tokens a second. The seven length requests: first word after a median of 16.2 s before, 6.9 s after. Web questions now cost one or two more model calls (planning about 17 to 21 s, judging 9 to 30 s, on this machine alone): measured, disclosed, and switched off with `plan_web_search`.
+- **Real model:** time to the first word through the app against Ollama alone with the same settings: +10.2 to +11.4 s with the code before this phase (`44c49e7`), +1.9 to +2.6 s after (`f7b4892`); writing speed the same, about 5 tokens a second. **Corrected on 2026-11-24:** this report first gave +5.0 to +6.2 s and -0.2 to +1.6 s. The measuring tool opened a new connection to `localhost` for each call straight to Ollama, which on Windows waits about 2 s for an IPv6 attempt first, so Ollama alone looked 2 s slower than it is. The remaining 2 s of the app's is the same cost on the app's side: it opened a new connection for every answer. Fixed after this phase, on the branch `audit/remaining-items`. The seven length requests: first word after a median of 16.2 s before, 6.9 s after. Web questions now cost one or two more model calls (planning about 17 to 21 s, judging 9 to 30 s, on this machine alone): measured, disclosed, and switched off with `plan_web_search`.
 
 ## Regression evidence
 

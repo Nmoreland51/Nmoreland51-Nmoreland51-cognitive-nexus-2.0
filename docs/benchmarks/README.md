@@ -440,10 +440,15 @@ after every change of the phase (`quality_after.json` records which run each par
 | Arithmetic, the owner's set (9 questions × 3) | 24 of 27 | **27 of 27** |
 | Word problems written after the fix (6 × 3) | 7 of 18 | **15 of 18** |
 | First word, length requests through the app (median) | 16.2 s | **6.9 s** |
-| First word, app against Ollama alone with the same settings | +5.0 to +6.2 s (a reload each time) | **−0.2 to +1.6 s** |
+| First word, app against Ollama alone with the same settings (corrected 2026-11-24) | +10.2 to +11.4 s (`44c49e7`) | **+1.9 to +2.6 s** |
 
 Before the change the "Fast" profile sent a load-time option (`num_batch`) that no other call sent, so
 Ollama reloaded the model between calls; the before-figures for the first word include that.
+The comparison with Ollama alone was first published as +5.0 to +6.2 s before and −0.2 to +1.6 s after.
+Those were wrong: the tool opened a new connection to `localhost` for every call straight to Ollama,
+and on Windows that waits about 2 s for an IPv6 attempt first, so Ollama alone looked slower than it is.
+The figures above were measured again on 2026-11-24 with the calls straight to Ollama going to
+`127.0.0.1` on a kept-open connection (`profile` and `profile_before` in `quality_after.json`).
 The model is not exact about length either way: the remaining misses are the model's (2 of 7 within range
 with nothing added).
 

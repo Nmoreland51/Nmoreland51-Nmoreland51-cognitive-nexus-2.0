@@ -14,7 +14,7 @@ Of the 74 items that are not complete:
 
 Your own instructions on control of the assistant (32 points, in `docs/owner/`): 26 complete, 6 partly done.
 
-Your seven live findings of 2026-11-23 (CN-QA-001 to 007, `docs/QUALITY_FINAL_VERIFICATION.md`): 4 fixed and verified, 3 improved but not fully met, 0 not done.
+Your seven live findings of 2026-11-23 (CN-QA-001 to 007, `docs/QUALITY_FINAL_VERIFICATION.md`): 3 fixed and verified, 4 improved but not fully met, 0 not done.
 
 "Complete" means built, run, and covered by a test or a saved measurement, with its limits written next to it in the ledger. It does not mean perfect: several complete items carry limits, listed under "Things not to over-trust".
 

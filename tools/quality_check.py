@@ -141,11 +141,38 @@ def run_content(cases: list[dict[str, Any]], model: str, url: str) -> list[dict[
     return rows
 
 
-def _direct(url: str, model: str, message: str, max_tokens: int = 2048) -> dict[str, Any]:
+_DIRECT_SESSION: Any = None
+
+
+def _direct_url(url: str) -> str:
+    """Where the calls straight to Ollama go: the same server, as 127.0.0.1.
+
+    On Windows a new connection to "localhost" is tried over IPv6 first, and with Ollama listening on
+    IPv4 only that took 2.05 s on the development machine, against 0.04 s. Before 2026-11-24 this
+    tool opened a new connection to "localhost" for every direct call, so the direct times it reported
+    were about 2 s too long and the app's share about 2 s too small (docs/GENERATION_RELIABILITY_REPORT.md).
+    The app itself is still measured with the address it is given, as the owner runs it.
+    """
+
+    return url.replace("://localhost", "://127.0.0.1")
+
+
+def _direct_session(url: str) -> Any:
+    """One kept-open connection for the calls straight to Ollama, opened before anything is timed."""
+
+    global _DIRECT_SESSION
     import requests
 
+    if _DIRECT_SESSION is None:
+        _DIRECT_SESSION = requests.Session()
+        _DIRECT_SESSION.get(f"{_direct_url(url)}/api/version", timeout=30)
+    return _DIRECT_SESSION
+
+
+def _direct(url: str, model: str, message: str, max_tokens: int = 2048) -> dict[str, Any]:
+    session = _direct_session(url)
     started = time.perf_counter()
-    answer = requests.post(f"{url}/api/generate", json={"model": model, "prompt": message, "stream": False, "keep_alive": "24h", "options": {"num_predict": max_tokens, "num_ctx": 4096}}, timeout=1800).json()
+    answer = session.post(f"{_direct_url(url)}/api/generate", json={"model": model, "prompt": message, "stream": False, "keep_alive": "24h", "options": {"num_predict": max_tokens, "num_ctx": 4096}}, timeout=1800).json()
     text = str(answer.get("response", ""))
     return {"words": words(text), "stopped_because": str(answer.get("done_reason", "")), "output_tokens": int(answer.get("eval_count") or 0), "seconds": round(time.perf_counter() - started, 1), "ends_complete": ends_complete(text)}
 
@@ -223,12 +250,12 @@ PROFILE_PROMPTS = (
 
 
 def _stream_direct(url: str, model: str, prompt: str, options: dict[str, Any]) -> dict[str, Any]:
-    import requests
-
+    session = _direct_session(url)
     started = time.perf_counter()
     first = None
     final: dict[str, Any] = {}
-    with requests.post(f"{url}/api/generate", json={"model": model, "prompt": prompt, "stream": True, "keep_alive": "24h", "options": options}, stream=True, timeout=(10, 1800)) as answer:
+    with session.post(f"{_direct_url(url)}/api/generate", json={"model": model, "prompt": prompt, "stream": True, "keep_alive": "24h", "options": options}, stream=True, timeout=(10, 1800)) as answer:
+        # Read to the end, so the connection is kept for the next call.
         for line in answer.iter_lines(decode_unicode=True):
             if not line:
                 continue
@@ -237,10 +264,18 @@ def _stream_direct(url: str, model: str, prompt: str, options: dict[str, Any]) -
                 first = time.perf_counter() - started
             if data.get("done"):
                 final = data
-                break
     total = time.perf_counter() - started
     rate = int(final.get("eval_count") or 0) / (int(final.get("eval_duration") or 1) / 1e9)
-    return {"first_word_seconds": round(first or total, 2), "total_seconds": round(total, 1), "output_tokens": int(final.get("eval_count") or 0), "tokens_per_second": round(rate, 1), "load_seconds": round(int(final.get("load_duration") or 0) / 1e9, 2)}
+    return {
+        "first_word_seconds": round(first or total, 2),
+        "total_seconds": round(total, 1),
+        "output_tokens": int(final.get("eval_count") or 0),
+        "tokens_per_second": round(rate, 1),
+        "load_seconds": round(int(final.get("load_duration") or 0) / 1e9, 2),
+        # How much of the prompt Ollama read for this call (the rest it still had from before), and how long that took.
+        "prompt_tokens_read": int(final.get("prompt_eval_count") or 0),
+        "prompt_seconds": round(int(final.get("prompt_eval_duration") or 0) / 1e9, 2),
+    }
 
 
 def run_profile(model: str, url: str) -> list[dict[str, Any]]:
@@ -267,6 +302,7 @@ def run_profile(model: str, url: str) -> list[dict[str, Any]]:
             "output_tokens": int(throughput.get("eval_count") or 0),
             "tokens_per_second": float(throughput.get("tokens_per_second") or 0.0),
             "prompt_tokens": int(throughput.get("prompt_eval_count") or 0),
+            "prompt_seconds": round(int(throughput.get("prompt_eval_duration_ns") or 0) / 1e9, 2),
             "num_ctx": generation.get("num_ctx") or throughput.get("num_ctx"),
             "num_predict": generation.get("num_predict"),
             "temperature": generation.get("temperature"),
@@ -317,7 +353,15 @@ def summarize(report: dict[str, Any]) -> dict[str, Any]:
     profile = report.get("profile") or []
     if profile:
         summary["profile"] = {
-            row["id"]: {"first_word_app": row["app"]["first_word_seconds"], "first_word_ollama_alone": row["direct"]["first_word_seconds"], "overhead": row["first_word_overhead_seconds"], "tokens_per_second_app": row["app"]["tokens_per_second"], "tokens_per_second_alone": row["direct"]["tokens_per_second"]}
+            row["id"]: {
+                "first_word_app": row["app"]["first_word_seconds"],
+                "first_word_ollama_alone": row["direct"]["first_word_seconds"],
+                "overhead": row["first_word_overhead_seconds"],
+                "prompt_read_app": [row["app"].get("prompt_tokens"), row["app"].get("prompt_seconds")],
+                "prompt_read_alone": [row["direct"].get("prompt_tokens_read"), row["direct"].get("prompt_seconds")],
+                "tokens_per_second_app": row["app"]["tokens_per_second"],
+                "tokens_per_second_alone": row["direct"]["tokens_per_second"],
+            }
             for row in profile
         }
     for key in ("arithmetic", "arithmetic_heldout"):
