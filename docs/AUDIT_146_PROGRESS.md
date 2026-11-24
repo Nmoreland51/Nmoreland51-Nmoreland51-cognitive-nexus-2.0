@@ -28,7 +28,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 10. Code quality, tests, delivery, and maintenance (P0) | 6 | 6 | 4 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
 
-Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
+Owner-control requirement (Priority 0, cuts across the items above): 29 complete, 10 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
 
 ## How to continue
 
@@ -113,6 +113,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **145** (MISSING): Owner decision (the audit marks this 'if desired'); a microphone and vision-capable model would also be needed.
 - **146** (MISSING): Owner decision (the audit marks this 'if desired').
 - **CN-GR-010** (PARTIAL): Review by the owner or another person; a register for the phone app's repository.
+- **CN-QA-007** (PARTIAL): The remaining 2 s is the app's: it opened a new connection to localhost for every answer (2.05 s each on this machine). Fixed on the branch audit/remaining-items (local servers addressed as 127.0.0.1, a streamed answer read to its end so its connection is kept), where it is measured.
 - **OC-2** (COMPLETE): The owner's answers to D5 to D13 in docs/OWNER_CONTROL.md. Defaults are in place meanwhile.
 - **OC-4** (PARTIAL): An OpenAI or Anthropic API key and a GitHub token to exercise the live services; an Android device or emulator for the phone.
 - **OC-5** (PARTIAL): An independent reviewer.
@@ -434,13 +435,14 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_research_plan.py, tests/test_answer_diagnostics.py; tools/research_relevance_benchmark.py with the real model; the live Omaha question through the chat path
 - **Commits:** 543daf9, 7a07f56, e5d289e, 2a06d88
 
-#### CN-QA-007 · COMPLETE
+#### CN-QA-007 · PARTIAL
 
 > P1. Poor performance for incomplete responses. Before-and-after measurements on the same hardware, model, prompts and settings, Ollama alone against the app, separating delays that are the model's from the app's own.
 
-- **Evidence:** Measured before and after on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile; docs/GENERATION_RELIABILITY_REPORT.md). Two delays were the app's: the first 160 characters of every answer were held back (about 8 s here), fixed in e5d289e; and the "Fast" profile's num_batch made Ollama reload the model whenever a chat answer followed another kind of call (4.6 s each, "runner options changed" in Ollama's log), fixed in 2a06d88. First word, app against Ollama alone: +5.0 to +6.2 s before, -0.2 to +1.6 s after; writing speed the same, about 5 tokens a second. The rest is the model's: reading the prompt and writing. The phase added model calls to web questions (planning about 17 to 21 s, judging 9 to 30 s); measured, disclosed, and switched off with the setting plan_web_search.
+- **Evidence:** Measured before and after on the same machine, model, prompts and settings, the app against Ollama alone (tools/quality_check.py --only profile; docs/GENERATION_RELIABILITY_REPORT.md). Two delays of the app's were removed: the first 160 characters of every answer were held back (about 8 s here), fixed in e5d289e; and the "Fast" profile's num_batch made Ollama reload the model whenever a chat answer followed another kind of call (4.1 to 4.6 s each, "runner options changed" in Ollama's log), fixed in 2a06d88. First word, app against Ollama alone: +10.2 to +11.4 s with the code before this phase (44c49e7), +1.9 to +2.6 s after (f7b4892); writing speed the same, about 5 tokens a second. Corrected on 2026-11-24: this entry first said +5.0 to +6.2 s before and -0.2 to +1.6 s after, and called the rest the model's. The measuring tool opened a new connection to localhost for every call straight to Ollama, which on Windows waits about 2 s for an IPv6 attempt first, so Ollama alone looked 2 s slower than it is. The phase added model calls to web questions (planning about 17 to 21 s, judging 9 to 30 s); measured, disclosed, and switched off with the setting plan_web_search.
 - **Tests:** tests/test_quality_corrective.py (first word, no load-time options); tools/quality_check.py --only profile with the real model
-- **Commits:** e5d289e, 2a06d88
+- **Commits:** e5d289e, 2a06d88, aab9c45
+- **Needs:** The remaining 2 s is the app's: it opened a new connection to localhost for every answer (2.05 s each on this machine). Fixed on the branch audit/remaining-items (local servers addressed as 127.0.0.1, a streamed answer read to its end so its connection is kept), where it is measured.
 
 
 ## 1. Fix the foundations and release confusion (P0)
