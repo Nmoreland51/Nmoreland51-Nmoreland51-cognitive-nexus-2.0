@@ -39,6 +39,10 @@ COMFYUI_URL = loopback_ipv4(os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188
 PROVIDER_DETECTION_TIMEOUT = 0.75
 # Current home of Stable Diffusion 1.5 on Hugging Face (the old runwayml repo only redirects here).
 DEFAULT_DIFFUSERS_MODEL = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+# The exact revision of it that is downloaded (item 117): the one this app was tested with. Without it
+# the newest revision on Hugging Face would be fetched, and a change there would arrive unseen. Set
+# COGNITIVE_NEXUS_DIFFUSERS_REVISION to take another (or "main" for the newest).
+DEFAULT_DIFFUSERS_REVISION = os.environ.get("COGNITIVE_NEXUS_DIFFUSERS_REVISION", "451f4fe16113bff5a5d2269ed5ad43b0592e9a14")
 
 STYLE_MODIFIERS = {
     "realistic": "photorealistic, high quality, detailed",
@@ -358,6 +362,8 @@ class LocalStableDiffusionGenerator:
         }
         if self.device != "cuda":
             load_kwargs["low_cpu_mem_usage"] = False
+        if self.model_id == DEFAULT_DIFFUSERS_MODEL and DEFAULT_DIFFUSERS_REVISION:
+            load_kwargs["revision"] = DEFAULT_DIFFUSERS_REVISION
         try:
             # Fetch the half-size fp16 weights (SD 1.5: 2.0 GB instead of 4.0 GB). On CPU they are
             # upcast to float32 while loading, so generation still runs in full precision.
