@@ -826,7 +826,7 @@ _ABOUT = re.compile(r"\b(\d{2,4})(?:[\s-]*|\s+or\s+so\s+)words?\b", re.IGNORECAS
 # One paragraph is handled by the explanation rules already; two or more are a length.
 _PARAGRAPHS = re.compile(r"\b([2-9]|10|two|three|four|five|six|seven|eight|nine|ten)[\s-]+paragraphs\b", re.IGNORECASE)
 # Rules of a kind of question that limit length. They give way when the user states a length.
-_LENGTH_RULE = re.compile(r"under \d+ words|one compact paragraph|about 120 to 180 words|under 20 words|exactly one option", re.IGNORECASE)
+_LENGTH_RULE = re.compile(r"under \d+ words|one compact paragraph|about 120 to 180 words|under 20 words|exactly one option|one short paragraph|\bbrief\b", re.IGNORECASE)
 
 
 def requested_length(message: str) -> tuple[int, int] | None:

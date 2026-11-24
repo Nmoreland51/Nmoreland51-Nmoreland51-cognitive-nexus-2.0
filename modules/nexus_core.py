@@ -60,7 +60,7 @@ from modules.response_self_critic import (
     store_self_critic_observation,
 )
 from modules.response_verifier import log_verification, verify_response
-from modules.calculator import calculate
+from modules.calculator import EXPRESSION_OPTIONS, calculate, looks_like_word_problem, solve_word_problem
 from modules.research_plan import PLAN_OPTIONS, SearchPlan, as_typed, plan_search, unsourced_names_note
 from modules.web_research import (
     NO_RESULTS_SUMMARY,
@@ -851,6 +851,15 @@ class NexusCore:
             ("user request:", "response plan:", "adaptive response plan:")
         )
 
+    def _could_be_scaffolding(self, text: str) -> bool:
+        """True while the start of an answer could still turn out to be leaked prompt scaffolding."""
+
+        prefix = (text or "").lstrip().lower()
+        starts = ("user request:", "response plan:", "adaptive response plan:")
+        if any(start.startswith(prefix) or prefix.startswith(start) for start in starts):
+            return True
+        return any(marker in prefix for marker in ("user request:", "response plan:", "target length:", "intent:", "mode:"))
+
     def _clean_model_answer(self, text: str) -> str:
         """Remove leaked prompt scaffolding from local model output."""
 
@@ -1062,6 +1071,11 @@ class NexusCore:
             yield rule.reply
             return
         calculated = calculate(user_message)
+        set_up_by_model = False
+        if calculated is None and looks_like_word_problem(user_message) and settings.get("solve_word_problems", self.config.get("solve_word_problems", True)):
+            # A word problem: the model writes the expression from the question's own numbers, the app works it out.
+            calculated = solve_word_problem(user_message, self._json_asker(settings, EXPRESSION_OPTIONS))
+            set_up_by_model = calculated is not None
         if calculated is not None:
             # Plain arithmetic is worked out exactly instead of sampled from the model (modules/calculator.py).
             self.last_verification = {}
@@ -1069,8 +1083,8 @@ class NexusCore:
             self.last_trust_audit = {}
             self.last_provider_result = {
                 "text": calculated.answer,
-                "provider": "calculator",
-                "model": "",
+                "provider": "model_and_calculator" if set_up_by_model else "calculator",
+                "model": str(settings.get("selected_model") or "") if set_up_by_model else "",
                 "elapsed": time.perf_counter() - started,
                 "success": True,
                 "attempts": [{"provider": "calculator", "success": True}],
@@ -1498,6 +1512,11 @@ class NexusCore:
                 "usage": dict(model_meta.get("usage") or {}),
                 "tools_run": ["web_search"],
                 "sources": len(results),
+                # What was searched for, how often, and what was left out as being about something else.
+                "search_plan": dict(gathered.get("plan") or search_plan.to_dict()),
+                "searches": list(gathered.get("searches") or []),
+                "dropped_results": list(gathered.get("dropped") or []),
+                "timings": dict(gathered.get("timings") or {}),
             }
             self._record_response_self_critic(user_message, answer, plan, settings)
             return
@@ -1657,7 +1676,9 @@ class NexusCore:
                     suppress_provider_stream = True
                     guard_buffer = ""
                     continue
-                if len(guard_buffer) >= 160 or "\n" in guard_buffer:
+                # Hold back only while the text could still be the prompt's own scaffolding. It used to
+                # wait for 160 characters, about eight seconds at this machine's 5 tokens a second.
+                if len(guard_buffer) >= 160 or "\n" in guard_buffer or (len(guard_buffer) >= 24 and not self._could_be_scaffolding(guard_buffer)):
                     visible_stream_started = True
                     provider_visible_chunks.append(guard_buffer)
                     chunks.append(guard_buffer)
@@ -1852,13 +1873,17 @@ class NexusCore:
 
         if not settings.get("plan_web_search", self.config.get("plan_web_search", True)):
             return as_typed(question, "switched off")
+        return plan_search(question, self._json_asker(settings, PLAN_OPTIONS))
+
+    def _json_asker(self, settings: dict[str, Any], options: dict[str, Any]) -> Any:
+        """ask(prompt, schema) -> the model's reply, held to the JSON Schema where the provider can do that."""
 
         def ask(prompt: str, schema: dict[str, Any]) -> str:
-            request = self._provider_request(prompt, settings, dict(PLAN_OPTIONS), model=settings.get("selected_model") or "")
+            request = self._provider_request(prompt, settings, dict(options), model=settings.get("selected_model") or "")
             request.response_schema = schema
             return self.provider_router.generate_or_raise(request).text
 
-        return plan_search(question, ask)
+        return ask
 
     def run_bloodhound_search(self, query: str, settings: dict[str, Any], *, rule_checked: bool = False) -> dict[str, Any]:
         """Run Bloodhound Search Mode through the shared provider router.

@@ -16,7 +16,7 @@ import ast
 import operator
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 _ASKED = re.compile(r"^\s*(?:please\s+)?(?:what\s+is|what's|whats|calculate|compute|evaluate|work\s+out|how\s+much\s+is|solve)\s*:?\s*(?P<expr>.+?)\s*(?:=\s*)?[?.!]*\s*$", re.IGNORECASE)
 _BARE = re.compile(r"^\s*(?P<expr>[-+(]*\d[\d\s.,+\-*/x×÷^()%]*?)\s*(?:=\s*\??)?\s*[?.!]*\s*$", re.IGNORECASE)
@@ -110,4 +110,67 @@ def calculate(question: str) -> Calculation | None:
     return Calculation(text, expression, int(shown) if re.fullmatch(r"-?\d+", shown) else float(shown), f"{_shown(expression)} = {shown}")
 
 
-__all__ = ["Calculation", "calculate"]
+# ---- word problems: the model writes the expression, the app works it out ------------------------------
+
+EXPRESSION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"expression": {"type": "string", "maxLength": 120}, "unit": {"type": "string", "maxLength": 30}},
+    "required": ["expression", "unit"],
+}
+EXPRESSION_PROMPT = """Turn this question into one arithmetic expression that answers it. Use only the numbers
+in the question and + - * / and parentheses. Do not work it out. If the question cannot be answered from
+its own numbers, reply with an empty expression.
+
+Question: {question}
+
+Reply with one JSON object: {{"expression": "...", "unit": "the unit of the answer, or an empty string"}}"""
+EXPRESSION_OPTIONS = {"temperature": 0.0, "num_predict": 60, "num_ctx": 2048}
+_QUANTITY_QUESTION = re.compile(
+    r"\b(how\s+(?:much|many|long|far|old)|what\s+is\s+the\s+(?:total|sum|difference|average|cost|price)|in\s+total|altogether|left|remain\w*|each|per|average|cost|change)\b",
+    re.IGNORECASE,
+)
+# Numbers an expression may use without the question stating them: units and percent.
+_STANDARD_NUMBERS = {"100", "60", "24", "7", "12", "365", "1000"}
+
+
+def looks_like_word_problem(question: str) -> bool:
+    """A short question with at least two numbers that asks for a quantity."""
+
+    text = str(question or "")
+    return len(text) <= 400 and len(re.findall(r"\d+(?:\.\d+)?", text)) >= 2 and bool(_QUANTITY_QUESTION.search(text))
+
+
+def _numbers(text: str) -> list[str]:
+    return [number.rstrip("0").rstrip(".") if "." in number else number for number in re.findall(r"\d+(?:\.\d+)?", _THOUSANDS.sub("", text))]
+
+
+def solve_word_problem(question: str, ask: Callable[[str, dict[str, Any]], str]) -> Calculation | None:
+    """Ask the model only for the expression, check it, and work it out exactly. None when that is not possible.
+
+    The expression may use only numbers that are in the question (and units such as 100 or 60), so a
+    model cannot bring in figures of its own. The answer shows the expression, so it can be checked.
+    """
+
+    import json
+
+    try:
+        reply = json.loads(ask(EXPRESSION_PROMPT.format(question=str(question).strip()), EXPRESSION_SCHEMA))
+        expression = str(reply.get("expression") or "").strip()
+        unit = str(reply.get("unit") or "").strip()
+    except Exception:  # no model, or a reply that is not the promised shape: the model answers as usual
+        return None
+    if not expression or not _ALLOWED.match(expression.replace("×", "*").replace("÷", "/")):
+        return None
+    allowed = set(_numbers(question)) | _STANDARD_NUMBERS
+    if any(number not in allowed for number in _numbers(expression)):
+        return None
+    found = calculate(f"what is {expression}")
+    if found is None or found.value is None:
+        return None
+    answer = f"{found.answer}{(' ' + unit) if unit and not unit.startswith('$') else ''}"
+    if unit.startswith("$") or "dollar" in unit.lower():
+        answer = f"{found.answer} dollars"
+    return Calculation(str(question).strip(), found.expression, found.value, f"{answer} (the model set up the calculation from the question; the app worked it out)")
+
+
+__all__ = ["Calculation", "EXPRESSION_OPTIONS", "EXPRESSION_SCHEMA", "calculate", "looks_like_word_problem", "solve_word_problem"]
