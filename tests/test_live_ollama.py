@@ -8,7 +8,8 @@ and nothing about what happens with a real model. These send real requests throu
 the app uses and check what can be checked of a real model's work: that an answer arrives and is
 labelled as the model's, that it streams piece by piece, that a reply held to a JSON Schema parses
 and matches, that the server reports what the model can do, that the one content rule stops and
-lets through with the real model as its judge, and that a whole chat turn goes through the app.
+lets through with the real model as its judge, that a whole chat turn goes through the app, and
+that the claim check counts a story retold in other words once with the real embedding model.
 
 There is no model in CI, so they are run by hand; the last run is recorded in
 docs/benchmarks/README.md. Cloud providers are not covered: no key was available.
@@ -162,3 +163,27 @@ def test_a_whole_chat_turn_goes_through_the_app(model):
     meta = core.last_provider_result
     assert "lighthouse" in answer.lower(), answer
     assert meta["provider"] == "ollama" and meta["success"] is True and meta["model"] == model
+
+
+def test_a_story_retold_in_other_words_counts_once_with_the_real_embedding_model():
+    """Two pairs from tests/fixtures/retelling_cases.json through the claim check: a retelling folds, an independent report does not."""
+
+    from modules import reality_research_agent as agent
+    from modules import retellings
+
+    embed, name = retellings.meaning_embedder(LIVE_URL)
+    if embed is None:
+        pytest.skip(name)
+    cases = {case["label"]: case for case in json.loads((REPO_ROOT / "tests" / "fixtures" / "retelling_cases.json").read_text(encoding="utf-8"))["dev"] if case["claim"] == "The river flooded the town in 2019"}
+
+    def counted(case):
+        sources = [
+            agent.SourceRecord(title=side, url=f"https://{side}.example/page", source=f"{side}.example", snippet=case[side], excerpt=case[side], trust_label="Medium")
+            for side in ("a", "b")
+        ]
+        return agent.claim_evidence_breakdown(case["claim"], sources, embed=embed)
+
+    retold, independent = counted(cases["retold"]), counted(cases["independent"])
+    assert retold["compared_by_meaning"] and independent["compared_by_meaning"]
+    assert len(retold["evidence"]) == 1 and retold["repeats"][0]["why"].startswith("same story in other words")
+    assert len(independent["evidence"]) == 2 and independent["repeats"] == []

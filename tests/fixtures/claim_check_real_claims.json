@@ -1,0 +1,34 @@
+{
+  "about": [
+    "Claims checked against real web pages (item 030): common myths, where anything but LIKELY TRUE is acceptable and LIKELY FALSE or WEAKLY CONTRADICTED is right, and plain facts, where LIKELY TRUE is right.",
+    "dev: 'Einstein failed math at school' and 'the Eiffel Tower is in Paris' were checked first; the claim check called the Einstein myth LIKELY TRUE. The other nine were fetched next, before any rule was changed, and the rules for debunking pages were then written while looking at all eleven.",
+    "heldout: written with their answers after those rules were settled, then fetched once and judged once per configuration. Nothing was changed after seeing the result.",
+    "The pages are fetched once (tools/claim_check_real_pages.py fetch) and kept under data/benchmark_pages/, which is not committed: they are other people's text. Only the verdicts and counts are kept in docs/benchmarks/claim_check_real_pages.json."
+  ],
+  "dev": [
+    {"claim": "Einstein failed math at school", "truth": "myth"},
+    {"claim": "goldfish have a three-second memory", "truth": "myth"},
+    {"claim": "humans only use 10 percent of their brains", "truth": "myth"},
+    {"claim": "bulls are enraged by the color red", "truth": "myth"},
+    {"claim": "lightning never strikes the same place twice", "truth": "myth"},
+    {"claim": "Napoleon Bonaparte was unusually short", "truth": "myth"},
+    {"claim": "water boils at 100 degrees Celsius at sea level", "truth": "fact"},
+    {"claim": "Mount Everest is the highest mountain above sea level", "truth": "fact"},
+    {"claim": "the human heart has four chambers", "truth": "fact"},
+    {"claim": "the Amazon is the largest tropical rainforest", "truth": "fact"},
+    {"claim": "the Eiffel Tower is in Paris", "truth": "fact"}
+  ],
+  "heldout": [
+    {"claim": "bats are blind", "truth": "myth"},
+    {"claim": "the Great Wall of China is visible from the Moon", "truth": "myth"},
+    {"claim": "cracking your knuckles causes arthritis", "truth": "myth"},
+    {"claim": "sugar makes children hyperactive", "truth": "myth"},
+    {"claim": "you lose most of your body heat through your head", "truth": "myth"},
+    {"claim": "ostriches bury their heads in the sand", "truth": "myth"},
+    {"claim": "the Pacific is the largest ocean", "truth": "fact"},
+    {"claim": "Venus is the hottest planet in the solar system", "truth": "fact"},
+    {"claim": "Canberra is the capital of Australia", "truth": "fact"},
+    {"claim": "Mercury is the closest planet to the Sun", "truth": "fact"},
+    {"claim": "the blue whale is the largest animal on Earth", "truth": "fact"}
+  ]
+}

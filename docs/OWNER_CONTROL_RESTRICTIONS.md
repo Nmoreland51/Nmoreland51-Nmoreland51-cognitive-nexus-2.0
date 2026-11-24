@@ -547,8 +547,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:541` — `IMAGE_CLOTHED_QUESTION = """`
 - **Where:** `modules/behavior_policy.py:493` — `IMAGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:57` — `CONTENT_RULE_PICTURE_REPLY = (`
-- **Where:** `modules/nexus_core.py:2049` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
-- **Where:** `modules/nexus_core.py:2072` — `self._require_content_rule(str(prompt or ""), kind="image")`
+- **Where:** `modules/nexus_core.py:2054` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
+- **Where:** `modules/nexus_core.py:2077` — `self._require_content_rule(str(prompt or ""), kind="image")`
 - **Trigger:** Every request for a picture (image generation, ComfyUI workflows) that names a minor. Naming a minor is enough: no sexual word is needed.
 - **Effect:** A request that also uses a word for nudity (nude, naked, topless, undressed, no clothes) is stopped at once, without a model. For the rest the model is asked three things: two wordings of whether the picture would show a minor nude, undressed or sexualised, and directly whether the child would be clothed. Any answer against it stops the request with the text "Not drawn. This app does not make pictures that show anyone under 18 nude or undressed, whatever the scene." An innocent scene such as a toddler in the bath is stopped too.
 - **Owner requested:** No. The owner's rule is about sexual content. This line is stricter and is the assistant's own: it would not wire up the generation of pictures of unclothed children, innocent scene or not.
@@ -891,7 +891,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `core/reality_grounding/prompt_firewall.py:86` — `def set_untrusted_mode(`
 - **Where:** `modules/context_manager.py:76` — `def _quotes_outside_text(`
 - **Where:** `modules/web_research.py:627` — `def _fenced_context(`
-- **Where:** `modules/reality_research_agent.py:736` — `fence_untrusted(cleaned, 'passage')`
+- **Where:** `modules/reality_research_agent.py:859` — `fence_untrusted(cleaned, 'passage')`
 - **Where:** `search/bloodhound_search.py:568` — `fence_untrusted("\n\n".join(cleaned), "search results")`
 - **Where:** `modules/nexus_config.py:95` — `"untrusted_content": "remove_and_fence",`
 - **Trigger:** Web pages, search results, passages from uploaded and saved documents, and earlier answers that were built from them, when they are put into a prompt.
@@ -1228,7 +1228,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-E03 · Research answers come from the sources and say when the sources do not have the answer · active
 
 - **Where:** `modules/web_research.py:754` — `The web results do not say`
-- **Where:** `modules/reality_research_agent.py:757` — `def apply_second_opinion(`
+- **Where:** `modules/reality_research_agent.py:880` — `def apply_second_opinion(`
 - **Trigger:** Web research, research reports, claim checks.
 - **Effect:** The prompts tell the model to use only the supplied sources, to cite them, and to begin with "The web results do not say" when they do not contain the answer. Links that were not among the results are flagged. A claim check labels each passage as supporting, contradicting or unclear.
 - **Owner requested:** In general terms (the audit's research items; "Never fabricate").
@@ -1271,7 +1271,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F02 · Demo Safe Mode · active
 
-- **Where:** `app.py:2327` — `read_only=is_demo_safe(settings),`
+- **Where:** `app.py:2335` — `read_only=is_demo_safe(settings),`
 - **Trigger:** Demo Safe Mode switched on.
 - **Effect:** Local paths, service addresses and environment details are hidden; destructive actions are not shown; the Behaviour panel is read-only and does not show the last prompt.
 - **Owner requested:** No.
@@ -1292,7 +1292,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-F03 · The Behaviour panel · active
 
 - **Where:** `ui/behavior_panel.py:79` — `def render_behavior_panel(`
-- **Where:** `app.py:2322` — `render_behavior_panel(`
+- **Where:** `app.py:2330` — `render_behavior_panel(`
 - **Trigger:** Settings tab.
 - **Effect:** Shows and saves the owner's behaviour text and the three behaviour settings; prints the whole system prompt, the one content rule and how it is checked, the texts the app can show instead of an answer, what is added to each message, the last prompt as it was sent, what the selected model or provider may do, and the permissions and protections.
 - **Owner requested:** Yes.

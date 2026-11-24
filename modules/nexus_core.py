@@ -20,7 +20,7 @@ from modules.context_manager import (
     handle_local_memory_command,
     load_user_fact_records,
 )
-from modules import heavy_work
+from modules import heavy_work, retellings
 from modules.image_gen import ImageGenerationRequest, generate_images
 from modules.behavior_policy import (
     JUDGE_OPTIONS,
@@ -1354,6 +1354,7 @@ class NexusCore:
                 show_weak_matches=bool(settings.get("reality_research_show_weak", True)),
                 use_ai_summary=bool(settings.get("reality_research_use_ai", True)),
                 second_opinion=bool(settings.get("reality_research_second_opinion", True)),
+                compare_meaning=bool(settings.get("reality_research_compare_meaning", True)),
                 save_report=True,
                 # The command word ("verify ...", "fact check ...") was stripped from the query, so
                 # tell the agent this is a claim check; otherwise let it decide from the query.
@@ -1980,6 +1981,9 @@ class NexusCore:
             # One word is wanted; a short answer keeps each passage to a few seconds on a CPU.
             return self._model_text(prompt, settings, {"temperature": 0.0, "num_predict": 6, "num_ctx": 2048})
 
+        def meaning() -> tuple[Any, str]:
+            return retellings.meaning_embedder(str(settings.get("base_url") or self.config.get("ollama_url") or "") or None)
+
         return run_reality_research(
             request,
             settings=settings | {
@@ -1992,6 +1996,7 @@ class NexusCore:
             ai_callback=ai_callback if settings.get("provider_order") else None,
             research_module=self.get_research_module() if request.save_to_memory else None,
             second_opinion_callback=second_opinion if settings.get("provider_order") else None,
+            meaning_embedder=meaning,
         )
 
     def answer_knowledge(

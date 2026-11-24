@@ -1,0 +1,1394 @@
+{
+  "dev": {
+    "rules_before": {
+      "measured_at": "2026-11-24T22:30:44+00:00",
+      "code": "11a5076 (the code before this change)",
+      "pages_fetched_at": "2026-11-24T15:37:26",
+      "second_opinion_model": "",
+      "summary": {
+        "claims": 11,
+        "right": 5,
+        "myths_called_likely_true": 1,
+        "facts_not_called_likely_true": 2
+      },
+      "rows": [
+        {
+          "claim": "Einstein failed math at school",
+          "truth": "myth",
+          "sources": 21,
+          "verdict": "LIKELY TRUE",
+          "supporting": 2,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "goldfish have a three-second memory",
+          "truth": "myth",
+          "sources": 19,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "humans only use 10 percent of their brains",
+          "truth": "myth",
+          "sources": 22,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 2,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "bulls are enraged by the color red",
+          "truth": "myth",
+          "sources": 18,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 2,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "lightning never strikes the same place twice",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 5,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "Napoleon Bonaparte was unusually short",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "water boils at 100 degrees Celsius at sea level",
+          "truth": "fact",
+          "sources": 22,
+          "verdict": "LIKELY TRUE",
+          "supporting": 5,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mount Everest is the highest mountain above sea level",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 6,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "the human heart has four chambers",
+          "truth": "fact",
+          "sources": 18,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 3,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "the Amazon is the largest tropical rainforest",
+          "truth": "fact",
+          "sources": 16,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Eiffel Tower is in Paris",
+          "truth": "fact",
+          "sources": 12,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    },
+    "rules_after": {
+      "measured_at": "2026-11-24T22:30:49+00:00",
+      "code": "11a5076 with this change (committed with this file)",
+      "pages_fetched_at": "2026-11-24T15:37:26",
+      "second_opinion_model": "",
+      "summary": {
+        "claims": 11,
+        "right": 7,
+        "myths_called_likely_true": 0,
+        "facts_not_called_likely_true": 0
+      },
+      "rows": [
+        {
+          "claim": "Einstein failed math at school",
+          "truth": "myth",
+          "sources": 21,
+          "verdict": "UNSUPPORTED",
+          "supporting": 0,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "goldfish have a three-second memory",
+          "truth": "myth",
+          "sources": 19,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 2,
+          "retold": 1,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "humans only use 10 percent of their brains",
+          "truth": "myth",
+          "sources": 22,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "bulls are enraged by the color red",
+          "truth": "myth",
+          "sources": 18,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "lightning never strikes the same place twice",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 3,
+          "retold": 1,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "Napoleon Bonaparte was unusually short",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "water boils at 100 degrees Celsius at sea level",
+          "truth": "fact",
+          "sources": 22,
+          "verdict": "LIKELY TRUE",
+          "supporting": 3,
+          "contradicting": 0,
+          "retold": 2,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mount Everest is the highest mountain above sea level",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "LIKELY TRUE",
+          "supporting": 5,
+          "contradicting": 0,
+          "retold": 1,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the human heart has four chambers",
+          "truth": "fact",
+          "sources": 18,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Amazon is the largest tropical rainforest",
+          "truth": "fact",
+          "sources": 16,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Eiffel Tower is in Paris",
+          "truth": "fact",
+          "sources": 12,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    },
+    "with_model_before": {
+      "measured_at": "2026-11-24T22:31:23+00:00",
+      "code": "11a5076 (the code before this change)",
+      "pages_fetched_at": "2026-11-24T15:37:26",
+      "second_opinion_model": "dolphin3:8b",
+      "summary": {
+        "claims": 11,
+        "right": 5,
+        "myths_called_likely_true": 1,
+        "facts_not_called_likely_true": 2
+      },
+      "rows": [
+        {
+          "claim": "Einstein failed math at school",
+          "truth": "myth",
+          "sources": 21,
+          "verdict": "LIKELY TRUE",
+          "supporting": 2,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 2,
+            "agreed": 2,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "goldfish have a three-second memory",
+          "truth": "myth",
+          "sources": 19,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "humans only use 10 percent of their brains",
+          "truth": "myth",
+          "sources": 22,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 2,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 2,
+            "agreed": 2,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "bulls are enraged by the color red",
+          "truth": "myth",
+          "sources": 18,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 2,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 2,
+            "agreed": 2,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "lightning never strikes the same place twice",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 5,
+            "agreed": 1,
+            "disagreed": 4,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "Napoleon Bonaparte was unusually short",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "water boils at 100 degrees Celsius at sea level",
+          "truth": "fact",
+          "sources": 22,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 5,
+            "agreed": 4,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mount Everest is the highest mountain above sea level",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 5,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 6,
+            "agreed": 5,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "the human heart has four chambers",
+          "truth": "fact",
+          "sources": 18,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 3,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 3,
+            "agreed": 3,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "the Amazon is the largest tropical rainforest",
+          "truth": "fact",
+          "sources": 16,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Eiffel Tower is in Paris",
+          "truth": "fact",
+          "sources": 12,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    },
+    "with_model_after": {
+      "measured_at": "2026-11-24T22:31:50+00:00",
+      "code": "11a5076 with this change (committed with this file)",
+      "pages_fetched_at": "2026-11-24T15:37:26",
+      "second_opinion_model": "dolphin3:8b",
+      "summary": {
+        "claims": 11,
+        "right": 8,
+        "myths_called_likely_true": 0,
+        "facts_not_called_likely_true": 0
+      },
+      "rows": [
+        {
+          "claim": "Einstein failed math at school",
+          "truth": "myth",
+          "sources": 21,
+          "verdict": "UNSUPPORTED",
+          "supporting": 0,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "goldfish have a three-second memory",
+          "truth": "myth",
+          "sources": 19,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 2,
+          "retold": 1,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "humans only use 10 percent of their brains",
+          "truth": "myth",
+          "sources": 22,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 1,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "bulls are enraged by the color red",
+          "truth": "myth",
+          "sources": 18,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 1,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "lightning never strikes the same place twice",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 1,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 0,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Napoleon Bonaparte was unusually short",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 3,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "water boils at 100 degrees Celsius at sea level",
+          "truth": "fact",
+          "sources": 22,
+          "verdict": "LIKELY TRUE",
+          "supporting": 2,
+          "contradicting": 0,
+          "retold": 2,
+          "second_opinion": {
+            "asked": 3,
+            "agreed": 2,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mount Everest is the highest mountain above sea level",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "LIKELY TRUE",
+          "supporting": 3,
+          "contradicting": 0,
+          "retold": 1,
+          "second_opinion": {
+            "asked": 5,
+            "agreed": 3,
+            "disagreed": 2,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the human heart has four chambers",
+          "truth": "fact",
+          "sources": 18,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Amazon is the largest tropical rainforest",
+          "truth": "fact",
+          "sources": 16,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Eiffel Tower is in Paris",
+          "truth": "fact",
+          "sources": 12,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    }
+  },
+  "heldout": {
+    "rules_before": {
+      "measured_at": "2026-11-24T22:31:53+00:00",
+      "code": "11a5076 (the code before this change)",
+      "pages_fetched_at": "2026-11-24T16:13:43",
+      "second_opinion_model": "",
+      "summary": {
+        "claims": 11,
+        "right": 6,
+        "myths_called_likely_true": 0,
+        "facts_not_called_likely_true": 1
+      },
+      "rows": [
+        {
+          "claim": "bats are blind",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 2,
+          "contradicting": 6,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "the Great Wall of China is visible from the Moon",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "cracking your knuckles causes arthritis",
+          "truth": "myth",
+          "sources": 3,
+          "verdict": "WEAKLY CONTRADICTED",
+          "supporting": 0,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "sugar makes children hyperactive",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "UNSUPPORTED",
+          "supporting": 0,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "you lose most of your body heat through your head",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 3,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "ostriches bury their heads in the sand",
+          "truth": "myth",
+          "sources": 9,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Pacific is the largest ocean",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 5,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Venus is the hottest planet in the solar system",
+          "truth": "fact",
+          "sources": 6,
+          "verdict": "WEAKLY SUPPORTED",
+          "supporting": 1,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "Canberra is the capital of Australia",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 6,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mercury is the closest planet to the Sun",
+          "truth": "fact",
+          "sources": 7,
+          "verdict": "LIKELY TRUE",
+          "supporting": 5,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the blue whale is the largest animal on Earth",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "LIKELY TRUE",
+          "supporting": 6,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    },
+    "rules_after": {
+      "measured_at": "2026-11-24T22:31:56+00:00",
+      "code": "11a5076 with this change (committed with this file)",
+      "pages_fetched_at": "2026-11-24T16:13:43",
+      "second_opinion_model": "",
+      "summary": {
+        "claims": 11,
+        "right": 6,
+        "myths_called_likely_true": 0,
+        "facts_not_called_likely_true": 1
+      },
+      "rows": [
+        {
+          "claim": "bats are blind",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 4,
+          "retold": 2,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "the Great Wall of China is visible from the Moon",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "cracking your knuckles causes arthritis",
+          "truth": "myth",
+          "sources": 3,
+          "verdict": "WEAKLY CONTRADICTED",
+          "supporting": 0,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "sugar makes children hyperactive",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "UNSUPPORTED",
+          "supporting": 0,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "you lose most of your body heat through your head",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 3,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "ostriches bury their heads in the sand",
+          "truth": "myth",
+          "sources": 9,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Pacific is the largest ocean",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Venus is the hottest planet in the solar system",
+          "truth": "fact",
+          "sources": 6,
+          "verdict": "WEAKLY SUPPORTED",
+          "supporting": 1,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {},
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "Canberra is the capital of Australia",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 2,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mercury is the closest planet to the Sun",
+          "truth": "fact",
+          "sources": 7,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 1,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the blue whale is the largest animal on Earth",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 2,
+          "second_opinion": {},
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    },
+    "with_model_before": {
+      "measured_at": "2026-11-24T22:32:45+00:00",
+      "code": "11a5076 (the code before this change)",
+      "pages_fetched_at": "2026-11-24T16:13:43",
+      "second_opinion_model": "dolphin3:8b",
+      "summary": {
+        "claims": 11,
+        "right": 7,
+        "myths_called_likely_true": 0,
+        "facts_not_called_likely_true": 1
+      },
+      "rows": [
+        {
+          "claim": "bats are blind",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 2,
+          "contradicting": 6,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 2,
+            "agreed": 2,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "the Great Wall of China is visible from the Moon",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 0,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "cracking your knuckles causes arthritis",
+          "truth": "myth",
+          "sources": 3,
+          "verdict": "WEAKLY CONTRADICTED",
+          "supporting": 0,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "sugar makes children hyperactive",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "UNSUPPORTED",
+          "supporting": 0,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "you lose most of your body heat through your head",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 3,
+            "agreed": 1,
+            "disagreed": 2,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "ostriches bury their heads in the sand",
+          "truth": "myth",
+          "sources": 9,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Pacific is the largest ocean",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 5,
+            "agreed": 4,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Venus is the hottest planet in the solar system",
+          "truth": "fact",
+          "sources": 6,
+          "verdict": "WEAKLY SUPPORTED",
+          "supporting": 1,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 1,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "Canberra is the capital of Australia",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 5,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 6,
+            "agreed": 5,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mercury is the closest planet to the Sun",
+          "truth": "fact",
+          "sources": 7,
+          "verdict": "LIKELY TRUE",
+          "supporting": 5,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 5,
+            "agreed": 5,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the blue whale is the largest animal on Earth",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "LIKELY TRUE",
+          "supporting": 6,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 6,
+            "agreed": 6,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    },
+    "with_model_after": {
+      "measured_at": "2026-11-24T22:33:36+00:00",
+      "code": "11a5076 with this change (committed with this file)",
+      "pages_fetched_at": "2026-11-24T16:13:43",
+      "second_opinion_model": "dolphin3:8b",
+      "summary": {
+        "claims": 11,
+        "right": 8,
+        "myths_called_likely_true": 0,
+        "facts_not_called_likely_true": 1
+      },
+      "rows": [
+        {
+          "claim": "bats are blind",
+          "truth": "myth",
+          "sources": 20,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 4,
+          "retold": 2,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 0,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Great Wall of China is visible from the Moon",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 0,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "cracking your knuckles causes arthritis",
+          "truth": "myth",
+          "sources": 3,
+          "verdict": "WEAKLY CONTRADICTED",
+          "supporting": 0,
+          "contradicting": 1,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "sugar makes children hyperactive",
+          "truth": "myth",
+          "sources": 12,
+          "verdict": "UNSUPPORTED",
+          "supporting": 0,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "you lose most of your body heat through your head",
+          "truth": "myth",
+          "sources": 17,
+          "verdict": "MIXED / CONFLICTING",
+          "supporting": 1,
+          "contradicting": 2,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 3,
+            "agreed": 1,
+            "disagreed": 2,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": true
+        },
+        {
+          "claim": "ostriches bury their heads in the sand",
+          "truth": "myth",
+          "sources": 9,
+          "verdict": "LIKELY FALSE",
+          "supporting": 0,
+          "contradicting": 4,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 0,
+            "agreed": 0,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the Pacific is the largest ocean",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Venus is the hottest planet in the solar system",
+          "truth": "fact",
+          "sources": 6,
+          "verdict": "WEAKLY SUPPORTED",
+          "supporting": 1,
+          "contradicting": 0,
+          "retold": 0,
+          "second_opinion": {
+            "asked": 1,
+            "agreed": 1,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": false,
+          "acceptable": false
+        },
+        {
+          "claim": "Canberra is the capital of Australia",
+          "truth": "fact",
+          "sources": 10,
+          "verdict": "LIKELY TRUE",
+          "supporting": 3,
+          "contradicting": 0,
+          "retold": 2,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 3,
+            "disagreed": 1,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "Mercury is the closest planet to the Sun",
+          "truth": "fact",
+          "sources": 7,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 1,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        },
+        {
+          "claim": "the blue whale is the largest animal on Earth",
+          "truth": "fact",
+          "sources": 15,
+          "verdict": "LIKELY TRUE",
+          "supporting": 4,
+          "contradicting": 0,
+          "retold": 2,
+          "second_opinion": {
+            "asked": 4,
+            "agreed": 4,
+            "disagreed": 0,
+            "unavailable": 0
+          },
+          "right": true,
+          "acceptable": true
+        }
+      ]
+    }
+  }
+}

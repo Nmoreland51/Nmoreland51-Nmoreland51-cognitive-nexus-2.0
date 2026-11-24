@@ -29,6 +29,8 @@ data/web_research/
 data/research_reports/
 data/images/
 data/knowledge_notes/
+# Real web pages saved by tools/claim_check_real_pages.py: other people's text, kept local.
+data/benchmark_pages/
 data/agent/
 
 # Generated knowledge indexes

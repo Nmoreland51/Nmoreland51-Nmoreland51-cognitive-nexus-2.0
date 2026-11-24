@@ -1166,6 +1166,13 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
             help="When checking a claim, the model also reads each passage counted as supporting it, and the passage "
             "counts only where the model agrees with the wording rules. Adds a few seconds per passage on a CPU.",
         )
+        compare_meaning = st.checkbox(
+            "Count a story retold in other words once",
+            value=bool(settings.get("reality_research_compare_meaning", True)),
+            help="When checking a claim, passages from different sites that say the same thing in other words, with "
+            "nothing of their own, count as one source: one may be retelling the other. Uses the all-minilm "
+            "embedding model in Ollama when it is installed; under a second per check.",
+        )
 
     disabled = not bool(settings.get("enable_reality_research_agent", True))
     if disabled:
@@ -1184,6 +1191,7 @@ def render_reality_research_tab(settings: dict[str, Any]) -> None:
             show_weak_matches=show_weak,
             use_ai_summary=use_ai_summary,
             second_opinion=second_opinion,
+            compare_meaning=compare_meaning,
             save_report=True,
         )
         progress_lines: list[str] = []

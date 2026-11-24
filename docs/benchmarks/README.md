@@ -215,6 +215,80 @@ The rounds are small and were written by the person who wrote the rules. `tests/
 keeps the two development files fully right and holds rounds 2 and 3 at the measured scores as a floor, not
 a target: a change that needs these items to pass has to come with a new held-out round.
 
+## A story retold in other words counts once (`retellings.json`)
+
+```
+python tools/retelling_benchmark.py --set dev --save        # chooses the threshold, by the rule in the fixture
+python tools/retelling_benchmark.py --set heldout --save    # run once with it
+```
+
+A claim check counts a site once, and the same passage copied onto several sites once. A rumour rewritten
+in other words on each site got past both (item 030). `modules/retellings.py` compares passages from
+different sites that take the same side, by meaning, with the `all-minilm` embedding model in Ollama, and
+counts one that comes close enough to a passage already counted as a retelling of it. The pairs in
+`tests/fixtures/retelling_cases.json` were written and labelled before any code: "retold" when one
+passage adds nothing the other lacks, "independent" when each has a detail of its own. They were written by
+the assistant, modelled on rewritten articles, restated rumours and outlets reporting one event with their
+own details; they are not taken from real pages. How the threshold would be chosen was written into the
+fixture before measuring.
+
+| | Dev (16 + 16 pairs) | Held-out (10 + 10), run once |
+|---|---|---|
+| Retold pairs counted once | 11 of 16 | 9 of 10 |
+| Independent pairs counted once (the mistake) | 0 of 16 | 0 of 10 |
+| For comparison, the word-overlap rule alone: retold pairs counted once | 1 of 16 | 0 of 10 |
+| Through the claim check: retold pairs where both passages counted, before → after | 3 → 0 | 3 → 0 |
+| Through the claim check: independent pairs where both counted, before → after | 10 → 10 | 8 → 8 |
+
+The threshold is a cosine similarity of 0.8312; 64 passages are embedded in about 0.4 s here. The wording
+rules already read many reworded retellings as not stating the claim, which is why only 3 pairs per set
+reached the comparison with both passages counted. What it cannot do: a retelling that adds an invented
+detail of its own counts as independent, because telling it from an independent report needs knowing where
+each page got its information. Two plain statements of a well-known fact on two sites are counted once too:
+on the real pages below, "water boils at 100 degrees Celsius at sea level" went from five supporting sources
+to three, with the verdict unchanged. The threshold belongs to `all-minilm`; without it the comparison is
+skipped and the claim check says so.
+
+## The claim check on real pages (`claim_check_real_pages.json`)
+
+```
+python tools/claim_check_real_pages.py fetch --set heldout                 # once; pages kept under data/benchmark_pages/
+python tools/claim_check_real_pages.py judge --set heldout [--second-opinion] [--save NAME]
+```
+
+Common myths and plain facts (`tests/fixtures/claim_check_real_claims.json`), checked on pages found by the
+app's own search on 2026-11-24. The pages are saved once and every version of the rules is judged on the
+same pages; they are not committed, being other people's text. A myth is right when called LIKELY FALSE or
+WEAKLY CONTRADICTED, a fact only when called LIKELY TRUE.
+
+The dev claims were looked at while the rules below were written: checking "Einstein failed math at
+school" the claim check said LIKELY TRUE, because two debunking pages open with the myth ("one of the most
+repeated bits of trivia: ...", "it's fun to imagine that ...") and were counted as support. The held-out
+claims were written with their answers after the rules were settled, then fetched and judged once.
+
+| Claims right (of 11) | Dev, before | Dev, after | Held-out, before | Held-out, after |
+|---|---|---|---|---|
+| Wording rules alone | 5 | 7 | 6 | 6 |
+| Rules and the model's second reading (what the app does) | 5 | 8 | 7 | 8 |
+| Myths called LIKELY TRUE, either way | 1 | 0 | 0 | 0 |
+| Facts not called LIKELY TRUE, either way | 2 | 0 | 1 | 1 |
+
+What changed: a sentence that presents the claim as a belief, a saying or something imagined ("a common
+belief that", "the notion that", "the phrase ...", "fun to imagine") no longer counts as support; a short
+next sentence that rejects it ("But that's just not true.", "That is a myth.") makes it count against;
+footnote marks ("[1][2]", which hid a clause break in Wikipedia's "highest mountain above sea level, [1][2]
+but it is not the tallest"), link targets and table rows are taken out; and a number inside a compound word
+("four-chambered") counts as the claim's figure. The four labelled stance sets above score exactly as
+before, with the same mistakes.
+
+On the held-out pages the rules alone gave the same verdicts before and after. With the model's second
+reading one more claim came out right ("bats are blind": LIKELY FALSE instead of MIXED). What still goes
+wrong there: "bats are far from blind" read as support, a quoted question title ("Is the Great Wall of China
+visible from the Moon?") read as a statement, conditionals ("if the head were to lose even 75% of the
+body's heat ...") read as statements, and "Venus is the hottest planet" only weakly supported because a
+single page addressed it. Eleven claims a set is small, and the myths are well known, with many debunking
+pages; a rumour with fewer debunkers would fare worse.
+
 ## Research answers (`research_*.json`)
 
 ```

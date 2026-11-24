@@ -1,0 +1,422 @@
+{
+  "dev": {
+    "measured_at": "2026-11-24T21:33:07+00:00",
+    "machine": "Windows 11, AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "model": "all-minilm:latest",
+    "embed_seconds": 0.438,
+    "threshold": 0.8312,
+    "how_chosen": "not separated: the threshold with the highest accuracy, ties broken towards fewer independent pairs folded",
+    "meaning": {
+      "retold_folded": 11,
+      "retold_total": 16,
+      "independent_folded": 0,
+      "independent_total": 16
+    },
+    "word_overlap_rule": {
+      "retold_folded": 1,
+      "retold_total": 16,
+      "independent_folded": 0,
+      "independent_total": 16
+    },
+    "in_the_claim_check": {
+      "retold_both_counted_before": 3,
+      "retold_both_counted_after": 0,
+      "independent_both_counted_before": 10,
+      "independent_both_counted_after": 10
+    },
+    "rows": [
+      {
+        "pair": 0,
+        "claim": "The Riverside mall is closing in January",
+        "label": "retold",
+        "similarity": 0.8435,
+        "word_overlap": 0.4091
+      },
+      {
+        "pair": 1,
+        "claim": "The company is laying off 40 percent of its staff",
+        "label": "retold",
+        "similarity": 0.682,
+        "word_overlap": 0.12
+      },
+      {
+        "pair": 2,
+        "claim": "Drinking celery juice cures eczema",
+        "label": "retold",
+        "similarity": 0.9234,
+        "word_overlap": 0.35
+      },
+      {
+        "pair": 3,
+        "claim": "The bridge opened in 1962",
+        "label": "retold",
+        "similarity": 0.9931,
+        "word_overlap": 0.8333
+      },
+      {
+        "pair": 4,
+        "claim": "The bridge opened in 1962",
+        "label": "retold",
+        "similarity": 0.8312,
+        "word_overlap": 0.3846
+      },
+      {
+        "pair": 5,
+        "claim": "The singer cancelled her world tour",
+        "label": "retold",
+        "similarity": 0.7955,
+        "word_overlap": 0.4
+      },
+      {
+        "pair": 6,
+        "claim": "The city will ban gas leaf blowers in 2027",
+        "label": "retold",
+        "similarity": 0.8529,
+        "word_overlap": 0.2222
+      },
+      {
+        "pair": 7,
+        "claim": "The new phone has a battery that lasts three days",
+        "label": "retold",
+        "similarity": 0.8916,
+        "word_overlap": 0.3889
+      },
+      {
+        "pair": 8,
+        "claim": "A meteor will hit the Earth next week",
+        "label": "retold",
+        "similarity": 0.8831,
+        "word_overlap": 0.3478
+      },
+      {
+        "pair": 9,
+        "claim": "The school district is switching to a four-day week",
+        "label": "retold",
+        "similarity": 0.6483,
+        "word_overlap": 0.2727
+      },
+      {
+        "pair": 10,
+        "claim": "The restaurant failed its health inspection",
+        "label": "retold",
+        "similarity": 0.8979,
+        "word_overlap": 0.5294
+      },
+      {
+        "pair": 11,
+        "claim": "The airline is dropping all flights to Denver",
+        "label": "retold",
+        "similarity": 0.8499,
+        "word_overlap": 0.2941
+      },
+      {
+        "pair": 12,
+        "claim": "The vaccine contains microchips",
+        "label": "retold",
+        "similarity": 0.8547,
+        "word_overlap": 0.2667
+      },
+      {
+        "pair": 13,
+        "claim": "The river flooded the town in 2019",
+        "label": "retold",
+        "similarity": 0.8585,
+        "word_overlap": 0.3636
+      },
+      {
+        "pair": 14,
+        "claim": "The museum is free on Sundays",
+        "label": "retold",
+        "similarity": 0.6702,
+        "word_overlap": 0.1429
+      },
+      {
+        "pair": 15,
+        "claim": "The coach was fired after the loss",
+        "label": "retold",
+        "similarity": 0.7533,
+        "word_overlap": 0.5
+      },
+      {
+        "pair": 16,
+        "claim": "The Riverside mall is closing in January",
+        "label": "independent",
+        "similarity": 0.7803,
+        "word_overlap": 0.2
+      },
+      {
+        "pair": 17,
+        "claim": "The company is laying off 40 percent of its staff",
+        "label": "independent",
+        "similarity": 0.7358,
+        "word_overlap": 0.0857
+      },
+      {
+        "pair": 18,
+        "claim": "The bridge opened in 1962",
+        "label": "independent",
+        "similarity": 0.4772,
+        "word_overlap": 0.2308
+      },
+      {
+        "pair": 19,
+        "claim": "The singer cancelled her world tour",
+        "label": "independent",
+        "similarity": 0.7102,
+        "word_overlap": 0.3043
+      },
+      {
+        "pair": 20,
+        "claim": "The city will ban gas leaf blowers in 2027",
+        "label": "independent",
+        "similarity": 0.4919,
+        "word_overlap": 0.2692
+      },
+      {
+        "pair": 21,
+        "claim": "The new phone has a battery that lasts three days",
+        "label": "independent",
+        "similarity": 0.6937,
+        "word_overlap": 0.1667
+      },
+      {
+        "pair": 22,
+        "claim": "The school district is switching to a four-day week",
+        "label": "independent",
+        "similarity": 0.4978,
+        "word_overlap": 0.28
+      },
+      {
+        "pair": 23,
+        "claim": "The restaurant failed its health inspection",
+        "label": "independent",
+        "similarity": 0.6883,
+        "word_overlap": 0.1538
+      },
+      {
+        "pair": 24,
+        "claim": "The airline is dropping all flights to Denver",
+        "label": "independent",
+        "similarity": 0.6838,
+        "word_overlap": 0.1667
+      },
+      {
+        "pair": 25,
+        "claim": "The river flooded the town in 2019",
+        "label": "independent",
+        "similarity": 0.4674,
+        "word_overlap": 0.3
+      },
+      {
+        "pair": 26,
+        "claim": "The museum is free on Sundays",
+        "label": "independent",
+        "similarity": 0.6745,
+        "word_overlap": 0.2857
+      },
+      {
+        "pair": 27,
+        "claim": "The coach was fired after the loss",
+        "label": "independent",
+        "similarity": 0.6022,
+        "word_overlap": 0.2727
+      },
+      {
+        "pair": 28,
+        "claim": "Drinking celery juice cures eczema",
+        "label": "independent",
+        "similarity": 0.8191,
+        "word_overlap": 0.2
+      },
+      {
+        "pair": 29,
+        "claim": "A meteor will hit the Earth next week",
+        "label": "independent",
+        "similarity": 0.481,
+        "word_overlap": 0.2308
+      },
+      {
+        "pair": 30,
+        "claim": "The vaccine contains microchips",
+        "label": "independent",
+        "similarity": 0.6604,
+        "word_overlap": 0.2353
+      },
+      {
+        "pair": 31,
+        "claim": "The company is laying off 40 percent of its staff",
+        "label": "independent",
+        "similarity": 0.637,
+        "word_overlap": 0.32
+      }
+    ]
+  },
+  "heldout": {
+    "measured_at": "2026-11-24T21:33:10+00:00",
+    "machine": "Windows 11, AMD64 Family 25 Model 117 Stepping 2, AuthenticAMD",
+    "model": "all-minilm:latest",
+    "embed_seconds": 0.368,
+    "threshold": 0.8312,
+    "how_chosen": "modules/retellings.RETELLING_SIMILARITY, chosen on the dev pairs",
+    "meaning": {
+      "retold_folded": 9,
+      "retold_total": 10,
+      "independent_folded": 0,
+      "independent_total": 10
+    },
+    "word_overlap_rule": {
+      "retold_folded": 0,
+      "retold_total": 10,
+      "independent_folded": 0,
+      "independent_total": 10
+    },
+    "in_the_claim_check": {
+      "retold_both_counted_before": 3,
+      "retold_both_counted_after": 0,
+      "independent_both_counted_before": 8,
+      "independent_both_counted_after": 8
+    },
+    "rows": [
+      {
+        "pair": 0,
+        "claim": "The library is closing its east branch",
+        "label": "retold",
+        "similarity": 0.9236,
+        "word_overlap": 0.4
+      },
+      {
+        "pair": 1,
+        "claim": "The game is delayed until next year",
+        "label": "retold",
+        "similarity": 0.8329,
+        "word_overlap": 0.3333
+      },
+      {
+        "pair": 2,
+        "claim": "Eating carrots improves night vision",
+        "label": "retold",
+        "similarity": 0.8809,
+        "word_overlap": 0.1
+      },
+      {
+        "pair": 3,
+        "claim": "The mayor is resigning",
+        "label": "retold",
+        "similarity": 0.7628,
+        "word_overlap": 0.3182
+      },
+      {
+        "pair": 4,
+        "claim": "The zoo's panda is pregnant",
+        "label": "retold",
+        "similarity": 0.8457,
+        "word_overlap": 0.35
+      },
+      {
+        "pair": 5,
+        "claim": "The highway will have a toll from 2026",
+        "label": "retold",
+        "similarity": 0.9187,
+        "word_overlap": 0.5714
+      },
+      {
+        "pair": 6,
+        "claim": "The festival sold out in ten minutes",
+        "label": "retold",
+        "similarity": 0.9383,
+        "word_overlap": 0.6842
+      },
+      {
+        "pair": 7,
+        "claim": "5G towers spread the flu",
+        "label": "retold",
+        "similarity": 0.9519,
+        "word_overlap": 0.5
+      },
+      {
+        "pair": 8,
+        "claim": "The factory will close in 2025",
+        "label": "retold",
+        "similarity": 0.8429,
+        "word_overlap": 0.3158
+      },
+      {
+        "pair": 9,
+        "claim": "The park's lake has been drained",
+        "label": "retold",
+        "similarity": 0.9278,
+        "word_overlap": 0.3
+      },
+      {
+        "pair": 10,
+        "claim": "The library is closing its east branch",
+        "label": "independent",
+        "similarity": 0.737,
+        "word_overlap": 0.3043
+      },
+      {
+        "pair": 11,
+        "claim": "The game is delayed until next year",
+        "label": "independent",
+        "similarity": 0.4424,
+        "word_overlap": 0.1667
+      },
+      {
+        "pair": 12,
+        "claim": "Eating carrots improves night vision",
+        "label": "independent",
+        "similarity": 0.757,
+        "word_overlap": 0.2083
+      },
+      {
+        "pair": 13,
+        "claim": "The mayor is resigning",
+        "label": "independent",
+        "similarity": 0.4921,
+        "word_overlap": 0.125
+      },
+      {
+        "pair": 14,
+        "claim": "The zoo's panda is pregnant",
+        "label": "independent",
+        "similarity": 0.7912,
+        "word_overlap": 0.2632
+      },
+      {
+        "pair": 15,
+        "claim": "The highway will have a toll from 2026",
+        "label": "independent",
+        "similarity": 0.7078,
+        "word_overlap": 0.2917
+      },
+      {
+        "pair": 16,
+        "claim": "The festival sold out in ten minutes",
+        "label": "independent",
+        "similarity": 0.7504,
+        "word_overlap": 0.2917
+      },
+      {
+        "pair": 17,
+        "claim": "5G towers spread the flu",
+        "label": "independent",
+        "similarity": 0.7803,
+        "word_overlap": 0.2
+      },
+      {
+        "pair": 18,
+        "claim": "The factory will close in 2025",
+        "label": "independent",
+        "similarity": 0.4771,
+        "word_overlap": 0.1429
+      },
+      {
+        "pair": 19,
+        "claim": "The park's lake has been drained",
+        "label": "independent",
+        "similarity": 0.5517,
+        "word_overlap": 0.25
+      }
+    ]
+  }
+}

@@ -20,6 +20,7 @@ from core.reality_grounding.prompt_firewall import defuse_untrusted_text, fence_
 from modules.data_stores import DATA_ROOT
 from modules.file_lock import append_line
 from modules.file_utils import atomic_write_text
+from modules.retellings import Embed, fold_retellings
 from modules.web_research import clean_text, get_domain, slugify_query
 from search.bloodhound_search import (
     default_bloodhound_config,
@@ -113,6 +114,8 @@ _REFUTATION_CUES = [
         ("misinformation", r"\b(?:mis|dis)information\b"),
         ("conspiracy", r"\bconspirac\w+\b"),
         ("pseudoscience", r"\bpseudoscien\w+\b"),
+        ("misconception", r"\bmisconceptions?\b"),
+        ("legend", r"\burban legends?\b|\bold wives'? tales?\b"),
     ]
 ]
 # Sentences that report what others say ("some people believe ...") don't count as support.
@@ -120,12 +123,32 @@ _ATTRIBUTION_RE = re.compile(
     r"\b(?:believ\w+|claims?|claimed|claiming|alleg\w+|suppos\w+|rumou?r\w*|purported\w*|so-called|proponents?|said to)\b",
     re.IGNORECASE,
 )
+# Nor do sentences that present the claim as a belief, a saying or something imagined: debunking
+# pages open that way ("it is a common belief that ...", "the phrase '...' means", "it's fun to
+# imagine that ...") before saying it is not so.
+_FRAMING_RE = re.compile(
+    r"\b(?:beliefs?|notions?|idea that|imagin\w*|trivia|idioms?|proverb\w*|adages?|the phrase|the saying|"
+    r"legend has it|the story goes|you may have heard)\b",
+    re.IGNORECASE,
+)
+# A short sentence that rejects the one before it: "But that's just not true.", "That is a myth."
+_REJECTS_PREVIOUS = re.compile(
+    r"^\W*(?:(?:but|however|yet|actually|in fact|in reality|sadly|unfortunately|no)\b\W*)*"
+    r"(?:this|that|it|these|those|such claims?|the (?:claim|story|idea|rumou?r|theory|notion|report|assertion|myth|saying))\b",
+    re.IGNORECASE,
+)
+_CONTRARY_TO_BELIEF = re.compile(r"\bcontrary to (?:(?:the )?(?:popular|common|widespread) )?beliefs?\b", re.IGNORECASE)
+_NOT_SO = re.compile(r"(?:\bnot\b|n't\b|\bnever\b)\W+(?:\w+\W+){0,2}?(?:true|the case|correct|accurate|factual|happen(?:ed|s)?)\b", re.IGNORECASE)
+# Page furniture that the sentence splitter returns as sentences: table rows and link lists.
+_MARKDOWN_LINK = re.compile(r"\[([^\]\n]{1,200})\]\((?:https?://|/)[^)\s]*\)?")
+_FOOTNOTE_MARK = re.compile(r"\s*\[(?:\d{1,3}|citation needed)\]", re.IGNORECASE)
+_URL = re.compile(r"https?://\S+|\S+\.php\?\S+")
 _INFLECTIONS = frozenset({"", "s", "es", "e", "ed", "d", "ing", "ies", "y", "n", "en"})
 _PHYSICS_DEFYING_TOPICS = ("time machine", "perpetual motion", "telepathy", "faster than light")
 MAX_PASSAGE_CHARS = 320
 CLAIM_CHECK_CAVEAT = (
     "Passages are matched to the claim by rules about wording (key terms, negation, opposite words, differing "
-    "numbers and years, hedging, open questions), not by understanding them. A passage that says the same thing "
+    "numbers and years, hedging, open questions, beliefs and sayings, a next sentence that rejects it), not by understanding them. A passage that says the same thing "
     "in other words is missed. Read the quoted passages before relying on this."
 )
 
@@ -186,8 +209,19 @@ def _polarity_cues(text: str) -> set[str]:
     return cues
 
 
+def _is_page_furniture(sentence: str) -> bool:
+    """A table row or a run of links rather than a sentence: what it seems to say is not stated."""
+
+    return sentence.count("|") >= 3 or sum(len(found) for found in _URL.findall(sentence)) > 0.4 * len(sentence)
+
+
 def _sentences(text: str) -> list[str]:
-    return [part.strip() for part in re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(\[])", clean_text(text)) if part.strip()]
+    """The sentences of a page's text, with link targets and footnote marks ("[1][2]") taken out and
+    table rows and link lists left out."""
+
+    prose = _FOOTNOTE_MARK.sub("", _MARKDOWN_LINK.sub(r"\1", text or ""))
+    parts = (part.strip() for part in re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(\[])", clean_text(prose)))
+    return [part for part in parts if part and not _is_page_furniture(part)]
 
 
 @dataclass
@@ -380,6 +414,18 @@ def _numbers(text: str) -> tuple[set[float], set[str]]:
     return amounts, years
 
 
+_COMPOUND_NUMBER = re.compile(r"\b([a-z]+)-[a-z]+\b")
+
+
+def _compound_amounts(text: str) -> set[float]:
+    found = set()
+    for head in _COMPOUND_NUMBER.findall((text or "").lower()):
+        value = _small_number(head)
+        if value is not None:
+            found.add(float(value))
+    return found
+
+
 def _same_amount(first: float, second: float) -> bool:
     return abs(first - second) <= QUANTITY_TOLERANCE * max(abs(first), abs(second))
 
@@ -499,6 +545,8 @@ _REFUTATION_WORDING = {
     "misinformation": "calls it misinformation",
     "conspiracy": "calls it a conspiracy theory",
     "pseudoscience": "calls it pseudoscience",
+    "misconception": "calls it a misconception",
+    "legend": "calls it an urban legend or an old wives' tale",
 }
 
 
@@ -529,9 +577,12 @@ def _judge(sentence: str, claim_cues: set[str], claim_words: set[str], claim: st
         word for word in _ATTRIBUTION_RE.findall(text) if not any(_same_word(word.lower(), claim_word) for claim_word in claim_words)
     ]
     hedges = [hedge for hedge in _HEDGE_RE.findall(text) if hedge.lower() not in lowered_claim]
+    framings = _framings(text, claim_words)
     second_hand = (
         f'it reports what others say ("{attributions[0]}") without confirming it.'
         if attributions
+        else f'it presents the claim as a belief, a saying or something imagined ("{framings[0]}") without stating it.'
+        if framings
         else f'it is tentative ("{hedges[0]}").'
         if hedges
         else ""
@@ -540,7 +591,9 @@ def _judge(sentence: str, claim_cues: set[str], claim_words: set[str], claim: st
         _covered, opposite = _align(terms, text)
         claim_amounts, claim_years = _numbers(claim)
         passage_amounts, passage_years = _numbers(text)
-        other_amount = bool(claim_amounts and passage_amounts and not _share_an_amount(claim_amounts, passage_amounts))
+        other_amount = bool(
+            claim_amounts and passage_amounts and not _share_an_amount(claim_amounts, passage_amounts | _compound_amounts(text))
+        )
         other_year = bool(claim_years and passage_years and not (claim_years & passage_years))
         if opposite or other_amount or (other_year and _ONE_TIME_EVENTS.search(claim)):
             if second_hand:
@@ -573,8 +626,52 @@ def _judge(sentence: str, claim_cues: set[str], claim_words: set[str], claim: st
     return "supports", "It states the claim: the key terms are there with no negation, hedge or attribution."
 
 
+def _framings(text: str, claim_words: set[str]) -> list[str]:
+    """Words that present the claim as a belief, a saying or something imagined, other than the claim's own."""
+
+    found = []
+    for frame in _FRAMING_RE.findall(_CONTRARY_TO_BELIEF.sub(" ", text or "")):
+        content = [word for word in _words(frame) if word not in _CLAIM_STOPWORDS]
+        if not any(_same_word(word, claim_word) for word in content for claim_word in claim_words):
+            found.append(frame)
+    return found
+
+
 def _passage_stance(sentence: str, claim_cues: set[str], claim_words: set[str], claim: str = "") -> str:
     return _judge(sentence, claim_cues, claim_words, claim)[0]
+
+
+def _rejects_previous(sentence: str, profile: "_ClaimProfile") -> bool:
+    """Whether a sentence rejects the one before it without restating it ("But that's just not true.")."""
+
+    normalized = (sentence or "").replace("’", "'")
+    if len(_words(normalized)) > 12 or not _REJECTS_PREVIOUS.match(normalized) or _addressing_clause(profile, normalized) is not None:
+        return False
+    cues = _polarity_cues(normalized)
+    return bool(cues - {"negation"}) or ("negation" in cues and bool(_NOT_SO.search(normalized)))
+
+
+def _judge_in_place(
+    profile: "_ClaimProfile", sentences: list[str], position: int, claim_cues: set[str], claim_words: set[str], claim: str
+) -> tuple[str, str, str, int] | None:
+    """(stance, why, passage, key terms covered) for the sentence at position, or None when it does not
+    address the claim. A supporting sentence that the next one rejects contradicts the claim, and the
+    passage then includes both."""
+
+    sentence = sentences[position]
+    found = _addressing_clause(profile, sentence)
+    if found is None:
+        return None
+    clause, matched = found
+    stance, why = _judge(_judged_text(clause, sentence), claim_cues, claim_words, claim)
+    framings = _framings(sentence, claim_words) if stance == "supports" else []
+    if framings:
+        # The framing may sit in another clause: "Conversational and proverbial; used for ...".
+        return "mentions", f'It presents the claim as a belief, a saying or something imagined ("{framings[0]}") without stating it.', sentence, matched
+    following = sentences[position + 1] if position + 1 < len(sentences) else ""
+    if stance == "supports" and following and _rejects_previous(following, profile):
+        return "contradicts", f'The next sentence rejects it ("{following}").', f"{sentence} {following}", matched
+    return stance, why, sentence, matched
 
 
 def _addressing_clause(profile: _ClaimProfile, sentence: str) -> tuple[str, int] | None:
@@ -622,11 +719,12 @@ def stance_with_reason(claim: str, passage: str) -> tuple[str, str]:
         return "mentions", "The claim is too short to match passages against."
     claim_cues, claim_words = _polarity_cues(claim), set(_words(claim))
     first_mention: tuple[str, str] | None = None
-    for sentence in _sentences(passage):
-        found = _addressing_clause(profile, sentence)
+    sentences = _sentences(passage)
+    for position in range(len(sentences)):
+        found = _judge_in_place(profile, sentences, position, claim_cues, claim_words, claim)
         if found is None:
             continue
-        judged = _judge(_judged_text(found[0], sentence), claim_cues, claim_words, claim)
+        judged = (found[0], found[1])
         if judged[0] != "mentions":
             return judged
         first_mention = first_mention or judged
@@ -637,21 +735,24 @@ def stance_of(claim: str, passage: str) -> str:
     return stance_with_reason(claim, passage)[0]
 
 
-def claim_evidence_breakdown(claim: str, sources: list[SourceRecord]) -> dict[str, Any]:
+def claim_evidence_breakdown(claim: str, sources: list[SourceRecord], embed: Embed | None = None) -> dict[str, Any]:
     """Per independent source, the passage that best addresses the claim, and what was left out.
 
-    Returns {"evidence": [ClaimEvidence], "repeats": [{"url", "counted_as", "why"}], "unaddressed": [url]}.
+    Returns {"evidence": [ClaimEvidence], "repeats": [{"url", "counted_as", "why"}], "unaddressed": [url],
+    "compared_by_meaning": bool, "meaning_error": str}.
 
     A passage addresses the claim when one clause of a sentence covers its key terms (see
     _profile); a number in the claim is covered by a number, and a word by its opposite, so that a
     passage saying something different about the same thing is found and counted as contradicting.
     Sources on the same site count once, and the same passage copied across sites counts once:
-    a rumour repeated on ten sites is one piece of evidence, not ten.
+    a rumour repeated on ten sites is one piece of evidence, not ten. With embed (see
+    modules/retellings.py), a passage that tells an already counted one's story in other words,
+    with nothing of its own, counts once too.
     """
 
     profile = _profile(claim)
     if len(profile.terms) < 2:
-        return {"evidence": [], "repeats": [], "unaddressed": [source.url for source in sources]}
+        return {"evidence": [], "repeats": [], "unaddressed": [source.url for source in sources], "compared_by_meaning": False, "meaning_error": ""}
     claim_cues = _polarity_cues(claim)
     claim_words = set(_words(claim))
     trust_rank = {"High": 2, "Medium": 1}
@@ -663,12 +764,12 @@ def claim_evidence_breakdown(claim: str, sources: list[SourceRecord]) -> dict[st
     unaddressed: list[str] = []
     for source in sources:
         best: ClaimEvidence | None = None
-        for sentence in _sentences(f"{source.excerpt} {source.snippet}"):
-            found = _addressing_clause(profile, sentence)
+        sentences = _sentences(f"{source.excerpt} {source.snippet}")
+        for position in range(len(sentences)):
+            found = _judge_in_place(profile, sentences, position, claim_cues, claim_words, claim)
             if found is None:
                 continue
-            clause, matched = found
-            stance, reason = _judge(_judged_text(clause, sentence), claim_cues, claim_words, claim)
+            stance, reason, sentence, matched = found
             candidate = ClaimEvidence(
                 stance=stance,
                 passage=sentence if len(sentence) <= MAX_PASSAGE_CHARS else sentence[: MAX_PASSAGE_CHARS - 1].rstrip() + "…",
@@ -707,7 +808,29 @@ def claim_evidence_breakdown(claim: str, sources: list[SourceRecord]) -> dict[st
         counted_for_site[site] = item
         seen_passages.append((shingle, item))
         evidence.append(item)
-    return {"evidence": evidence, "repeats": repeats, "unaddressed": unaddressed}
+
+    compared_by_meaning, meaning_error = False, ""
+    if embed is not None:
+        sites = [(item.source or get_domain(item.url) or item.url).lower() for item in evidence]
+        try:
+            folds = fold_retellings([item.passage for item in evidence], [item.stance for item in evidence], sites, embed)
+            compared_by_meaning = True
+        except Exception as exc:  # the embedding model is optional; say so rather than fail the check
+            logger.info("Passages not compared by meaning: %s", exc)
+            folds, meaning_error = [], "the embedding model did not answer"
+        retold = {index for index, _original, _similarity in folds}
+        for index, original, similarity in folds:
+            repeats.append(
+                {"url": evidence[index].url, "counted_as": evidence[original].url, "why": f"same story in other words, similarity {similarity:.2f},"}
+            )
+        evidence = [item for index, item in enumerate(evidence) if index not in retold]
+    return {
+        "evidence": evidence,
+        "repeats": repeats,
+        "unaddressed": unaddressed,
+        "compared_by_meaning": compared_by_meaning,
+        "meaning_error": meaning_error,
+    }
 
 
 def assess_claim_evidence(claim: str, sources: list[SourceRecord]) -> list[ClaimEvidence]:
@@ -816,12 +939,15 @@ def determine_verdict(
     contradictions: list[ContradictionRecord],
     verify: bool | None = None,
     second_opinion: Callable[[str], str] | None = None,
+    meaning: tuple[Embed | None, str] | None = None,
 ) -> dict[str, Any]:
     """Check the claim in a verification-style query against the retrieved passages.
 
     verify=None detects a verification request from the query text; pass True when the caller
     already stripped the "verify ..." command from it. second_opinion, when given, is asked to read
-    each passage counted as supporting the claim (see apply_second_opinion).
+    each passage counted as supporting the claim (see apply_second_opinion). meaning is what
+    modules.retellings.meaning_embedder returned: (embed, model name) to count a story retold in
+    other words once, or (None, why it is not available); None leaves the comparison out unmentioned.
     """
 
     result: dict[str, Any] = {
@@ -845,7 +971,8 @@ def determine_verdict(
     if len(_claim_terms(claim)) < 2:
         return result  # nothing specific enough to match passages against
 
-    breakdown = claim_evidence_breakdown(claim, sources)
+    embed, meaning_note = meaning if meaning is not None else (None, "")
+    breakdown = claim_evidence_breakdown(claim, sources, embed=embed)
     evidence = breakdown["evidence"]
     opinions = apply_second_opinion(claim, evidence, second_opinion) if second_opinion is not None else {}
     supports = [item for item in evidence if item.stance == "supports"]
@@ -903,8 +1030,23 @@ def determine_verdict(
         uncertainty.append(
             f"The model could not be asked for a second reading of {opinions['unavailable']} passage(s); they are counted on the wording rules alone."
         )
-    if breakdown["repeats"]:
-        uncertainty.append(f"{len(breakdown['repeats'])} source(s) repeat a site or passage already counted and were not counted again.")
+    retold = [item for item in breakdown["repeats"] if item["why"].startswith("same story in other words")]
+    copied = len(breakdown["repeats"]) - len(retold)
+    if copied:
+        uncertainty.append(f"{copied} source(s) repeat a site or passage already counted and were not counted again.")
+    if retold:
+        uncertainty.append(
+            f"{len(retold)} source(s) say what a source already counted says, in other words and with nothing of their own, "
+            "so each was counted once: one may be retelling the other. If they are independent reports after all, "
+            "the evidence is stronger than shown."
+        )
+    same_side = max(len(supports), len(contradicts))
+    if meaning is not None and not breakdown["compared_by_meaning"] and same_side >= 2:
+        reason = breakdown["meaning_error"] or meaning_note
+        uncertainty.append(
+            f"Passages were not compared by meaning ({reason}), so a story retold in other words on several sites "
+            "may have been counted more than once."
+        )
     newest_for = max((item.published for item in supports if item.published), default="")
     newest_against = max((item.published for item in contradicts if item.published), default="")
     if newest_for and newest_against and newest_for[:10] != newest_against[:10]:
@@ -938,6 +1080,7 @@ def determine_verdict(
             "unaddressed": breakdown["unaddressed"],
             "repeats": breakdown["repeats"],
             "second_opinion": opinions,
+            "compared_by_meaning": breakdown["compared_by_meaning"],
         }
     )
     return result
@@ -987,6 +1130,8 @@ class ResearchRequest:
     verify_claim: bool | None = None
     # Have the model read each passage counted as supporting the claim; it counts only if both agree.
     second_opinion: bool = True
+    # Count a story told in other words on several sites once (modules/retellings.py).
+    compare_meaning: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1537,11 +1682,13 @@ def run_reality_research(
     research_module: Any | None = None,
     search_runner: Callable[..., dict[str, Any]] | None = None,
     second_opinion_callback: Callable[[str], str] | None = None,
+    meaning_embedder: Callable[[], tuple[Embed | None, str]] | None = None,
 ) -> ResearchReport:
     """Run the full Reality-First research workflow.
 
     second_opinion_callback answers one short prompt with a model; it is used to double-check the
-    passages counted as supporting a claim (see apply_second_opinion).
+    passages counted as supporting a claim (see apply_second_opinion). meaning_embedder is
+    modules.retellings.meaning_embedder or a stand-in; it is only called for a claim check.
     """
 
     settings = settings or {}
@@ -1607,10 +1754,14 @@ def run_reality_research(
     progress("Checking contradictions")
     contradictions = detect_claim_contradictions(claims)
 
+    checking = is_verification_request(query) if request.verify_claim is None else request.verify_claim
     asking = second_opinion_callback if request.second_opinion else None
-    if asking is not None and (is_verification_request(query) if request.verify_claim is None else request.verify_claim):
+    if asking is not None and checking:
         progress("Asking the model to read the evidence too")
-    verdict_data = determine_verdict(query, sources, claims, contradictions, verify=request.verify_claim, second_opinion=asking)
+    meaning = meaning_embedder() if checking and request.compare_meaning and meaning_embedder is not None else None
+    verdict_data = determine_verdict(
+        query, sources, claims, contradictions, verify=request.verify_claim, second_opinion=asking, meaning=meaning
+    )
     if verdict_data["verdict"] and errors:
         # Don't imply the search was exhaustive when parts of it failed.
         verdict_data["uncertainty"].append(f"{len(errors)} search or page-fetch step(s) failed, so coverage is incomplete.")

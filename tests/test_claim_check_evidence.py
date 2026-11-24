@@ -65,6 +65,68 @@ def test_every_classification_comes_with_its_reason(claim, passage, stance, said
     assert said in reason, reason
 
 
+
+# ---- pages that state a myth in order to debunk it ------------------------------------------------
+# Debunking pages open with the myth ("it is a common belief that ...") and reject it after. Found on
+# real pages for "Einstein failed math at school", which the check called LIKELY TRUE; the sentences
+# here are written for the tests, not copied from those pages.
+
+
+@pytest.mark.parametrize(
+    "claim, passage, stance, said",
+    [
+        ("Bulls are enraged by the colour red", "It is a common belief that bulls are enraged by the colour red.", "mentions", '("belief")'),
+        ("Humans use only 10 percent of their brains", "Films play on the notion that humans use only 10 percent of their brains.", "mentions", '("notion")'),
+        ("Lightning never strikes the same place twice", 'The phrase "lightning never strikes the same place twice" means bad luck is not repeated.', "mentions", '("The phrase")'),
+        ("Einstein failed math at school", "It is fun to imagine that Einstein failed math at school.", "mentions", '("imagine")'),
+        ("Lightning never strikes the same place twice", "Proverbial; said for comfort: lightning never strikes the same place twice.", "mentions", '("Proverbial")'),
+        ("Bats can see", "Contrary to popular belief, bats can see quite well.", "supports", "states the claim"),
+        ("Bats are blind", "That bats are blind is a common misconception.", "contradicts", "calls it a misconception"),
+        ("Einstein failed math at school", "Einstein failed math at school. But that is just not true.", "contradicts", 'The next sentence rejects it ("But that is just not true.")'),
+        ("Einstein failed math at school", "Einstein failed math at school. That is a myth.", "contradicts", "The next sentence rejects it"),
+        ("The bridge opened in 1962", "The bridge opened in 1962. That is not all: it also carries a railway.", "supports", "states the claim"),
+        ("The bridge opened in 1962", "The bridge opened in 1962. It never closed.", "supports", "states the claim"),
+    ],
+)
+def test_a_myth_set_out_to_be_debunked_is_not_support(claim, passage, stance, said):
+    got, reason = agent.stance_with_reason(claim, passage)
+    assert got == stance
+    assert said in reason, reason
+
+
+def test_the_rejecting_sentence_is_shown_with_the_one_it_rejects():
+    sources = [source("https://a.example/1", "Einstein failed math at school. But that is just not true. He excelled at it.")]
+    (item,) = agent.assess_claim_evidence("Einstein failed math at school", sources)
+    assert item.stance == "contradicts"
+    assert item.passage == "Einstein failed math at school. But that is just not true."
+
+
+def test_footnote_marks_do_not_hide_where_a_clause_ends():
+    # Wikipedia's "[1][2]" stood between the comma and "but", so the "not" of the next clause was read as negating the claim.
+    passage = "Mount Everest is the highest mountain above sea level,[1][2] but it is not the tallest mountain."
+    assert agent.stance_with_reason("Mount Everest is the highest mountain above sea level", passage)[0] == "supports"
+
+
+def test_table_rows_and_link_lists_are_not_read_as_sentences():
+    assert agent.stance_with_reason("The tower is in Paris", "| Name | Tower | | Location | Paris | | Height | 330 m |")[0] == "mentions"
+    links = "See also (https://example.org/wiki/Tower_in_Paris) (https://example.org/wiki/Paris_tower_replica_list)"
+    assert agent.stance_with_reason("The tower is in Paris", links)[0] == "mentions"
+
+
+def test_link_targets_are_taken_out_even_when_cut_off():
+    claim = "The Amazon is the largest tropical rainforest"
+    assert agent.stance_with_reason(claim, "The Amazon is the largest [tropical rainforest](https://example.org/rainforest) on Earth.")[0] == "supports"
+    sentences = agent._sentences("A replica of the tower in [Paris](https://en Texas stands in a park.")
+    assert sentences == ["A replica of the tower in Paris Texas stands in a park."]
+
+
+def test_a_number_inside_a_compound_word_counts_as_the_same_figure():
+    # "four-chambered" says four; "two upper chambers" is then not a different figure from the claim's.
+    passage = "The human heart is four-chambered, with two upper chambers called atria."
+    assert agent.stance_with_reason("The human heart has four chambers", passage)[0] == "supports"
+    # Without the compound, two is a different figure.
+    assert agent.stance_with_reason("The human heart has four chambers", "The human heart has two upper chambers called atria.")[0] == "contradicts"
+
 def test_evidence_records_reason_and_dates_from_the_source():
     sources = [
         source("https://a.example/1", "The bridge opened in 1962.", retrieved_at="2026-11-23T10:00:00+00:00", published="2024-05-01"),
