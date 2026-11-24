@@ -806,137 +806,7 @@
    ]
   }
  ],
- "profile": [
-  {
-   "id": "short_question",
-   "app": {
-    "first_word_seconds": 4.12,
-    "total_seconds": 14.4,
-    "output_tokens": 55,
-    "tokens_per_second": 4.97,
-    "prompt_tokens": 198,
-    "num_ctx": 2048,
-    "num_predict": 140,
-    "temperature": 0.1
-   },
-   "direct": {
-    "first_word_seconds": 2.53,
-    "total_seconds": 9.2,
-    "output_tokens": 34,
-    "tokens_per_second": 5.1,
-    "load_seconds": 0.02
-   },
-   "first_word_overhead_seconds": 1.59
-  },
-  {
-   "id": "story_150",
-   "app": {
-    "first_word_seconds": 2.87,
-    "total_seconds": 32.0,
-    "output_tokens": 149,
-    "tokens_per_second": 4.89,
-    "prompt_tokens": 210,
-    "num_ctx": 4096,
-    "num_predict": 780,
-    "temperature": 0.55
-   },
-   "direct": {
-    "first_word_seconds": 2.77,
-    "total_seconds": 35.2,
-    "output_tokens": 161,
-    "tokens_per_second": 5.0,
-    "load_seconds": 0.01
-   },
-   "first_word_overhead_seconds": 0.1
-  },
-  {
-   "id": "explanation_300",
-   "app": {
-    "first_word_seconds": 2.54,
-    "total_seconds": 57.1,
-    "output_tokens": 270,
-    "tokens_per_second": 4.86,
-    "prompt_tokens": 255,
-    "num_ctx": 4096,
-    "num_predict": 558,
-    "temperature": 0.55
-   },
-   "direct": {
-    "first_word_seconds": 2.7,
-    "total_seconds": 90.2,
-    "output_tokens": 432,
-    "tokens_per_second": 4.9,
-    "load_seconds": 0.01
-   },
-   "first_word_overhead_seconds": -0.16
-  }
- ],
- "profile_before_the_reload_fix": [
-  {
-   "id": "short_question",
-   "app": {
-    "first_word_seconds": 12.85,
-    "total_seconds": 24.4,
-    "output_tokens": 62,
-    "tokens_per_second": 5.01,
-    "prompt_tokens": 198,
-    "num_ctx": 2048,
-    "num_predict": 140,
-    "temperature": 0.1
-   },
-   "direct": {
-    "first_word_seconds": 7.65,
-    "total_seconds": 14.3,
-    "output_tokens": 34,
-    "tokens_per_second": 5.1,
-    "load_seconds": 4.56
-   },
-   "first_word_overhead_seconds": 5.2
-  },
-  {
-   "id": "story_150",
-   "app": {
-    "first_word_seconds": 12.99,
-    "total_seconds": 60.4,
-    "output_tokens": 233,
-    "tokens_per_second": 4.8,
-    "prompt_tokens": 210,
-    "num_ctx": 4096,
-    "num_predict": 780,
-    "temperature": 0.55
-   },
-   "direct": {
-    "first_word_seconds": 7.96,
-    "total_seconds": 56.7,
-    "output_tokens": 238,
-    "tokens_per_second": 4.9,
-    "load_seconds": 4.64
-   },
-   "first_word_overhead_seconds": 5.03
-  },
-  {
-   "id": "explanation_300",
-   "app": {
-    "first_word_seconds": 14.06,
-    "total_seconds": 94.3,
-    "output_tokens": 389,
-    "tokens_per_second": 4.79,
-    "prompt_tokens": 255,
-    "num_ctx": 4096,
-    "num_predict": 558,
-    "temperature": 0.55
-   },
-   "direct": {
-    "first_word_seconds": 7.83,
-    "total_seconds": 93.3,
-    "output_tokens": 412,
-    "tokens_per_second": 4.8,
-    "load_seconds": 4.68
-   },
-   "first_word_overhead_seconds": 6.23
-  }
- ],
- "about_the_profile": "profile_before_the_reload_fix was measured with the speed profile still sending num_batch 256, which the direct call did not send: Ollama reloaded the model between the calls, so both first-word times there include a reload. profile is the same measurement after the fix.",
+ "about_the_profile": "profile and profile_before were measured on 2026-11-24 with the corrected tool: the app with the address it is given (http://localhost:11434, the default), the calls straight to Ollama to 127.0.0.1 on a kept-open connection, read to the end. prompt_seconds is Ollama's own time for reading the prompt. profile_before includes a model reload on both sides (the old speed profile sent num_batch). The app's remaining share after the change, about 2 s, matches a new connection to localhost for every answer; see docs/GENERATION_RELIABILITY_REPORT.md.",
  "summary": {
   "content": {
    "ordinary_wrongly_stopped": 0,
@@ -954,25 +824,49 @@
   },
   "profile": {
    "short_question": {
-    "first_word_app": 4.12,
-    "first_word_ollama_alone": 2.53,
-    "overhead": 1.59,
-    "tokens_per_second_app": 4.97,
-    "tokens_per_second_alone": 5.1
+    "first_word_app": 3.08,
+    "first_word_ollama_alone": 0.46,
+    "overhead": 2.62,
+    "prompt_read_app": [
+     198,
+     0.21
+    ],
+    "prompt_read_alone": [
+     34,
+     0.43
+    ],
+    "tokens_per_second_app": 5.22,
+    "tokens_per_second_alone": 5.3
    },
    "story_150": {
-    "first_word_app": 2.87,
-    "first_word_ollama_alone": 2.77,
-    "overhead": 0.1,
-    "tokens_per_second_app": 4.89,
-    "tokens_per_second_alone": 5.0
+    "first_word_app": 2.72,
+    "first_word_ollama_alone": 0.63,
+    "overhead": 2.09,
+    "prompt_read_app": [
+     210,
+     0.21
+    ],
+    "prompt_read_alone": [
+     37,
+     0.61
+    ],
+    "tokens_per_second_app": 4.99,
+    "tokens_per_second_alone": 5.2
    },
    "explanation_300": {
-    "first_word_app": 2.54,
-    "first_word_ollama_alone": 2.7,
-    "overhead": -0.16,
-    "tokens_per_second_app": 4.86,
-    "tokens_per_second_alone": 4.9
+    "first_word_app": 2.52,
+    "first_word_ollama_alone": 0.67,
+    "overhead": 1.85,
+    "prompt_read_app": [
+     263,
+     0.21
+    ],
+    "prompt_read_alone": [
+     37,
+     0.64
+    ],
+    "tokens_per_second_app": 4.92,
+    "tokens_per_second_alone": 5.0
    }
   },
   "arithmetic": {
@@ -996,6 +890,339 @@
     "ollama": 3
    },
    "median_seconds": 7.6
+  },
+  "profile_before": {
+   "short_question": {
+    "first_word_app": 16.33,
+    "first_word_ollama_alone": 4.97,
+    "overhead": 11.36,
+    "prompt_read_app": [
+     198,
+     4.52
+    ],
+    "prompt_read_alone": [
+     34,
+     0.9
+    ],
+    "tokens_per_second_app": 5.19,
+    "tokens_per_second_alone": 5.3
+   },
+   "story_150": {
+    "first_word_app": 15.53,
+    "first_word_ollama_alone": 5.33,
+    "overhead": 10.2,
+    "prompt_read_app": [
+     168,
+     3.83
+    ],
+    "prompt_read_alone": [
+     37,
+     0.95
+    ],
+    "tokens_per_second_app": 5.1,
+    "tokens_per_second_alone": 5.1
+   },
+   "explanation_300": {
+    "first_word_app": 16.35,
+    "first_word_ollama_alone": 5.29,
+    "overhead": 11.06,
+    "prompt_read_app": [
+     196,
+     4.47
+    ],
+    "prompt_read_alone": [
+     37,
+     0.95
+    ],
+    "tokens_per_second_app": 5.07,
+    "tokens_per_second_alone": 5.1
+   }
   }
+ },
+ "profile_superseded": {
+  "why": "Measured with the first version of tools/quality_check.py, which opened a new connection to localhost for every call straight to Ollama. On Windows that waits about 2 s for an IPv6 attempt first (2.05 s here, against 0.04 s to 127.0.0.1), so the direct times are about 2 s too long and the app's share about 2 s too small. Kept for the record; not to be quoted.",
+  "profile": [
+   {
+    "id": "short_question",
+    "app": {
+     "first_word_seconds": 4.12,
+     "total_seconds": 14.4,
+     "output_tokens": 55,
+     "tokens_per_second": 4.97,
+     "prompt_tokens": 198,
+     "num_ctx": 2048,
+     "num_predict": 140,
+     "temperature": 0.1
+    },
+    "direct": {
+     "first_word_seconds": 2.53,
+     "total_seconds": 9.2,
+     "output_tokens": 34,
+     "tokens_per_second": 5.1,
+     "load_seconds": 0.02
+    },
+    "first_word_overhead_seconds": 1.59
+   },
+   {
+    "id": "story_150",
+    "app": {
+     "first_word_seconds": 2.87,
+     "total_seconds": 32.0,
+     "output_tokens": 149,
+     "tokens_per_second": 4.89,
+     "prompt_tokens": 210,
+     "num_ctx": 4096,
+     "num_predict": 780,
+     "temperature": 0.55
+    },
+    "direct": {
+     "first_word_seconds": 2.77,
+     "total_seconds": 35.2,
+     "output_tokens": 161,
+     "tokens_per_second": 5.0,
+     "load_seconds": 0.01
+    },
+    "first_word_overhead_seconds": 0.1
+   },
+   {
+    "id": "explanation_300",
+    "app": {
+     "first_word_seconds": 2.54,
+     "total_seconds": 57.1,
+     "output_tokens": 270,
+     "tokens_per_second": 4.86,
+     "prompt_tokens": 255,
+     "num_ctx": 4096,
+     "num_predict": 558,
+     "temperature": 0.55
+    },
+    "direct": {
+     "first_word_seconds": 2.7,
+     "total_seconds": 90.2,
+     "output_tokens": 432,
+     "tokens_per_second": 4.9,
+     "load_seconds": 0.01
+    },
+    "first_word_overhead_seconds": -0.16
+   }
+  ],
+  "profile_before_the_reload_fix": [
+   {
+    "id": "short_question",
+    "app": {
+     "first_word_seconds": 12.85,
+     "total_seconds": 24.4,
+     "output_tokens": 62,
+     "tokens_per_second": 5.01,
+     "prompt_tokens": 198,
+     "num_ctx": 2048,
+     "num_predict": 140,
+     "temperature": 0.1
+    },
+    "direct": {
+     "first_word_seconds": 7.65,
+     "total_seconds": 14.3,
+     "output_tokens": 34,
+     "tokens_per_second": 5.1,
+     "load_seconds": 4.56
+    },
+    "first_word_overhead_seconds": 5.2
+   },
+   {
+    "id": "story_150",
+    "app": {
+     "first_word_seconds": 12.99,
+     "total_seconds": 60.4,
+     "output_tokens": 233,
+     "tokens_per_second": 4.8,
+     "prompt_tokens": 210,
+     "num_ctx": 4096,
+     "num_predict": 780,
+     "temperature": 0.55
+    },
+    "direct": {
+     "first_word_seconds": 7.96,
+     "total_seconds": 56.7,
+     "output_tokens": 238,
+     "tokens_per_second": 4.9,
+     "load_seconds": 4.64
+    },
+    "first_word_overhead_seconds": 5.03
+   },
+   {
+    "id": "explanation_300",
+    "app": {
+     "first_word_seconds": 14.06,
+     "total_seconds": 94.3,
+     "output_tokens": 389,
+     "tokens_per_second": 4.79,
+     "prompt_tokens": 255,
+     "num_ctx": 4096,
+     "num_predict": 558,
+     "temperature": 0.55
+    },
+    "direct": {
+     "first_word_seconds": 7.83,
+     "total_seconds": 93.3,
+     "output_tokens": 412,
+     "tokens_per_second": 4.8,
+     "load_seconds": 4.68
+    },
+    "first_word_overhead_seconds": 6.23
+   }
+  ]
+ },
+ "profile": [
+  {
+   "id": "short_question",
+   "app": {
+    "first_word_seconds": 3.08,
+    "total_seconds": 12.8,
+    "output_tokens": 55,
+    "tokens_per_second": 5.22,
+    "prompt_tokens": 198,
+    "prompt_seconds": 0.21,
+    "num_ctx": 2048,
+    "num_predict": 140,
+    "temperature": 0.1
+   },
+   "direct": {
+    "first_word_seconds": 0.46,
+    "total_seconds": 6.8,
+    "output_tokens": 34,
+    "tokens_per_second": 5.3,
+    "load_seconds": 0.01,
+    "prompt_tokens_read": 34,
+    "prompt_seconds": 0.43
+   },
+   "first_word_overhead_seconds": 2.62
+  },
+  {
+   "id": "story_150",
+   "app": {
+    "first_word_seconds": 2.72,
+    "total_seconds": 29.4,
+    "output_tokens": 139,
+    "tokens_per_second": 4.99,
+    "prompt_tokens": 210,
+    "prompt_seconds": 0.21,
+    "num_ctx": 4096,
+    "num_predict": 780,
+    "temperature": 0.55
+   },
+   "direct": {
+    "first_word_seconds": 0.63,
+    "total_seconds": 35.4,
+    "output_tokens": 180,
+    "tokens_per_second": 5.2,
+    "load_seconds": 0.01,
+    "prompt_tokens_read": 37,
+    "prompt_seconds": 0.61
+   },
+   "first_word_overhead_seconds": 2.09
+  },
+  {
+   "id": "explanation_300",
+   "app": {
+    "first_word_seconds": 2.52,
+    "total_seconds": 85.3,
+    "output_tokens": 412,
+    "tokens_per_second": 4.92,
+    "prompt_tokens": 263,
+    "prompt_seconds": 0.21,
+    "num_ctx": 4096,
+    "num_predict": 558,
+    "temperature": 0.55
+   },
+   "direct": {
+    "first_word_seconds": 0.67,
+    "total_seconds": 98.5,
+    "output_tokens": 491,
+    "tokens_per_second": 5.0,
+    "load_seconds": 0.01,
+    "prompt_tokens_read": 37,
+    "prompt_seconds": 0.64
+   },
+   "first_word_overhead_seconds": 1.85
+  }
+ ],
+ "profile_before": [
+  {
+   "id": "short_question",
+   "app": {
+    "first_word_seconds": 16.33,
+    "total_seconds": 21.6,
+    "output_tokens": 56,
+    "tokens_per_second": 5.19,
+    "prompt_tokens": 198,
+    "prompt_seconds": 4.52,
+    "num_ctx": 2048,
+    "num_predict": null,
+    "temperature": null
+   },
+   "direct": {
+    "first_word_seconds": 4.97,
+    "total_seconds": 13.4,
+    "output_tokens": 45,
+    "tokens_per_second": 5.3,
+    "load_seconds": 4.07,
+    "prompt_tokens_read": 34,
+    "prompt_seconds": 0.9
+   },
+   "first_word_overhead_seconds": 11.36
+  },
+  {
+   "id": "story_150",
+   "app": {
+    "first_word_seconds": 15.53,
+    "total_seconds": 34.0,
+    "output_tokens": 125,
+    "tokens_per_second": 5.1,
+    "prompt_tokens": 168,
+    "prompt_seconds": 3.83,
+    "num_ctx": 2048,
+    "num_predict": null,
+    "temperature": null
+   },
+   "direct": {
+    "first_word_seconds": 5.33,
+    "total_seconds": 52.2,
+    "output_tokens": 241,
+    "tokens_per_second": 5.1,
+    "load_seconds": 4.37,
+    "prompt_tokens_read": 37,
+    "prompt_seconds": 0.95
+   },
+   "first_word_overhead_seconds": 10.2
+  },
+  {
+   "id": "explanation_300",
+   "app": {
+    "first_word_seconds": 16.35,
+    "total_seconds": 53.3,
+    "output_tokens": 220,
+    "tokens_per_second": 5.07,
+    "prompt_tokens": 196,
+    "prompt_seconds": 4.47,
+    "num_ctx": 2048,
+    "num_predict": null,
+    "temperature": null
+   },
+   "direct": {
+    "first_word_seconds": 5.29,
+    "total_seconds": 74.1,
+    "output_tokens": 353,
+    "tokens_per_second": 5.1,
+    "load_seconds": 4.33,
+    "prompt_tokens_read": 37,
+    "prompt_seconds": 0.95
+   },
+   "first_word_overhead_seconds": 11.06
+  }
+ ],
+ "profile_measured_at": "2026-11-24 08:33",
+ "profile_code": {
+  "profile": "f7b4892 (this branch's code)",
+  "profile_before": "44c49e7 (the code before the corrective phase)"
  }
 }

@@ -96,18 +96,36 @@ What this shows:
 
 `tools/quality_check.py --only profile`: each prompt once through the app to load the model, then
 straight to Ollama with the window, token limit and temperature the app used, then through the app
-again. Same machine, model and settings throughout.
+again. Same machine, model and settings throughout. The app is measured with the address it is given
+(`http://localhost:11434`, the default); the calls straight to Ollama go to `127.0.0.1` on a
+connection that is kept open, so they show Ollama's own time.
+
+**Corrected on 2026-11-24.** The first version of this measurement opened a new connection to
+`localhost` for every call straight to Ollama. On Windows a new connection to `localhost` is tried
+over IPv6 first, which Ollama does not listen on, and that took 2.05 s every time on this machine
+(against 0.04 s to `127.0.0.1`). So the "Ollama alone" times were about 2 s too long, and the app's
+share came out too small: +5.0 to +6.2 s before the reload fix and −0.2 to +1.6 s after, figures this
+report, `QUALITY_FINAL_VERIFICATION.md` and the ledger gave until then. Measured again with the
+corrected tool, against the code before the corrective phase (`44c49e7`) and after it (`f7b4892`):
 
 | Prompt | First word: app | First word: Ollama alone | The app's share | Writing: app / alone |
 |---|---|---|---|---|
-| Short question, before the reload fix | 12.85 s | 7.65 s (4.6 s of it loading the model) | +5.2 s | 5.0 / 5.1 tokens a second |
-| 150-word story, before the reload fix | 12.99 s | 7.96 s (4.6 s loading) | +5.0 s | 4.8 / 4.9 |
-| 300-word explanation, before the reload fix | 14.06 s | 7.83 s (4.7 s loading) | +6.2 s | 4.8 / 4.8 |
-| Short question, after | **4.12 s** | 2.53 s | +1.6 s | 5.0 / 5.1 |
-| 150-word story, after | **2.87 s** | 2.77 s | +0.1 s | 4.9 / 5.0 |
-| 300-word explanation, after | **2.54 s** | 2.70 s | −0.2 s | 4.9 / 4.9 |
+| Short question, before (`44c49e7`) | 16.33 s | 4.97 s (4.1 s of it loading the model) | +11.4 s | 5.2 / 5.3 tokens a second |
+| 150-word story, before | 15.53 s | 5.33 s (4.4 s loading) | +10.2 s | 5.1 / 5.1 |
+| 300-word explanation, before | 16.35 s | 5.29 s (4.3 s loading) | +11.1 s | 5.1 / 5.1 |
+| Short question, after (`f7b4892`) | **3.08 s** | 0.46 s | **+2.6 s** | 5.2 / 5.3 |
+| 150-word story, after | **2.72 s** | 0.63 s | **+2.1 s** | 5.0 / 5.2 |
+| 300-word explanation, after | **2.52 s** | 0.67 s | **+1.9 s** | 4.9 / 5.0 |
 
-**The reloads.** In the first profile the call straight to Ollama spent 4.6 s loading the model each
+**What the app's remaining 2 s is.** Not reading its instructions: Ollama's own count says the app's
+prompt took 0.21 s to read on these calls (it still had most of it from the call before). It matches
+the cost of a new connection to `localhost`: the app's request for a streamed answer was left before
+its last bytes were read, so its connection was closed and the next answer opened a new one, through
+the same IPv6 attempt. That is fixed after this phase (on the branch `audit/remaining-items`: local
+servers are addressed as `127.0.0.1`, and a streamed answer is read to its end so its connection is
+kept); measured there.
+
+**The reloads.** Before the fix the call straight to Ollama spent 4.1 to 4.6 s loading the model each
 time, although the model was loaded. Ollama's log said why: "reloading model, runner options changed".
 The "Fast" profile sent `num_batch` 256 with every chat answer; nothing else sent it, and it is an
 option Ollama loads the model with. So the model was loaded again whenever a chat answer followed
@@ -119,7 +137,8 @@ cause inflated the "before" times of the length requests, which alternated with 
 median of 6.9 s (16.2 s before), and the rest is the model writing at about 5 tokens a second: a
 500-word story takes about two and a half minutes, as it does straight from Ollama. Of the first-word
 time, the app's own work (planning, building the prompt, the content rule's first look) is under 0.1 s;
-the rest is the model reading the prompt (about 200 to 260 tokens here) and starting. These are
+about 2 s is the new connection each answer opened (see above), and the rest is the model reading the
+prompt (about 200 to 260 tokens here) and starting. These are
 model-bound; nothing in the app can make this model write faster on this processor.
 
 **What the corrective phase added.** Web questions now cost one model call to plan the search (about
