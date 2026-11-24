@@ -403,7 +403,7 @@
    "category": "A",
    "status": "active",
    "trigger": "Chat messages, research queries and knowledge questions answered by a model. A request is looked at when it names a minor (in the message or the last four turns) together with a sexual term, or asks for something to be written, described or continued. Everything else is passed on untouched and no model is asked.",
-   "effect": "The model is asked twice, in two different wordings, each a list of labelled examples, whether the request is for sexual content involving a minor. Two NOs: answered normally. One YES, or no usable answer twice: not answered, with the text \"Not written. This app has one content rule...\". No model available: not answered yet, with a text saying the check could not be made.",
+   "effect": "The model is asked twice, in two different wordings, each a list of labelled examples, whether the request is for sexual content involving a minor. Two NOs: answered normally. One YES, or no usable answer twice: not answered, with the text \"Not written. This app has one content rule...\". No model available: not answered yet, with a text saying the check could not be made. Since 2026-11-23 (corrective phase, CN-QA-001): phrases that rule minors out (\"no minors\", \"nobody under 18\") are taken out before the first look; \"girl(s)\" and \"boy(s)\" do not count when every stated age is 18 or over or the people are called adults; earlier turns are read unless the message itself settles that only adults are involved and does not refer back; a judge answer of the form \"Label: NO\" is read; and an answer that cannot be read gets a reply saying the check could not decide, not that the rule was broken.",
    "owner_requested": "The rule: yes. This way of enforcing it was designed by the assistant and is described here so the owner can judge it.",
    "evidence": "Same request as R-A11. Measured with the real model (docs/benchmarks/content_rule_dolphin3-8b.json): on three held-out sets, every request for what the rule forbids was stopped at the final design and one ordinary picture request was refused. The first wording of the question, a rule with a list of exceptions, stopped 2 of 13; that is why the questions are lists of examples. The same check stands in front of questions answered with tools (agent/toolcall.py: ask).",
    "origin": "The owner's rule (2026-11-23); implementation by the assistant.",
@@ -414,7 +414,7 @@
    "alternatives": "(a) Prompt line only: no delay, but nothing stops a model that ignores it. (b) Keyword block without a model: fast, but it blocks ordinary questions about minors. (c) Also checking what the model wrote: catches drift in long role-play, at the cost of another model call on every sexual answer. Not built; say so if wanted.",
    "configurable": "No. It is not a setting.",
    "owner_decision": "Decided by the owner on 2026-11-23: \"The one categorical content restriction I am explicitly requesting is sexual content involving minors... Do not silently introduce additional application-level content restrictions, refusal templates, or keyword-based censorship.\" The enforcement design is the assistant's and is open to the owner's objection.",
-   "tests": "tests/test_owner_control.py: from test_first_look_leaves_ordinary_messages_alone to test_carrying_on_after_a_stopped_request_does_not_get_past_the_rule; tests/test_content_rule_benchmark.py",
+   "tests": "tests/test_owner_control.py: from test_first_look_leaves_ordinary_messages_alone to test_carrying_on_after_a_stopped_request_does_not_get_past_the_rule; tests/test_content_rule_benchmark.py; tests/test_quality_corrective.py (the owner's adult-only, negation and earlier-turn cases, and the guarded ones); real model: docs/benchmarks/quality_before.json and quality_after.json",
    "regression_risk": "Medium. A wrong YES from the judging model stops a legitimate request (the reply says how to rephrase). Measured: none of the 56 ordinary text requests that were looked at (66 in the sets in all).",
    "known_limitations": "The first look is a list of English words: a request in another language or in unusual wording that also does not ask for anything to be written is not picked out, and then only R-A11 applies. When the second held-out set was written, the first look missed 2 of its 14 forbidden requests (an age said as \"she's really 12\", and \"in bed together\" with no other sexual word); both were added, and there will be more gaps of that kind. The check reads the request and the last four turns, not what the model writes, so a long role-play can drift without being checked. A request that is looked at costs two short model calls, about 2 seconds on this machine; a children's story or a parenting question is among them. The numbers are for dolphin3:8b; another model has to be measured again. The phone backend shows a general error instead of the rule's text for research requests until its client is updated.",
    "locations": [
@@ -453,6 +453,14 @@
     {
      "file": "agent/toolcall.py",
      "anchor": "decision = check_content_rule(request, \"\", judge, \"text\")"
+    },
+    {
+     "file": "modules/behavior_policy.py",
+     "anchor": "def history_counts(message: str, recent: str) -> bool:"
+    },
+    {
+     "file": "modules/behavior_policy.py",
+     "anchor": "_NEGATED_MINOR = re.compile("
     }
    ],
    "decision_date": "2026-11-23"
@@ -1944,6 +1952,7 @@
   "modules/data_stores.py": "A description of what the agent's database holds, for the Your data panel.",
   "modules/file_utils.py": "A comment about Windows file locking.",
   "modules/profile_store.py": "A comment about error handling when forgetting a fact.",
+  "modules/research_plan.py": "Decides which search results the model reads: results about another meaning of the question's words are dropped (lawn care for a question about cannabis). A quality control on sources, not a limit on what may be asked or answered; the setting plan_web_search switches the planning off.",
   "tools/agent_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/audit_ledger.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/behavior_check.py": "A development tool. It measures or checks; it does not run in the app.",
@@ -1952,10 +1961,12 @@
   "tools/evaluation_gate.py": "Measures two versions of the app on fixed evaluations and gives a verdict. The rule that uses the verdict is in agent/coder.py (R-C09).",
   "tools/final_report.py": "Writes the final verification report from the ledger, this register and the saved measurements. It describes limits; it holds none.",
   "tools/injection_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
+  "tools/quality_check.py": "Measures the owner's quality findings with the real model, the content rule among them. It describes the rule (R-A12); it holds none.",
   "tools/restriction_register.py": "This register's own tool.",
   "tools/run_checks.py": "A development tool: runs every check, this register's among them. It does not run in the app.",
   "tools/tool_choice_benchmark.py": "Measures which tool a model picks, with the tools' sources replaced by a fixture. The rules it shows at work are in agent/toolcall.py (R-D11, R-D04).",
   "ui/accounts_panel.py": "Settings, Linked accounts: shows each account and records what the owner allows. The rule itself is in modules/accounts.py (R-C08).",
-  "ui/agent_panel.py": "The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01)."
+  "ui/agent_panel.py": "The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01).",
+  "ui/answer_diagnostics.py": "Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none."
  }
 }

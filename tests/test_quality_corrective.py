@@ -143,8 +143,8 @@ def test_the_planned_budget_holds_the_requested_length(case):
     assert plan.diagnostics["requested_words"] == [case["low"], case["high"]]
     assert plan.max_tokens >= int(case["high"] * 1.45)
     assert "Write within that range" in plan.instructions and "finish with a complete ending" in plan.instructions
-    for limiting in ("Answer under 75 words", "one compact paragraph", "about 120 to 180 words"):
-        assert limiting not in plan.instructions
+    for limiting in ("Answer under 75 words", "one compact paragraph", "one short paragraph", "about 120 to 180 words"):
+        assert limiting not in plan.instructions  # found with the real model: "one short paragraph" kept the answer at 114 words
 
 
 def test_the_fast_profile_no_longer_cuts_a_requested_length():
@@ -261,3 +261,70 @@ def test_the_chat_answers_arithmetic_with_the_calculator_whatever_came_before():
     from modules.answer_meta import answer_meta, describe_answer
 
     assert "Calculated exactly by the app; no model used" in describe_answer(answer_meta(core.last_provider_result))
+
+
+# ---- CN-QA-005: word problems --------------------------------------------------------------------------------
+
+
+def expression(text: str, unit: str = "dollars"):
+    return lambda prompt, schema: json.dumps({"expression": text, "unit": unit})
+
+
+def test_a_word_problem_is_set_up_by_the_model_and_worked_out_by_the_app():
+    question = next(case["question"] for case in CASES["arithmetic"] if case["id"] == "word_money")
+
+    found = calculator.solve_word_problem(question, expression("50 - 18 + 25"))
+
+    assert calculator.looks_like_word_problem(question) and found.value == 57
+    assert found.answer.startswith("50 - 18 + 25 = 57 dollars") and "the app worked it out" in found.answer
+
+
+@pytest.mark.parametrize(
+    ("question", "reply"),
+    [
+        ("How many calories are in 2 eggs and 3 slices of bread?", expression("2*78 + 3*80", "calories")),  # figures the question does not give
+        ("I had 50 dollars and spent 18. How much is left?", lambda prompt, schema: "not json"),
+        ("I had 50 dollars and spent 18. How much is left?", expression("")),
+        ("I had 50 dollars and spent 18. How much is left?", expression("__import__('os')")),
+    ],
+)
+def test_an_expression_that_cannot_be_trusted_or_used_is_not_answered_from(question, reply):
+    assert calculator.solve_word_problem(question, reply) is None  # the model answers as usual instead
+
+
+def test_the_chat_labels_a_word_problem_answer_as_set_up_by_the_model():
+    core = stand_in_core("unused", "stop")
+    core.provider_router.generate_or_raise = lambda request: SimpleNamespace(text=json.dumps({"expression": "50 - 18 + 25", "unit": "dollars"}))  # type: ignore[method-assign]
+
+    answer = core.generate_chat_response("I had 50 dollars, spent 18, then earned 25. How many dollars do I have now?", [], chat_settings())
+
+    assert answer.startswith("50 - 18 + 25 = 57 dollars") and core.last_provider_result["provider"] == "model_and_calculator"
+    from modules.answer_meta import answer_meta, describe_answer
+
+    assert "set up the calculation from the question; the app worked it out exactly" in describe_answer(answer_meta(core.last_provider_result))
+
+
+# ---- CN-QA-007: the start of an answer is shown as soon as it cannot be the app's own instructions -------------------
+
+
+def test_an_ordinary_answer_starts_showing_after_a_few_words():
+    core = NexusCore()
+    pieces = ["The ", "ship ", "shuddered ", "as ", "Jack ", "reached ", "for ", "the ", "panel."]
+
+    def stream(request):
+        core.provider_router.last_stream_metadata = {"provider": "ollama", "model": request.model, "success": True, "attempts": [], "fallback_reason": "", "throughput": {"done_reason": "stop"}}
+        yield from pieces
+
+    core.provider_router.stream = stream  # type: ignore[method-assign]
+    core.provider_router.generate_or_raise = lambda request: SimpleNamespace(text="NO")  # type: ignore[method-assign]
+    core.provider_router.detect_provider = lambda *_a, **_k: SimpleNamespace(available=True, models=["stand-in"], name="ollama")  # type: ignore[method-assign]
+
+    shown = list(core.stream_chat_response("Tell me a story about a ship.", [], chat_settings()))
+
+    assert len(shown[0]) < 40 and shown[0].startswith("The ship shuddered")  # before: nothing until 160 characters
+    assert "".join(shown).startswith("The ship shuddered as Jack reached for the panel.")
+
+
+@pytest.mark.parametrize(("text", "could"), [("User req", True), ("Response plan: x", True), ("Intent: creative", True), ("The ship shuddered as", False), ("Here is a story about", False)])
+def test_text_that_could_still_be_scaffolding_is_held_back(text, could):
+    assert NexusCore()._could_be_scaffolding(text) is could

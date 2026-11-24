@@ -66,6 +66,7 @@ from modules.web_research import search_sources_status
 from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
 from ui.agent_panel import render_agent_panel
+from ui.answer_diagnostics import answer_rows
 from ui.accounts_panel import render_accounts_panel
 from ui.behavior_panel import render_behavior_panel
 from ui.data_panel import render_data_panel, start_daily_snapshot
@@ -1969,6 +1970,13 @@ def render_diagnostics_tab(status, inventory: dict[str, Any], image_status: dict
         st.warning(f"Fallback reason: {sanitize_demo_text(fallback_reason) if demo_safe else fallback_reason}")
     else:
         st.caption("Fallback reason: none recorded for the latest turn.")
+
+    st.markdown("### How the last answer was made")
+    answer_table = answer_rows(last_provider, getattr(get_nexus_core(), "last_content_rule", {}) or {})
+    if answer_table:
+        st.dataframe(answer_table, hide_index=True, width="stretch")
+    else:
+        st.caption("No answer yet in this session.")
     for model_note in core_status.get("config", {}).get("model_id_notes") or []:
         st.info(model_note)
 

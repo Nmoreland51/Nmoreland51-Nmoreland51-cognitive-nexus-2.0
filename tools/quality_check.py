@@ -200,6 +200,80 @@ def run_arithmetic(cases: list[dict[str, Any]], model: str, url: str, trials: in
     return rows
 
 
+PROFILE_PROMPTS = (
+    ("short_question", "Why is the sky blue? Answer in two sentences."),
+    ("story_150", "Write a 150-word story about a dog who learns to surf."),
+    ("explanation_300", "Explain how vaccines train the immune system in about 300 words."),
+)
+
+
+def _stream_direct(url: str, model: str, prompt: str, options: dict[str, Any]) -> dict[str, Any]:
+    import requests
+
+    started = time.perf_counter()
+    first = None
+    final: dict[str, Any] = {}
+    with requests.post(f"{url}/api/generate", json={"model": model, "prompt": prompt, "stream": True, "keep_alive": "24h", "options": options}, stream=True, timeout=(10, 1800)) as answer:
+        for line in answer.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            data = json.loads(line)
+            if first is None and str(data.get("response", "")).strip():
+                first = time.perf_counter() - started
+            if data.get("done"):
+                final = data
+                break
+    total = time.perf_counter() - started
+    rate = int(final.get("eval_count") or 0) / (int(final.get("eval_duration") or 1) / 1e9)
+    return {"first_word_seconds": round(first or total, 2), "total_seconds": round(total, 1), "output_tokens": int(final.get("eval_count") or 0), "tokens_per_second": round(rate, 1), "load_seconds": round(int(final.get("load_duration") or 0) / 1e9, 2)}
+
+
+def run_profile(model: str, url: str) -> list[dict[str, Any]]:
+    """Where the time goes: the app against Ollama alone, with the same window and limit, the model loaded once."""
+
+    from modules.nexus_core import NexusCore
+
+    core = NexusCore()
+    settings = chat_settings(model, url)
+    rows = []
+
+    def through_app(prompt: str) -> dict[str, Any]:
+        started = time.perf_counter()
+        first = None
+        for chunk in core.stream_chat_response(prompt, [], dict(settings)):
+            if first is None and chunk.strip():
+                first = time.perf_counter() - started
+        total = time.perf_counter() - started
+        throughput = dict(getattr(core.provider_router, "_last_ollama_throughput", {}) or {})
+        generation = dict((core.last_provider_result or {}).get("generation") or {})
+        return {
+            "first_word_seconds": round(first or total, 2),
+            "total_seconds": round(total, 1),
+            "output_tokens": int(throughput.get("eval_count") or 0),
+            "tokens_per_second": float(throughput.get("tokens_per_second") or 0.0),
+            "prompt_tokens": int(throughput.get("prompt_eval_count") or 0),
+            "num_ctx": generation.get("num_ctx") or throughput.get("num_ctx"),
+            "num_predict": generation.get("num_predict"),
+            "temperature": generation.get("temperature"),
+        }
+
+    for name, prompt in PROFILE_PROMPTS:
+        warm = through_app(prompt)  # loads the model with the window the app asks for
+        options = {"num_ctx": warm["num_ctx"] or 4096, "num_predict": warm["num_predict"] or 512}
+        if warm.get("temperature") is not None:
+            options["temperature"] = warm["temperature"]
+        direct = _stream_direct(url, model, prompt, options)
+        app = through_app(prompt)
+        row = {"id": name, "app": app, "direct": direct, "first_word_overhead_seconds": round(app["first_word_seconds"] - direct["first_word_seconds"], 2)}
+        rows.append(row)
+        print(
+            f"profile    {name:<16} first word: app {app['first_word_seconds']:>5.2f}s, Ollama alone {direct['first_word_seconds']:>5.2f}s (overhead {row['first_word_overhead_seconds']:+.2f}s) | "
+            f"writing: app {app['tokens_per_second']:.1f} tok/s, alone {direct['tokens_per_second']:.1f} tok/s | prompt {app['prompt_tokens']} tokens | window {options['num_ctx']}",
+            flush=True,
+        )
+    return rows
+
+
 def summarize(report: dict[str, Any]) -> dict[str, Any]:
     summary: dict[str, Any] = {}
     content = report.get("content") or []
@@ -225,6 +299,12 @@ def summarize(report: dict[str, Any]) -> dict[str, Any]:
         direct = [row["direct_ollama"] for row in length if row.get("direct_ollama")]
         if direct:
             summary["length"]["direct_ollama_within_range"] = sum(row["low"] <= row["direct_ollama"]["words"] <= row["high"] for row in length if row.get("direct_ollama"))
+    profile = report.get("profile") or []
+    if profile:
+        summary["profile"] = {
+            row["id"]: {"first_word_app": row["app"]["first_word_seconds"], "first_word_ollama_alone": row["direct"]["first_word_seconds"], "overhead": row["first_word_overhead_seconds"], "tokens_per_second_app": row["app"]["tokens_per_second"], "tokens_per_second_alone": row["direct"]["tokens_per_second"]}
+            for row in profile
+        }
     arithmetic = report.get("arithmetic") or []
     if arithmetic:
         summary["arithmetic"] = {
@@ -242,16 +322,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default="dolphin3:8b")
     parser.add_argument("--ollama-url", default="http://localhost:11434")
     parser.add_argument("--root", type=Path, default=HERE, help="the checkout whose code is measured (default: this one)")
-    parser.add_argument("--only", nargs="+", choices=("content", "length", "arithmetic"), default=["content", "length", "arithmetic"])
+    parser.add_argument("--only", nargs="+", choices=("content", "length", "arithmetic", "profile"), default=["content", "length", "arithmetic"])
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--no-direct", action="store_true", help="do not send the length requests straight to Ollama as well")
     parser.add_argument("--save", type=Path, default=None)
     parser.add_argument("--rescore", type=Path, default=None, help="score a saved report again (no model needed) and write it back")
     args = parser.parse_args(argv)
     if args.rescore:
-        report = rescore(json.loads(args.rescore.read_text(encoding="utf-8")))
-        args.rescore.write_bytes((json.dumps(report, indent=1, ensure_ascii=False) + "\n").encode("utf-8"))
-        print(json.dumps(report["summary"], indent=1, ensure_ascii=False))
+        scored = rescore(json.loads(args.rescore.read_text(encoding="utf-8")))
+        args.rescore.write_bytes((json.dumps(scored, indent=1, ensure_ascii=False) + "\n").encode("utf-8"))
+        print(json.dumps(scored["summary"], indent=1, ensure_ascii=False))
         return 0
     setup(args.root.resolve())
     cases = json.loads(CASES.read_text(encoding="utf-8"))
@@ -269,6 +349,8 @@ def main(argv: list[str] | None = None) -> int:
         report["arithmetic"] = run_arithmetic(cases["arithmetic"], args.model, args.ollama_url, args.trials)
     if "length" in args.only:
         report["length"] = run_length(cases["length"], args.model, args.ollama_url, direct=not args.no_direct)
+    if "profile" in args.only:
+        report["profile"] = run_profile(args.model, args.ollama_url)
     report["summary"] = summarize(report)
     print(json.dumps(report["summary"], indent=1, ensure_ascii=False))
     if args.save:
