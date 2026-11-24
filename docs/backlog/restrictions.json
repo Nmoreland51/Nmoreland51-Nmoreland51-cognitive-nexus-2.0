@@ -1165,6 +1165,65 @@
    ]
   },
   {
+   "id": "R-C08",
+   "name": "A linked account is used only for what the owner ticked",
+   "category": "C",
+   "status": "active",
+   "trigger": "Code in the app needs a credential for an outside service: a cloud model provider, Brave Search, GitHub, or a service the owner added.",
+   "effect": "The credential is asked for one named use at a time (GitHub: read, push, pull_request; OpenAI and Anthropic: chat; Brave Search: search). It is handed over only if the account is linked and the owner allowed that use; otherwise the caller gets an error that says which, and nothing is sent. A credential that has run out is renewed first where the service gave a refresh token, and refused otherwise. The GitHub token is attached to a push only when the remote is GitHub (or the configured GitHub Enterprise host): a repository whose remote names another host does not receive it. A service linked through an environment variable has every permission unless the owner withholds some.",
+   "owner_requested": "In general terms: the audit asked for connector authorization with renewable tokens and revocable permissions (item 079). The design was not put to the owner.",
+   "evidence": "modules/accounts.py; agent/github.py (token_for, _push_environment); modules/provider_router.py; modules/web_research.py. On Windows the stored secret is encrypted with the Data Protection API for the signed-in user: checked on this machine by storing a credential, reading the file (neither the text nor its base64 form is in it) and reading the credential back. Renewal, device sign-in and revocation were run against a stand-in service on this machine that follows the published OAuth rules; no real service was contacted.",
+   "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. Before it, a key in an environment variable meant the app could use the service for everything, and the GitHub token was attached to a push to whatever https host the repository's remote named.",
+   "technical_reason": "Linking an account should not mean the assistant may do everything the account can, and a credential must not travel to a host chosen by a repository's configuration.",
+   "affected_workflows": "Cloud model providers, Brave Search, the coding agent's push and pull request.",
+   "default_state": "Nothing is linked. An account stored through the app starts with no permission until the owner ticks one. An account linked through an environment variable has all of its permissions, as before.",
+   "effective_state": "As the default.",
+   "alternatives": "Tick or untick each use per account; unlink; keep using environment variables only.",
+   "configurable": "Yes. Settings, Linked accounts, or `python -m agent accounts`. The restriction of the GitHub token to GitHub hosts is fixed.",
+   "owner_decision": "Pending review by the owner. It is a permission for tools and a protection for credentials, not a rule about what may be said.",
+   "tests": "tests/test_accounts.py, tests/test_accounts_in_use.py, tests/test_accounts_panel.py, tests/test_agent_github.py (the last four tests), tests/test_agent_cli.py: test_accounts_are_linked_narrowed_and_unlinked_from_the_terminal",
+   "regression_risk": "Low for existing setups: environment variables keep working with all permissions. A push over SSH to GitHub is now refused when the owner has withheld 'push' from a linked GitHub account; before, the account played no part in an SSH push.",
+   "known_limitations": "Outside Windows the stored secret is not encrypted (the entry in the app says so); the file is readable by the user only. Unlinking deletes the app's copy; it cancels the credential at the service only where the service has a revocation address, which GitHub, OpenAI, Anthropic and Brave Search do not offer for pasted tokens, so the app tells the owner where to cancel it. The permissions are the app's own: they limit what this app does with a token, not what the token can do if it leaks. No real service has been contacted with any of this.",
+   "locations": [
+    {
+     "file": "modules/accounts.py",
+     "anchor": "def credential(service: str, permission: str, *, path: Path | None = None) -> str:"
+    },
+    {
+     "file": "modules/accounts.py",
+     "anchor": "raise NotPermitted("
+    },
+    {
+     "file": "modules/accounts.py",
+     "anchor": "def _checked_address(address: str, what: str) -> str:"
+    },
+    {
+     "file": "agent/github.py",
+     "anchor": "def token_for(permission: str) -> str:"
+    },
+    {
+     "file": "agent/github.py",
+     "anchor": "if not _is_github(context, address):"
+    },
+    {
+     "file": "modules/provider_router.py",
+     "anchor": "usable, why = accounts.available(\"openai\", \"chat\")"
+    },
+    {
+     "file": "modules/provider_router.py",
+     "anchor": "api_key = accounts.credential(\"anthropic\", \"chat\")"
+    },
+    {
+     "file": "modules/web_research.py",
+     "anchor": "headers={\"X-Subscription-Token\": accounts.credential(\"brave_search\", \"search\")},"
+    },
+    {
+     "file": "agent/cli.py",
+     "anchor": "def _accounts(args: argparse.Namespace) -> int:"
+    }
+   ]
+  },
+  {
    "id": "R-D01",
    "name": "Text the owner did not write is fenced as material (chat and research)",
    "category": "D",
@@ -1440,13 +1499,13 @@
   },
   {
    "id": "R-D08",
-   "name": "Keys and tokens are not saved, logged or passed to the sandbox",
+   "name": "Keys and tokens stay out of the settings file, the logs, backups and the sandbox",
    "category": "D",
    "status": "active",
-   "trigger": "Saving settings; publishing to GitHub; recording events.",
-   "effect": "Settings whose name contains \"key\" are not written to the settings file. The GitHub token is read from the environment, travels in Git's environment configuration and is not written to any record. The event recorded when the content rule stops a request holds the stage, not the message.",
+   "trigger": "Saving settings; linking an account; publishing to GitHub; recording events; making a backup, an export or a snapshot.",
+   "effect": "Settings whose name contains \"key\" are not written to the settings file. A credential the owner chooses to store goes into one file only, the linked accounts (R-C08): encrypted for the Windows user on Windows, readable by the user only elsewhere, never shown again after it was typed. That file is left out of every backup, export and snapshot, cannot be asked for by name, and an archive that contains one is refused on restore. The GitHub token travels in Git's environment configuration and is not written to any record of an action. Events about accounts record the service and the permissions, never the secret. The event recorded when the content rule stops a request holds the stage, not the message.",
    "owner_requested": "Yes (owner's test OC-T15).",
-   "evidence": "modules/nexus_config.py, agent/github.py, modules/nexus_core.py.",
+   "evidence": "modules/nexus_config.py, modules/accounts.py, modules/backup.py, modules/data_stores.py, agent/github.py, modules/nexus_core.py.",
    "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.",
    "technical_reason": "A leaked key gives someone else the owner's account.",
    "affected_workflows": "Settings, publishing, exports.",
@@ -1455,9 +1514,9 @@
    "alternatives": "None.",
    "configurable": "No.",
    "owner_decision": "Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.",
-   "tests": "tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_agent_github.py; tests/test_repo_hygiene.py",
+   "tests": "tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_backup.py: test_stored_credentials_never_travel; tests/test_accounts.py: test_a_stored_credential_comes_back_and_is_not_readable_in_the_file, test_what_the_owner_sees_never_contains_a_secret; tests/test_agent_github.py; tests/test_repo_hygiene.py",
    "regression_risk": "Low.",
-   "known_limitations": "None.",
+   "known_limitations": "Outside Windows a stored credential is not encrypted (the app says so where it is shown).",
    "locations": [
     {
      "file": "modules/nexus_config.py",
@@ -1470,6 +1529,18 @@
     {
      "file": "modules/nexus_core.py",
      "anchor": "record_event(\"content_rule\","
+    },
+    {
+     "file": "modules/backup.py",
+     "anchor": "hold credentials and are never copied into a backup, an export or a snapshot"
+    },
+    {
+     "file": "modules/data_stores.py",
+     "anchor": "holds_credentials=True,"
+    },
+    {
+     "file": "modules/accounts.py",
+     "anchor": "def _dpapi(data: bytes, *, protect: bool) -> bytes:"
     }
    ]
   },
@@ -1794,6 +1865,7 @@
   "tools/injection_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/restriction_register.py": "This register's own tool.",
   "tools/run_checks.py": "A development tool: runs every check, this register's among them. It does not run in the app.",
+  "ui/accounts_panel.py": "Settings, Linked accounts: shows each account and records what the owner allows. The rule itself is in modules/accounts.py (R-C08).",
   "ui/agent_panel.py": "The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01)."
  }
 }

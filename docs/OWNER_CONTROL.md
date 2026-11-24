@@ -165,7 +165,8 @@ account. These are permissions and protections, not rules about what may be said
 | Budgets | Stops after 3 attempts, 30 minutes, 60,000 tokens, or any spending not granted | Yes, per task | A task that cannot be solved runs on, and with a paid model spends on |
 | Research does not fetch local addresses | Localhost, the home network and cloud metadata are refused | Yes: `ALLOW_PRIVATE_URL_FETCH=true` | A page could point the app at your router or Ollama and copy what they return into a report |
 | Cloud fallback off | A failed local model does not send your prompt to a cloud provider | Yes: "Allow cloud fallback" | Prompts, with memory and document text in them, leave the machine when the local model fails |
-| Keys are not saved or logged | API keys and the GitHub token stay in the environment | No | A leaked settings file or log would carry your accounts |
+| Keys stay out of settings, logs and backups | API keys and tokens are in the environment or, if you store one, in Linked accounts only (encrypted for your Windows user); never in the settings file, a log, a backup, an export or a snapshot | No | A leaked settings file, log or backup would carry your accounts |
+| Linked accounts | A stored token or key is used only for what you ticked (GitHub: read, push, pull request). The GitHub token is sent to GitHub and to no other host | Yes: Settings, Linked accounts | With everything ticked, linking an account lets the assistant use it for all it is wired to do; approvals still apply to each action |
 
 ## Decisions
 

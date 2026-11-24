@@ -9,8 +9,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | Status | Items |
 |---|---|
 | COMPLETE | 63 |
-| PARTIAL | 49 |
-| MISSING | 33 |
+| PARTIAL | 50 |
+| MISSING | 32 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -21,7 +21,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 13 | 2 | 0 | 0 |
 | 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 12 | 5 | 0 | 0 |
-| 6. Make external actions and automation useful (P1) | 7 | 3 | 1 | 0 |
+| 6. Make external actions and automation useful (P1) | 7 | 4 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 2 | 4 | 5 | 0 |
 | 9. Security, privacy and data integrity (P0) | 3 | 7 | 3 | 0 |
@@ -68,6 +68,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-23, after Phase 2: the coding agent is in `agent/`. It reproduces a failing test, edits in its own Git worktree, runs the tests in the sandbox, has the change reviewed, commits to its own branch and waits for a person (agent/coder.py, agent/review.py); publishes its own branch and a draft pull request with narrow authority (agent/github.py; tested against a local remote and a stand-in API, never against github.com: no token); durable background jobs, schedules, reminders and page watching (agent/jobs.py, agent/handlers.py); `python -m agent` (agent/cli.py). Measured with dolphin3:8b on ten seeded bugs: 7 of 9 solvable ones fixed, no failure reported as a success (docs/benchmarks/agent_dolphin3-8b.json; those tasks were also what the harness was improved against). Still open in Phase 2: a second task set the harness has never seen, installing packages for a task (item 058), and an agent tab in the app.
 - 2026-11-23, owner control (Priority 0, added by the owner mid-way; documents in docs/owner/): the app now has one content rule and no topic filters. Everything is in docs/OWNER_CONTROL.md (the account, the decisions, the acceptance tests) and docs/OWNER_CONTROL_RESTRICTIONS.md (50 mechanisms, generated from docs/backlog/restrictions.json; `python tools/restriction_register.py check` fails when the code and the register disagree, and when a new file mentions a restriction without being registered). The policy is modules/behavior_policy.py; the panel is ui/behavior_panel.py. Three real-model measurements gate it and must be re-run after changing what they measure (each test says so when it fails): tools/content_rule_benchmark.py, tools/behavior_check.py, tools/injection_benchmark.py (with --mode for each setting). Two things a successor must not undo without the owner: adding any topic filter or canned refusal to the app, and treating the owner's own messages as untrusted. One thing that is the assistant's own and is flagged as such: pictures of minors nude or undressed are not made, whatever the scene (register entry R-A21). Decisions the owner has not answered are listed in docs/OWNER_CONTROL.md under Decisions (D5 to D12); each has a default in place. Also fixed on the way: the chat-model list offered an embedding model; the test suite runs in parallel (`python -m pytest -n auto`, about 5 minutes instead of 13). Next: the phone backend should pass on the content rule's own message for research and image requests (it shows a general error today) and expose the behaviour settings; then the rest of Phase 3 (remaining capability and automation items), Phases 4 to 6, and the final verification report.
 - 2026-11-23, Phase 2 leftovers: the app has an Agent tab (ui/agent_panel.py); the coding agent sets up a virtual environment per task from the repository's requirement files, under a package policy (agent/environment.py, setting agent_package_policy); and the agent was measured on a second set of seeded bugs nothing had been tuned on (tests/fixtures/agent_tasks_heldout.json): 4 of 9 with dolphin3:8b, against 7 of 9 on the first set. Quote the 4 of 9. That second set has now been looked at, so a change to the harness needs a third set before a new figure is quoted. An idea not acted on, so as not to tune on that set: in all five misses the model repeated a change it had been told did not work; retrying with a higher temperature, or showing the failing assertion more prominently, might help.
+- 2026-11-23, linked accounts (item 079): modules/accounts.py is the one place a credential is obtained (`accounts.credential(service, permission)`); the providers, Brave search and the GitHub tools use it. Stored secrets are DPAPI-encrypted on Windows and plain (user-only file) elsewhere. Everything involving a service was tested against a stand-in HTTP server in tests/test_accounts.py; nothing has been run against a real service. Tests get an empty accounts file each (tests/conftest.py).
 
 ## Items that need the owner
 
@@ -84,6 +85,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **062** (PARTIAL): A GitHub token (COGNITIVE_NEXUS_GITHUB_TOKEN) to run it against the real service.
 - **065** (PARTIAL): A GitHub token to run it against the real service.
 - **077** (PARTIAL): Docker or WSL for a sandbox that also confines reading and the network.
+- **079** (PARTIAL): A real account to try it against: a GitHub fine-grained token, or an OAuth app's client id for the sign-in.
 - **081** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **085** (PARTIAL): A phone and a private network (for example Tailscale) to test from home and cellular connections.
 - **086** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
@@ -364,8 +366,8 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Sensitive configuration and logs are exported: tokens and credentials are not leaked; the audit is still informative.
 
-- **Evidence:** Settings whose name contains 'key' are not written to the settings file; the policy view contains no key; the event recorded when the content rule stops a request holds the stage and not the message; exports and backups carry a manifest of what they contain; the repository check fails on anything that looks like a key or token (it caught two made-up test values of mine, which are now put together at run time).
-- **Tests:** tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_backup.py; tests/test_repo_hygiene.py; tests/test_agent_github.py: test_the_token_is_sent_to_github_only_and_never_written_down
+- **Evidence:** Settings whose name contains 'key' are not written to the settings file; the policy view contains no key; the event recorded when the content rule stops a request holds the stage and not the message; exports and backups carry a manifest of what they contain; the repository check fails on anything that looks like a key or token (it caught two made-up test values of mine, which are now put together at run time). A credential the owner stores goes into the linked-accounts file only: encrypted for the Windows user, never shown again in the app, left out of every backup, export and snapshot even when asked for by name, and refused on restore.
+- **Tests:** tests/test_owner_control.py: test_saved_settings_and_the_policy_view_hold_no_secrets, test_chat_does_not_write_what_the_one_rule_forbids_and_says_so_plainly; tests/test_backup.py (test_stored_credentials_never_travel among them); tests/test_accounts.py: test_what_the_owner_sees_never_contains_a_secret; tests/test_accounts_panel.py; tests/test_repo_hygiene.py; tests/test_agent_github.py: test_the_token_is_sent_to_github_only_and_never_written_down
 
 #### OC-T16 · PARTIAL
 
@@ -837,6 +839,7 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 - **Evidence:** agent/environment.py. Setup: every task gets its own virtual environment inside the sandbox, built from the repository's own requirement file (the first of the usual names that exists, or one the task names, with the files it includes), and identified by a key over those files and the Python version, so the same files give the same environment and an unchanged one is reused. Policy (setting agent_package_policy, shown in Settings, Behaviour): 'declared' installs only what those files name, as ready-made packages (no build scripts run), refuses lines that point at another index, a URL or a local path, and does not trust a requirement file the task itself changed; 'any' lifts those limits; 'off' installs nothing. `pip install` typed as a command stays refused. Cache: downloads are kept in one cache folder shared by all tasks. When a test run fails because a module is missing, the coding agent sets the environment up and runs the tests again (agent/coder.py). A real install from PyPI was run once on this machine (six 1.17.0, 9 s, importable in the sandbox). Scope: Python repositories only; versions are as reproducible as the requirement files are pinned (no lock file is generated).
 - **Tests:** tests/test_agent_environment.py (14 tests: a real virtual environment and a hand-made package installed from a local folder; the policy cases; reuse; a changed requirement file; the missing-module retry in the coding loop)
+- **Commits:** e3d7506
 
 ### 059 · P1 · recommended · COMPLETE
 
@@ -891,8 +894,8 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Add safe GitHub, CI, issue, and release integration with narrow authorization.
 
-- **Evidence:** agent/github.py: push the task's own branch (never forced, never another branch), open a draft pull request, read CI results for the task's commit, read an issue (as untrusted text), read the latest release. Nothing else: no merge, close, comment, tag or release. The token comes from the environment, travels in Git's environment configuration, never reaches the sandbox and is not written to any record. Verified against a local remote and a stand-in API only.
-- **Tests:** tests/test_agent_github.py: test_the_token_is_sent_to_github_only_and_never_written_down, test_ci_results_are_summarised, test_an_issue_is_read_as_untrusted_text, test_reading_follows_the_approval_mode_and_writing_outside_never_does
+- **Evidence:** agent/github.py: push the task's own branch (never forced, never another branch), open a draft pull request, read CI results for the task's commit, read an issue (as untrusted text), read the latest release. Nothing else: no merge, close, comment, tag or release. The token is the linked GitHub account's (modules/accounts.py) and is asked for per use: read, push, pull_request; a use the owner has not allowed is refused before anything is sent. It is attached to a push only when the remote is GitHub (before this, any https remote received it), travels in Git's environment configuration, never reaches the sandbox and is not written to any record. Verified against a local remote and a stand-in API only.
+- **Tests:** tests/test_agent_github.py: test_the_token_is_sent_to_github_only_and_never_written_down, test_the_token_is_sent_to_github_and_to_no_other_host, test_a_withheld_permission_stops_that_use_and_only_that_use, test_withholding_push_stops_pushes_to_github_and_leaves_other_remotes_alone, test_ci_results_are_summarised, test_an_issue_is_read_as_untrusted_text, test_reading_follows_the_approval_mode_and_writing_outside_never_does
 - **Commits:** d23b8d8
 - **Needs:** A GitHub token to run it against the real service.
 
@@ -1003,11 +1006,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_agent_panel.py: test_the_history_says_who_allowed_an_action_and_what_it_produced, test_a_task_is_given_worked_on_shown_and_accepted_through_the_tab, test_a_request_for_approval_is_decided_in_the_tab; tests/test_agent_registry.py: test_the_history_shows_inputs_approval_result_and_artifacts; tests/test_agent_cli.py: test_approvals_are_listed_and_decided_from_the_terminal
 - **Commits:** 6bb0b97, 4f725ee
 
-### 079 · P1 · recommended · MISSING
+### 079 · P1 · recommended · PARTIAL
 
 > Build plugin/connector auth with renewable tokens and revocable permissions.
 
-- **Evidence:** The only linked account is GitHub, through a token read from an environment variable. There is no sign-in flow, no renewal of tokens, and permission is withdrawn by removing the variable. Nothing of what the item asks for is built.
+- **Evidence:** modules/accounts.py is the one place a credential for an outside service is obtained. Stored credentials: encrypted with the Windows Data Protection API for the signed-in user (checked on this machine: neither the text nor its base64 form is in the file, and it reads back); on other systems kept in a file only the user can read, and the app says it is not encrypted. Permissions: an account is linked with none, the owner ticks each use (GitHub: read, push, pull_request; OpenAI and Anthropic: chat; Brave Search: search; own services with their own names), and code asks for the credential for one use; without it the caller gets an error and nothing is sent. Renewal: a credential with an expiry and a refresh token is renewed before use (OAuth 2.0 refresh), including services that replace the refresh token each time; one that cannot be renewed is refused with the reason. Sign-in on the service's own page: the OAuth 2.0 device grant. Withdrawal: one permission or the whole account; unlinking deletes the secret and asks the service to cancel it where it has a revocation address, and otherwise tells the owner where to cancel it. Accounts set through environment variables keep working and can have permissions withheld. Used by the cloud providers, Brave search and the GitHub tools; the GitHub token is now sent only to GitHub hosts. Settings has a Linked accounts panel; `python -m agent accounts` does the same. The file is left out of backups, exports and snapshots and is refused on restore. Not done: every service was played by a stand-in on this machine that follows the published rules, so no real service has accepted any of it; GitHub's device sign-in needs a client id the owner registers; there is no loading of third-party plug-in code, only services the owner adds by name.
+- **Tests:** tests/test_accounts.py (23), tests/test_accounts_in_use.py (6 cases), tests/test_accounts_panel.py (7), tests/test_agent_github.py (4 tests on the linked account), tests/test_agent_cli.py: test_accounts_are_linked_narrowed_and_unlinked_from_the_terminal, tests/test_backup.py: test_stored_credentials_never_travel
+- **Needs:** A real account to try it against: a GitHub fine-grained token, or an OAuth app's client id for the sign-in.
 
 ### 080 · P1 · recommended · COMPLETE
 
