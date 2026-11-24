@@ -125,8 +125,12 @@ def _consistent_bytes(path: Path) -> bytes | None:
 
 def _selected(store_keys: Iterable[str] | None, *, for_backup: bool) -> list[Store]:
     if store_keys is None:
-        return [store for store in STORES if store.in_backup or not for_backup]
-    return [get_store(key) for key in dict.fromkeys(store_keys)]
+        return [store for store in STORES if (store.in_backup or not for_backup) and not store.holds_credentials]
+    chosen = [get_store(key) for key in dict.fromkeys(store_keys)]
+    secret = [store.title for store in chosen if store.holds_credentials]
+    if secret:
+        raise BackupError(f"{', '.join(secret)} hold credentials and are never copied into a backup, an export or a snapshot. Link the accounts again where you need them.")
+    return chosen
 
 
 def _sha256(path: Path) -> str:
@@ -147,6 +151,8 @@ def _owner_of(archive_name: str) -> Store | None:
     if any(part in {"..", ""} or ":" in part or part.startswith(("/", "\\")) for part in parts[2:]):
         return None
     for store in STORES:
+        if store.holds_credentials:
+            continue  # an archive is never a way to put a credential onto this machine
         for store_root, location in store.locations:
             if store_root != root:
                 continue

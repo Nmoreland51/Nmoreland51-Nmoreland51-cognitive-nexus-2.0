@@ -46,6 +46,9 @@ dist/
 .env
 .env.*
 !.env.example
+# Linked accounts: stored credentials (modules/accounts.py)
+config/accounts.json
+accounts.json
 
 # Leftover temp files from an interrupted atomic save (modules/file_utils.py)
 .*.tmp

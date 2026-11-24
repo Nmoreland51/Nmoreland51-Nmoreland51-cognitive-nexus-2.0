@@ -42,6 +42,7 @@ SECRET_SCAN_SKIP = ("tools/check_repo_hygiene.py", "tests/test_repo_hygiene.py")
 PRIVATE_DATA_PATTERNS = (
     ".env",
     ".env.*",
+    "*accounts.json",
     "*chat_history*.json",
     "*user_profile*.json",
     "data/chat_profile.json",

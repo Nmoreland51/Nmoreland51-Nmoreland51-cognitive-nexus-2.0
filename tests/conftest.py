@@ -45,3 +45,12 @@ def default_handling_of_outside_text():
     set_untrusted_mode("remove_and_fence")
     yield
     set_untrusted_mode("remove_and_fence")
+
+
+@pytest.fixture(autouse=True)
+def accounts_file_per_test(tmp_path, monkeypatch):
+    """Linked accounts are saved in one file; every test gets an empty one of its own."""
+
+    from modules import accounts
+
+    monkeypatch.setattr(accounts, "ACCOUNTS_FILE", tmp_path / "accounts.json")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import shutil
@@ -131,6 +132,37 @@ def test_export_can_be_limited_to_chosen_kinds_of_data(home, tmp_path):
     assert entries(tmp_path / "facts.zip") == {"manifest.json", "files/data/user_profile.json", "files/data/user_profile.v1.backup.json"}
     with pytest.raises(KeyError, match="Unknown data store"):
         create_archive(tmp_path / "bad.zip", ["no_such_store"])
+
+
+def test_stored_credentials_never_travel(home, tmp_path):
+    """Linked accounts are left out of every archive, cannot be asked for by name, and cannot come in through one."""
+
+    fill(home)
+    (home / "config" / "accounts.json").write_text(json.dumps({"github": {"source": "stored", "secret": {"how": "plain", "value": "c2VjcmV0"}}}), encoding="utf-8")
+
+    create_archive(tmp_path / "export.zip")
+    assert not any("accounts" in name for name in entries(tmp_path / "export.zip"))
+    snapshot = create_snapshot("test")
+    assert not any("accounts" in name for name in entries(Path(snapshot["path"])))
+    with pytest.raises(BackupError, match="hold credentials and are never copied"):
+        create_archive(tmp_path / "asked.zip", ["linked_accounts"])
+    assert not (tmp_path / "asked.zip").exists()
+
+    planted = tmp_path / "planted.zip"
+    create_archive(planted)
+
+    def plant(content: dict[str, bytes]) -> None:
+        manifest = json.loads(content["manifest.json"])
+        body = b'{"github": {"source": "stored"}}'
+        manifest["stores"]["settings"]["files"].append({"path": "files/config/accounts.json", "bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()})
+        content["manifest.json"] = json.dumps(manifest).encode()
+        content["files/config/accounts.json"] = body
+
+    rewrite(planted, plant)
+    before = (home / "config" / "accounts.json").read_bytes()
+    with pytest.raises(BackupError):
+        restore_archive(planted)
+    assert (home / "config" / "accounts.json").read_bytes() == before
 
 
 # --- verification refuses anything it cannot vouch for ----------------------------------------------

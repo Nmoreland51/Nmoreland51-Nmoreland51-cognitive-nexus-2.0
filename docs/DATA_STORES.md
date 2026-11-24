@@ -23,7 +23,8 @@ Set `COGNITIVE_NEXUS_HOME` to keep all four somewhere else, for example outside 
 | **Agent tasks and action history** (`agent_state`) | Tasks given to the agent, every action it took (inputs, approval, result), approval requests, and the background job queue. | `<data>/agent/agent.db` | private | yes | agent/store.py, agent/jobs.py |
 | **Agent workspaces** (`agent_workspaces`) | The private checkout of each coding task (a Git worktree of your repository on its own branch). The work itself is kept as commits on that branch in your repository. | `<data>/agent/ws/` | private | no | agent/workspace.py |
 | **Local snapshots** (`snapshots`) | Copies of the data above, taken daily and before a restore, so a change can be undone. The newest seven are kept. | `<data>/_snapshots/` | private | no | modules/backup.py |
-| **Settings** (`settings`) | Provider order, model names and feature switches. API keys are not stored here; they stay in .env. | `<config>/nexus_config.json` | settings | yes | modules/nexus_config.py |
+| **Settings** (`settings`) | Provider order, model names and feature switches. API keys are not stored here; they are in Linked accounts or in .env. | `<config>/nexus_config.json` | settings | yes | modules/nexus_config.py |
+| **Linked accounts** (`linked_accounts`) | Credentials for outside services (GitHub, OpenAI, Anthropic, Brave Search, your own), with what each may be used for and when it runs out. On Windows each secret is encrypted for your Windows user; elsewhere the file is readable by your user only. Never part of a backup or an export. | `<config>/accounts.json` | private | no | modules/accounts.py only |
 | **Logs** (`logs`) | Problem events by kind and per-answer verification records. No prompts or answers. | `<logs>/` | log | no | modules/event_log.py, modules/response_verifier.py |
 
 ## Kinds

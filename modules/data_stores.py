@@ -65,6 +65,9 @@ class Store:
     sensitivity: str
     written_by: str
     in_backup: bool = True
+    # Credentials: never copied into a backup, an export or a snapshot, even when asked for by
+    # name, and never taken from an archive on restore. They can still be deleted (wipe).
+    holds_credentials: bool = False
     # Extra files that belong to the store but are matched by pattern (backups, set-aside copies).
     companions: tuple[tuple[str, str], ...] = ()
 
@@ -214,10 +217,20 @@ STORES: tuple[Store, ...] = (
     Store(
         key="settings",
         title="Settings",
-        holds="Provider order, model names and feature switches. API keys are not stored here; they stay in .env.",
+        holds="Provider order, model names and feature switches. API keys are not stored here; they are in Linked accounts or in .env.",
         locations=(("config", "nexus_config.json"),),
         sensitivity="settings",
         written_by="modules/nexus_config.py",
+    ),
+    Store(
+        key="linked_accounts",
+        title="Linked accounts",
+        holds="Credentials for outside services (GitHub, OpenAI, Anthropic, Brave Search, your own), with what each may be used for and when it runs out. On Windows each secret is encrypted for your Windows user; elsewhere the file is readable by your user only. Never part of a backup or an export.",
+        locations=(("config", "accounts.json"),),
+        sensitivity="private",
+        written_by="modules/accounts.py only",
+        in_backup=False,
+        holds_credentials=True,
     ),
     Store(
         key="logs",
