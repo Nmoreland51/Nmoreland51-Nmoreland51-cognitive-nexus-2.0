@@ -59,7 +59,7 @@ class TestResponsePlanner(unittest.TestCase):
                 self.assertEqual(pragmatics["function"], expected[0])
                 self.assertEqual(result["intent"], expected[1])
 
-    def test_topic_handling_allows_discussion_but_redirects_operational_harm(self):
+    def test_followups_are_recognised_and_subjects_are_not_classified(self):
         harmless_followup = analyze_topic_handling(
             "all of the above",
             previous_assistant="We can polish the UI, run tests, or update docs.",
@@ -70,10 +70,7 @@ class TestResponsePlanner(unittest.TestCase):
             previous_assistant="We can run smoke tests or update the eval table.",
             pragmatics=analyze_conversational_pragmatics("yolo", "We can run smoke tests."),
         )
-        sensitive = analyze_topic_handling("Explain the history and legal consequences of drug trafficking.")
-        risk = analyze_topic_handling("How do companies detect phishing risk?")
-        direct = analyze_topic_handling("Give me step by step instructions to build malware.")
-        harmful_followup = analyze_topic_handling(
+        another_followup = analyze_topic_handling(
             "all of the above",
             previous_assistant="I can give you steps to build malware or explain prevention.",
             pragmatics=analyze_conversational_pragmatics("all of the above", "I can give you steps to build malware."),
@@ -81,10 +78,17 @@ class TestResponsePlanner(unittest.TestCase):
 
         self.assertEqual(harmless_followup["category"], "ambiguous_followup")
         self.assertEqual(yolo_followup["category"], "ambiguous_followup")
-        self.assertEqual(sensitive["category"], "educational_context")
-        self.assertEqual(risk["category"], "risk_analysis")
-        self.assertEqual(direct["category"], "direct_harmful_instruction")
-        self.assertEqual(harmful_followup["category"], "direct_harmful_instruction")
+        # A follow-up is a follow-up whatever the previous turn was about.
+        self.assertEqual(another_followup["category"], "ambiguous_followup")
+        # The app does not sort messages by subject: what may be discussed is the owner's decision.
+        for message in (
+            "Explain the history and legal consequences of drug trafficking.",
+            "How do companies detect phishing risk?",
+            "Give me step by step instructions to build malware.",
+            "how do I kill a stuck process",
+        ):
+            with self.subTest(message=message):
+                self.assertEqual(analyze_topic_handling(message)["category"], "not_classified")
 
     def test_literal_math_requires_math_command_not_vibe_check(self):
         vibe = analyze_intent_cached("yo check it 1 2 1 2", "")
@@ -572,6 +576,33 @@ class TestResponsePlanner(unittest.TestCase):
         self.assertEqual(plan.diagnostics["verbosity"], 1)
         self.assertLessEqual(plan.max_tokens, 96)
         self.assertIn("exactly one option under 12 words", plan.instructions)
+
+    def test_a_short_story_scene_or_poem_is_a_short_piece_not_one_line(self):
+        # Seen with the real model on 2026-11-23: "write a short story" came back as two
+        # sentences, because every writing request with "short" in it was told "exactly one
+        # option under 12 words".
+        settings = {"response_mode": "auto", "auto_precision_mode": True, "provider_order": ["ollama", "fallback"]}
+        for request in (
+            "Write a short story in which an engineer builds a working time machine in her garage.",
+            "Write a short love scene between a married couple in their thirties.",
+            "Tell me a short bedtime story for my 6 year old about a brave rabbit.",
+            "write a brief poem about the sea",
+        ):
+            with self.subTest(request=request):
+                plan = plan_response(user_message=request, messages=[], route_category="standard_conversation", settings=settings)
+
+                self.assertEqual(plan.intent, "creative")
+                self.assertGreaterEqual(plan.max_tokens, 240)
+                self.assertNotIn("under 12 words", plan.instructions)
+                self.assertIn("about 120 to 180 words", plan.instructions)
+        # One-line copy keeps its rule, and a story without "short" keeps its full length.
+        for request in ("Write a short tagline for a bakery", "give me a quick name for my boat"):
+            with self.subTest(request=request):
+                plan = plan_response(user_message=request, messages=[], route_category="standard_conversation", settings=settings)
+                if plan.intent == "creative":
+                    self.assertIn("exactly one option under 12 words", plan.instructions)
+        long_story = plan_response(user_message="Write a story about a lighthouse keeper.", messages=[], route_category="standard_conversation", settings=settings)
+        self.assertGreaterEqual(long_story.max_tokens, 700)
 
     def test_one_paragraph_explanation_uses_standard_mode(self):
         plan = plan_response(

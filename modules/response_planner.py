@@ -768,6 +768,14 @@ def backchannel_continuity_policy(function: str = "backchannel_acknowledgment") 
     }
 
 
+# Writing that is one line by nature. "Short" in front of one of these means a single option.
+_ONE_LINE_COPY = re.compile(
+    r"\b(headlines?|taglines?|slogans?|titles?|names?|captions?|subject\s+lines?|mottos?|catch\s?phrases?|one-?liners?|hooks?|"
+    r"straplines?|tweets?|bylines?|labels?|button\s+text|call\s+to\s+action)\b",
+    re.IGNORECASE,
+)
+
+
 def _budget_for_mode(mode: str, intent: str, function: str = "") -> tuple[int, int, int, int]:
     if mode == "research":
         return 120, 900, 2400, 8192
@@ -781,6 +789,9 @@ def _budget_for_mode(mode: str, intent: str, function: str = "") -> tuple[int, i
         return 0, 140, 420, 1024
     if intent == "conversation_followup":
         return 0, 88, 300, 1024
+    if intent == "creative" and function == "short_piece":
+        # A short story, scene or poem: a few paragraphs, about a minute on a CPU.
+        return 60, 260, 1000, 2048
     if intent == "creative" and mode == "short":
         return 0, 96, 320, 1024
     if intent == "simple_fact":
@@ -840,15 +851,24 @@ def plan_response(
         mode = manual_mode if manual_mode != "auto" else auto_precision_profile(intent)["mode"]
     elif mode == "auto":
         mode = auto_precision_profile(intent)["mode"]
-    if intent == "creative" and "short" in (user_message or "").lower():
+    # "Short" means two different things in a writing request. A short headline, tagline or name is
+    # one line. A short story, scene or poem is a short piece, not a line: it used to be squeezed
+    # into "exactly one option under 12 words" (seen with the real model: a "short story" came
+    # back as two sentences).
+    wants_short = intent == "creative" and bool(re.search(r"\b(short|brief|quick)\b", (user_message or "").lower()))
+    short_copy = wants_short and bool(_ONE_LINE_COPY.search(user_message or ""))
+    short_piece = wants_short and not short_copy
+    if short_copy:
         mode = "short"
+    elif short_piece:
+        mode = "standard"
     if intent == "explanation" and "one paragraph" in (user_message or "").lower():
         mode = "standard"
     if route_category == "coding_development":
         mode = "surgeon"
 
     function = str(conversation.function or "")
-    min_chars, max_tokens, ideal_chars, num_ctx = _budget_for_mode(mode, intent, function)
+    min_chars, max_tokens, ideal_chars, num_ctx = _budget_for_mode(mode, intent, "short_piece" if short_piece else function)
     max_chars = max(ideal_chars * 2, 600)
     profile_verbosity = int(auto_precision_profile(intent).get("verbosity", 2) or 2)
     requested_verbosity = int(settings.get("verbosity_level", profile_verbosity) or profile_verbosity)
@@ -889,8 +909,10 @@ def plan_response(
         formatting_style = "phased list, no preamble"
     elif intent == "opinion_rating":
         instructions.append("Score: give the verdict, strengths, weaknesses, and next upgrade in under 120 words.")
-    elif intent == "creative" and mode == "short":
+    elif short_copy:
         instructions.append("Return exactly one option under 12 words.")
+    elif short_piece:
+        instructions.append("Keep it short: about 120 to 180 words, and finish it.")
 
     diagnostics = {
         "auto_precision_mode": bool(settings.get("auto_precision_mode", False)),
