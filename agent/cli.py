@@ -4,6 +4,7 @@
     python -m agent task run TASK            work on it now, with the local model
     python -m agent task list | show TASK | diff TASK
     python -m agent task accept TASK --by NAME            only this marks a task done
+    python -m agent task evaluate TASK [--quick]          measure the change against what it replaces
     python -m agent task changes TASK --by NAME "what to do differently"
     python -m agent task publish TASK        push its branch and open a draft pull request (asks for approval)
     python -m agent task cancel TASK | cleanup TASK
@@ -129,9 +130,13 @@ def main(argv: list[str] | None = None) -> int:
         if name == "run":
             action.add_argument("--model", default="")
     task.add_parser("list")
+    measuring = task.add_parser("evaluate")
+    measuring.add_argument("task")
+    measuring.add_argument("--quick", action="store_true", help="seconds instead of minutes; does not count towards accepting a change to the assistant's own code")
     accept = task.add_parser("accept")
     accept.add_argument("task")
     accept.add_argument("--by", required=True)
+    accept.add_argument("--despite-evaluation", default="", metavar="WHY", help="accept a change to the assistant's own code without a passing measurement, and say why")
     changes = task.add_parser("changes")
     changes.add_argument("task")
     changes.add_argument("feedback")
@@ -307,7 +312,14 @@ def _dispatch(args: argparse.Namespace, store: AgentStore, queue: JobQueue) -> i
             agent = build_agent(store)
             print(agent.workspaces.diff(agent.workspaces.open(item.id, item.repo, item.workspace, item.branch, item.base_ref)))
         elif action == "accept":
-            print(build_agent(store).accept(args.task, args.by).status)
+            print(build_agent(store).accept(args.task, args.by, despite_evaluation=args.despite_evaluation).status)
+        elif action == "evaluate":
+            measured = build_agent(store).evaluate(args.task, quick=args.quick)
+            print(f"{measured['verdict'].upper()}" + (" (quick comparison)" if measured["quick"] else ""))
+            for title, key in (("Worse", "worse"), ("Better", "better"), ("Could not be measured", "could_not_be_measured"), ("The evaluations themselves were changed", "evaluations_changed"), ("Saved measurements to run again", "saved_measurements_out_of_date")):
+                for line in measured[key]:
+                    print(f"  {title}: {line}")
+            return 0 if measured["verdict"] == "not worse" else 1
         elif action == "changes":
             print(build_agent(store).request_changes(args.task, args.by, args.feedback).status)
         elif action == "cancel":

@@ -494,6 +494,30 @@ def build_prompt(task: Task, failure: str, code: list[FileView], tests: list[Fil
 # ---- the agent ----------------------------------------------------------------------------------
 
 
+# Files that make a repository a copy of this app. A task on such a repository changes the
+# assistant's own code, and is accepted only after tools/evaluation_gate.py has measured it.
+OWN_CODE = ("agent/coder.py", "modules/behavior_policy.py", "tools/evaluation_gate.py")
+
+
+def changes_this_app(repository: str | Path) -> bool:
+    root = Path(repository)
+    return all((root / name).is_file() for name in OWN_CODE)
+
+
+def evaluation_gate() -> Any:
+    """This installation's own gate (tools/evaluation_gate.py), never the one in the repository being changed."""
+
+    import importlib.util
+
+    location = Path(__file__).resolve().parents[1] / "tools" / "evaluation_gate.py"
+    spec = importlib.util.spec_from_file_location("cognitive_nexus_evaluation_gate", location)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"The evaluation gate was not found at {location}.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 @dataclass
 class CodingAgent:
     store: AgentStore
@@ -545,14 +569,60 @@ class CodingAgent:
             return self.store.update_task(task.id, status="failed", result={"outcome": "failed", "error": f"{type(exc).__name__}: {exc}"}, note="The agent itself failed")
         return self.store.get_task(task.id)
 
-    def accept(self, task_id: str, by: str) -> Task:
-        """A person accepts a reviewed change. Only this marks a task done."""
+    def evaluate(self, task_id: str, *, quick: bool = False, compare: Callable[..., dict[str, Any]] | None = None) -> dict[str, Any]:
+        """Measure a reviewed change against what it replaces (tools/evaluation_gate.py) and keep the verdict with the task.
+
+        The measuring code and its fixtures are this installation's, not the change's own. A
+        quick comparison leaves out the coding agent and the saved measurements, and does not
+        count towards accepting a change to the assistant's own code.
+        """
+
+        task = self.store.get_task(task_id)
+        if task.status != "review":
+            raise ValueError(f"Task {task_id} is {task.status}; only a change that is waiting for review is measured.")
+        commit = str(task.result.get("commit") or "")
+        if not commit:
+            raise ValueError(f"Task {task_id} has no commit to measure.")
+        result = (compare or evaluation_gate().compare)(task.base_ref, commit, repository=Path(task.repo), quick=quick)
+        kept = {
+            "commit": commit,
+            "base": task.base_ref,
+            "verdict": result["verdict"],
+            "quick": bool(quick),
+            "worse": list(result.get("worse", [])),
+            "better": list(result.get("better", [])),
+            "could_not_be_measured": list(result.get("could_not_be_measured", [])),
+            "evaluations_changed": list(result.get("evaluations_changed", [])),
+            "saved_measurements_out_of_date": list(result.get("saved_measurements_out_of_date", [])),
+            "at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        self.store.update_task(task_id, result={**task.result, "evaluation": kept})
+        self.store.add_event(task_id, "evaluated", f"Measured against what it replaces: {kept['verdict']}" + (" (quick)" if quick else ""), kept)
+        return kept
+
+    def accept(self, task_id: str, by: str, *, despite_evaluation: str = "") -> Task:
+        """A person accepts a reviewed change. Only this marks a task done.
+
+        A change to the assistant's own code is accepted only if it was measured in full against
+        what it replaces and found not worse, or if the person says why they accept it regardless.
+        """
 
         task = self.store.get_task(task_id)
         if task.status != "review":
             raise ValueError(f"Task {task_id} is {task.status}, not waiting for review.")
         if not by.strip():
             raise ValueError("Say who accepts the change.")
+        if changes_this_app(task.repo):
+            measured = task.result.get("evaluation") or {}
+            passed = measured.get("commit") == task.result.get("commit") and measured.get("verdict") == "not worse" and not measured.get("quick")
+            if not passed and not despite_evaluation.strip():
+                found = f"The last measurement said: {measured['verdict']}{' (quick only)' if measured.get('quick') else ''}." if measured.get("verdict") else "It has not been measured."
+                raise ValueError(
+                    "This change is to the assistant's own code. It is accepted only after it was measured against what it replaces and found not worse. "
+                    f"{found} Measure it (`python -m agent task evaluate {task_id}`, or the button in the Agent tab), or accept it regardless and say why."
+                )
+            if not passed:
+                self.store.add_event(task_id, "accepted_despite_evaluation", f"{by.strip()} accepted without a passing measurement: {despite_evaluation.strip()[:300]}", {"by": by.strip(), "evaluation": measured})
         self.store.add_event(task_id, "accepted", f"{by.strip()} accepted the change", {"by": by.strip()})
         return self.store.update_task(task_id, status="done", note=f"Accepted by {by.strip()}")
 

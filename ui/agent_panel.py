@@ -16,7 +16,7 @@ import streamlit as st
 
 from agent import sandbox
 from agent.capabilities import catalogue
-from agent.coder import CodingAgent, describe
+from agent.coder import CodingAgent, changes_this_app, describe
 from agent.jobs import JobQueue, Worker
 from agent.store import AgentStore, StoreError, Task
 from agent.workspace import WorkspaceError
@@ -26,6 +26,13 @@ CATALOGUE_KEY = "agent_catalogue"
 CATALOGUE_SECONDS = 60.0  # looking for apps contacts the model server; not on every redraw
 OWNER = "owner"
 WAITING_STATES = ("review", "escalated", "waiting_approval", "failed")
+MEASUREMENT_PARTS = (
+    ("Worse", "worse"),
+    ("Better", "better"),
+    ("The evaluations themselves were changed", "evaluations_changed"),
+    ("Saved measurements to run again", "saved_measurements_out_of_date"),
+    ("Could not be measured", "could_not_be_measured"),
+)
 
 
 def _notice(text: str) -> None:
@@ -197,11 +204,31 @@ def render_agent_panel(
                 st.info(str(task.result["what_a_person_can_do"]))
             if task.status == "review":
                 st.code(_diff_of(build(), task) or "(no changes)", language="diff")
+                own_code = changes_this_app(task.repo)
+                why = ""
+                if own_code:
+                    measured = task.result.get("evaluation") or {}
+                    state = f"The last measurement said: {measured['verdict']}{' (quick comparison only)' if measured.get('quick') else ''}." if measured.get("verdict") else "It has not been measured yet."
+                    st.info(f"This change is to the assistant's own code. It is accepted only after it was measured against what it replaces and found not worse. {state}")
+                    for title, key in MEASUREMENT_PARTS:
+                        for line in measured.get(key, []):
+                            st.write(f"{title}: {line}")
+                    if not read_only:
+                        if st.button("Measure this change against what it replaces (minutes)", key=f"agent_measure_{task.id}"):
+                            with st.spinner("Measuring both versions. This page waits until it is done."):
+                                found = build().evaluate(task.id)
+                            _notice(f"Measured: {found['verdict']}.")
+                            st.rerun()
+                        why = st.text_input("To accept without a passing measurement, say why", key=f"agent_despite_{task.id}")
                 if not read_only:
                     if st.button("Accept this change", type="primary", key=f"agent_accept_{task.id}"):
-                        build().accept(task.id, OWNER)
-                        _notice(f"Accepted. The commit is on branch {task.branch} in your repository; nothing was merged or pushed.")
-                        st.rerun()
+                        try:
+                            build().accept(task.id, OWNER, despite_evaluation=why)
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        else:
+                            _notice(f"Accepted. The commit is on branch {task.branch} in your repository; nothing was merged or pushed.")
+                            st.rerun()
                     feedback = st.text_input("Or say what should be different", key=f"agent_feedback_{task.id}")
                     if st.button("Send it back", key=f"agent_back_{task.id}") and feedback.strip():
                         build().request_changes(task.id, OWNER, feedback.strip())

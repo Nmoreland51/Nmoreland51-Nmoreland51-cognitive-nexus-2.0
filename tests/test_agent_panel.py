@@ -200,3 +200,32 @@ def test_the_tab_shows_tools_apps_and_accounts(world):
     assert any("App" in frame.columns and "Git" in set(frame["App"]) for frame in frames)
     assert any("Service" in frame.columns and {"GitHub", "OpenAI", "Anthropic", "Brave Search"} <= set(frame["Service"]) for frame in frames)
 
+
+def test_a_change_to_the_assistants_own_code_needs_a_measurement_or_a_reason(world):
+    """The repository carries the files that make it a copy of this app, so accepting is held back."""
+
+    for name in ("agent/coder.py", "modules/behavior_policy.py", "tools/evaluation_gate.py"):
+        target = world["repo"] / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("# stands in for the real file\n", encoding="utf-8")
+    git(world["repo"], "add", "-A")
+    git(world["repo"], "commit", "-q", "-m", "looks like the app")
+    store = AgentStore(world["db"])
+    task = store.create_task("add() subtracts", repo=str(world["repo"]), acceptance=[ACCEPTANCE.split()])
+
+    app = AppTest.from_function(_panel_app, default_timeout=240).run()
+    app.button(key="agent_run_now").click().run()
+    assert store.get_task(task.id).status == "review"
+    assert any("This change is to the assistant's own code" in item.value and "It has not been measured yet." in item.value for item in app.info)
+
+    app.button(key=f"agent_accept_{task.id}").click().run()
+
+    assert store.get_task(task.id).status == "review"  # held back
+    assert any("accepted only after it was measured" in item.value for item in app.error)
+
+    app.text_input(key=f"agent_despite_{task.id}").input("Trying the flow in a test.")
+    app.button(key=f"agent_accept_{task.id}").click().run()
+
+    assert not app.exception and store.get_task(task.id).status == "done"
+    assert any(event["kind"] == "accepted_despite_evaluation" and "Trying the flow in a test." in event["message"] for event in store.events(task.id))
+
