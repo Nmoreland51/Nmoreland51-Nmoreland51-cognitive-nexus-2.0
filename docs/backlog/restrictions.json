@@ -1881,7 +1881,7 @@
    "known_limitations": "None.",
    "locations": [
     {
-     "file": "app.py",
+     "file": "ui/sidebar.py",
      "anchor": "manual_disabled = bool(auto_precision_mode)"
     }
    ]
@@ -1908,7 +1908,7 @@
    "known_limitations": "None.",
    "locations": [
     {
-     "file": "app.py",
+     "file": "ui/settings_tab.py",
      "anchor": "read_only=is_demo_safe(settings),"
     }
    ]
@@ -1939,7 +1939,7 @@
      "anchor": "def render_behavior_panel("
     },
     {
-     "file": "app.py",
+     "file": "ui/settings_tab.py",
      "anchor": "render_behavior_panel("
     }
    ],
@@ -2033,6 +2033,10 @@
   "tools/tool_choice_benchmark.py": "Measures which tool a model picks, with the tools' sources replaced by a fixture. The rules it shows at work are in agent/toolcall.py (R-D11, R-D04).",
   "ui/accounts_panel.py": "Settings, Linked accounts: shows each account and records what the owner allows. The rule itself is in modules/accounts.py (R-C08).",
   "ui/agent_panel.py": "The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01).",
-  "ui/answer_diagnostics.py": "Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none."
+  "ui/answer_diagnostics.py": "Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none.",
+  "ui/diagnostics_tab.py": "The Diagnostics tab: shows the last content-rule check and counts of problems by kind. It shows decisions made elsewhere (R-A12); it makes none.",
+  "ui/images_tab.py": "The Image Generation tab: when the core stops a picture under the one content rule, it shows the rule's reply. The rule and its check are elsewhere (R-A11, R-A12); this decides nothing.",
+  "ui/knowledge_tabs.py": "The Files / Knowledge, Memory and Tools tabs: when the core stops a request under the one content rule, they show the rule's reply. The rule and its check are elsewhere (R-A11, R-A12).",
+  "ui/research_tabs.py": "The research tabs: when the core stops a request under the one content rule, they show the rule's reply. The rule and its check are elsewhere (R-A11, R-A12)."
  }
 }

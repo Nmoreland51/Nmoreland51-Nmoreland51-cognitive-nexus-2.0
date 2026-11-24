@@ -665,6 +665,21 @@ to report under that name; the Images tab asked ComfyUI on every click; Ollama's
 for from seven places; the two image servers were asked one after the other; and a streamed answer was
 left before its end, so its connection was closed and the next answer opened a new one.
 
+Moving the tabs out of app.py (item 120, key `tabs_moved_out_of_app_py`): two runs before and two after,
+back to back, the code otherwise the same.
+
+| | Before (2236d38) | After |
+|---|---|---|
+| First visit | 7.67 s, 8.42 s | 7.50 s, 6.36 s |
+| Each later click (a rerun) | 0.47 s, 0.54 s | **0.29 s, 0.22 s** |
+| A chat turn, the app's own part | 0.52 s, 0.72 s | 0.38 s, 0.28 s |
+| Importing the app | 2.42 s, 2.28 s | 2.31 s, 1.77 s |
+
+Streamlit runs app.py again on every click; the tabs' code now lives in modules that are imported once,
+so a click no longer redefines some 60 functions. The first visit was slower in all four runs, before
+and after, than in the morning's measurement (4.95 s), with its time spread over the same parts of the
+page in much the same proportions; the cause was not found, and it is not the move.
+
 ## Making a picture beside the chat model (`picture_memory.json`)
 
 ```

@@ -1253,7 +1253,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F01 · Auto Precision disables the manual answer controls · active
 
-- **Where:** `app.py:630` — `manual_disabled = bool(auto_precision_mode)`
+- **Where:** `ui/sidebar.py:238` — `manual_disabled = bool(auto_precision_mode)`
 - **Trigger:** Auto Precision Mode on (the default).
 - **Effect:** The controls under Advanced Overrides (memory, knowledge, web, router, response mode, verbosity) are greyed out and chosen per message instead. The Behaviour settings are not affected.
 - **Owner requested:** No.
@@ -1273,7 +1273,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F02 · Demo Safe Mode · active
 
-- **Where:** `app.py:2335` — `read_only=is_demo_safe(settings),`
+- **Where:** `ui/settings_tab.py:33` — `read_only=is_demo_safe(settings),`
 - **Trigger:** Demo Safe Mode switched on.
 - **Effect:** Local paths, service addresses and environment details are hidden; destructive actions are not shown; the Behaviour panel is read-only and does not show the last prompt.
 - **Owner requested:** No.
@@ -1294,7 +1294,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-F03 · The Behaviour panel · active
 
 - **Where:** `ui/behavior_panel.py:79` — `def render_behavior_panel(`
-- **Where:** `app.py:2330` — `render_behavior_panel(`
+- **Where:** `ui/settings_tab.py:28` — `render_behavior_panel(`
 - **Trigger:** Settings tab.
 - **Effect:** Shows and saves the owner's behaviour text and the three behaviour settings; prints the whole system prompt, the one content rule and how it is checked, the texts the app can show instead of an answer, what is added to each message, the last prompt as it was sent, what the selected model or provider may do, and the permissions and protections.
 - **Owner requested:** Yes.
@@ -1379,7 +1379,6 @@ Every Python source file outside the folders listed below, and the settings file
 | `agent/tools.py` | 17 | R-C03, R-C07 | - |
 | `agent/workspace.py` | 13 | R-D07 | - |
 | `answer_quality_eval.py` | 15 | - | An evaluation script. It counts a model's stock refusal as a quality failure and changes nothing in the app. |
-| `app.py` | 9 | R-A01, R-A02, R-D02, R-F01, R-F02, R-F03, R-F04 | - |
 | `config/nexus_config.json` | 1 | R-B03 | - |
 | `conversation_regression_eval.py` | 16 | - | An evaluation script. It counts a model's stock refusal as a quality failure and changes nothing in the app. |
 | `core/reality_grounding/confidence_estimator.py` | 1 | - | The word "MODERATE" in a confidence label. |
@@ -1424,6 +1423,11 @@ Every Python source file outside the folders listed below, and the settings file
 | `ui/agent_panel.py` | 23 | - | The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01). |
 | `ui/answer_diagnostics.py` | 3 | - | Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none. |
 | `ui/behavior_panel.py` | 13 | R-F03 | - |
+| `ui/diagnostics_tab.py` | 2 | - | The Diagnostics tab: shows the last content-rule check and counts of problems by kind. It shows decisions made elsewhere (R-A12); it makes none. |
+| `ui/images_tab.py` | 3 | - | The Image Generation tab: when the core stops a picture under the one content rule, it shows the rule's reply. The rule and its check are elsewhere (R-A11, R-A12); this decides nothing. |
+| `ui/knowledge_tabs.py` | 2 | - | The Files / Knowledge, Memory and Tools tabs: when the core stops a request under the one content rule, they show the rule's reply. The rule and its check are elsewhere (R-A11, R-A12). |
+| `ui/research_tabs.py` | 3 | - | The research tabs: when the core stops a request under the one content rule, they show the rule's reply. The rule and its check are elsewhere (R-A11, R-A12). |
+| `ui/settings_tab.py` | 1 | R-F02, R-F03 | - |
 | `web_research_module.py` | 1 | R-D05 | - |
 
 Not searched:

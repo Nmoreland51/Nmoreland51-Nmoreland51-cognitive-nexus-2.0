@@ -8,6 +8,9 @@ from streamlit.testing.v1 import AppTest
 # Newer Streamlit resolves a relative AppTest path against this test file, not the working
 # directory, so point at app.py in the repo root explicitly.
 APP_PATH = str(Path(__file__).resolve().parents[1] / "app.py")
+# Seconds the whole page may take. It shares the machine with the per-tab runs of tests/test_ui_tabs.py;
+# at 25 s this test failed once in a parallel run (it passed in four more), so it has the same limit as those.
+PAGE_TIMEOUT = 90
 
 
 class AppControlsTests(unittest.TestCase):
@@ -91,7 +94,7 @@ class AppControlsTests(unittest.TestCase):
         self.assertIn("Tools / Utilities", app.TAB_LABELS)
 
     def test_streamlit_overview_and_demo_safe_mode_render(self):
-        app_test = AppTest.from_file(APP_PATH, default_timeout=25)
+        app_test = AppTest.from_file(APP_PATH, default_timeout=PAGE_TIMEOUT)
         app_test.run()
 
         self.assertEqual(len(app_test.exception), 0)
@@ -120,7 +123,7 @@ class AppControlsTests(unittest.TestCase):
         )
 
     def test_auto_precision_mode_defaults_on_in_sidebar(self):
-        app_test = AppTest.from_file(APP_PATH, default_timeout=25)
+        app_test = AppTest.from_file(APP_PATH, default_timeout=PAGE_TIMEOUT)
         app_test.run()
 
         self.assertEqual(len(app_test.exception), 0)
@@ -143,7 +146,7 @@ class AppControlsTests(unittest.TestCase):
         self.assertIn("empty stream", message)
 
     def test_persist_assistant_response_saves_non_empty_assistant_text(self):
-        with patch("app.add_message") as add_message, patch("app.save_session_history") as save_history:
+        with patch("ui.chat_tab.add_message") as add_message, patch("ui.chat_tab.save_session_history") as save_history:
             saved = app.persist_assistant_response("Provider answer", {})
 
         self.assertEqual(saved, "Provider answer")
@@ -151,7 +154,7 @@ class AppControlsTests(unittest.TestCase):
         save_history.assert_called_once()
 
     def test_persist_empty_assistant_response_saves_visible_fallback(self):
-        with patch("app.add_message") as add_message, patch("app.save_session_history") as save_history:
+        with patch("ui.chat_tab.add_message") as add_message, patch("ui.chat_tab.save_session_history") as save_history:
             saved = app.persist_assistant_response("", {"fallback_reason": "empty stream"})
 
         self.assertIn("Fallback:", saved)
@@ -161,7 +164,7 @@ class AppControlsTests(unittest.TestCase):
 
     def test_persisted_answer_records_how_it_was_produced(self):
         result = {"provider": "ollama", "model": "dolphin3:8b", "success": True, "elapsed": 3.0}
-        with patch("app.add_message") as add_message, patch("app.save_session_history"):
+        with patch("ui.chat_tab.add_message") as add_message, patch("ui.chat_tab.save_session_history"):
             app.persist_assistant_response("Provider answer", result)
 
         meta = add_message.call_args.kwargs["meta"]
@@ -207,7 +210,7 @@ class AppControlsTests(unittest.TestCase):
         self.assertIn("stay on this machine", app.data_locality_caption(["openai", "ollama", "fallback"], False, []))
 
     def test_merge_chat_timing_trace_adds_render_save_and_total_ms(self):
-        with patch("app.time.perf_counter", side_effect=[10.25]):
+        with patch("ui.chat_tab.time.perf_counter", side_effect=[10.25]):
             result = app.merge_chat_timing_trace(
                 {"timings": {"planner_ms": 1.2, "provider_total_ms": 42.0}},
                 turn_started=10.0,

@@ -6,7 +6,8 @@ Cognitive Nexus is a reality-first AI research platform built with Python, Strea
 ## Directory Structure
 
 ### Core Application
-- `app.py` - Main Streamlit web application with tabbed interface
+- `app.py` - Starts the Streamlit web application and lays out its tabs
+- `ui/` - One module per tab (chat, research, images, knowledge, diagnostics, settings, overview), the sidebar, the state the tabs share, and the panels
 - `modules/` - Core business logic modules
   - `nexus_core.py` - Central routing and orchestration
   - `reality_research_agent.py` - Reality-first research with verdicts

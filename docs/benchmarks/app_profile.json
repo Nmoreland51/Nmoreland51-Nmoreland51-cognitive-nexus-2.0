@@ -1024,5 +1024,65 @@
         }
       }
     }
+  },
+  "tabs_moved_out_of_app_py": {
+    "what": "Item 120: app.py's tab renderers moved into ui/ modules unchanged. Two runs before and two after, back to back, with tools/app_profile.py.",
+    "code_before": "2236d38",
+    "before": [
+      {
+        "measured_at": "2026-11-24T23:00:37+00:00",
+        "import_seconds": {
+          "modules.nexus_core": 1.28,
+          "app": 2.42
+        },
+        "first_visit_seconds": 7.67,
+        "first_visit_requests": 7,
+        "rerun_seconds": 0.47,
+        "rerun_requests": 0,
+        "chat_turn_seconds": 0.52,
+        "chat_turn_requests": 1
+      },
+      {
+        "measured_at": "2026-11-24T23:01:12+00:00",
+        "import_seconds": {
+          "modules.nexus_core": 1.36,
+          "app": 2.28
+        },
+        "first_visit_seconds": 8.42,
+        "first_visit_requests": 8,
+        "rerun_seconds": 0.54,
+        "rerun_requests": 0,
+        "chat_turn_seconds": 0.72,
+        "chat_turn_requests": 1
+      }
+    ],
+    "after": [
+      {
+        "measured_at": "2026-11-24T23:06:18+00:00",
+        "import_seconds": {
+          "modules.nexus_core": 1.49,
+          "app": 2.31
+        },
+        "first_visit_seconds": 7.5,
+        "first_visit_requests": 8,
+        "rerun_seconds": 0.29,
+        "rerun_requests": 0,
+        "chat_turn_seconds": 0.38,
+        "chat_turn_requests": 1
+      },
+      {
+        "measured_at": "2026-11-24T23:06:42+00:00",
+        "import_seconds": {
+          "modules.nexus_core": 1.21,
+          "app": 1.77
+        },
+        "first_visit_seconds": 6.36,
+        "first_visit_requests": 7,
+        "rerun_seconds": 0.22,
+        "rerun_requests": 0,
+        "chat_turn_seconds": 0.28,
+        "chat_turn_requests": 1
+      }
+    ]
   }
 }

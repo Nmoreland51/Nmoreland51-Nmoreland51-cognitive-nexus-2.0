@@ -165,7 +165,8 @@ def test_a_substring_never_blocks_a_message(message):
 def test_the_substring_block_and_the_dead_safety_controls_are_gone_from_the_app():
     """CN-GR-001, CN-GR-006."""
 
-    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    # The interface: app.py and the tabs it lays out, which moved to ui/ (item 120).
+    source = "\n".join(path.read_text(encoding="utf-8") for path in [ROOT / "app.py", *sorted((ROOT / "ui").glob("*.py"))])
 
     for gone in ('"underage", "cp"', "safety_config", "Safety level", "Unhinged Mode", "Allow NSFW", "safety_blocks", "BLOCKED:"):
         assert gone not in source, gone

@@ -68,6 +68,7 @@ def test_the_check_notices_a_mechanism_that_moved_a_removal_that_came_back_and_a
 def test_the_search_covers_the_app_and_skips_only_what_cannot_shape_behaviour():
     found = register.scan()
 
-    for name in ("app.py", "modules/nexus_core.py", "modules/behavior_policy.py", "core/reality_grounding/prompt_firewall.py", "agent/approvals.py", "nexus_router.py"):
+    # ui/settings_tab.py is the part of the old app.py that mentions what the register looks for (item 120).
+    for name in ("ui/settings_tab.py", "modules/nexus_core.py", "modules/behavior_policy.py", "core/reality_grounding/prompt_firewall.py", "agent/approvals.py", "nexus_router.py"):
         assert name in found
     assert not [name for name in found if name.startswith(("tests/", "legacy/", "docs/"))]
