@@ -1282,7 +1282,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `tools/injection_benchmark.py` | 8 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/restriction_register.py` | 24 | - | This register's own tool. |
 | `tools/run_checks.py` | 2 | - | A development tool: runs every check, this register's among them. It does not run in the app. |
-| `ui/agent_panel.py` | 16 | - | The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01). |
+| `ui/agent_panel.py` | 23 | - | The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01). |
 | `ui/behavior_panel.py` | 13 | R-F03 | - |
 | `web_research_module.py` | 1 | R-D05 | - |
 
