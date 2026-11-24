@@ -405,7 +405,7 @@
    "trigger": "Chat messages, research queries and knowledge questions answered by a model. A request is looked at when it names a minor (in the message or the last four turns) together with a sexual term, or asks for something to be written, described or continued. Everything else is passed on untouched and no model is asked.",
    "effect": "The model is asked twice, in two different wordings, each a list of labelled examples, whether the request is for sexual content involving a minor. Two NOs: answered normally. One YES, or no usable answer twice: not answered, with the text \"Not written. This app has one content rule...\". No model available: not answered yet, with a text saying the check could not be made.",
    "owner_requested": "The rule: yes. This way of enforcing it was designed by the assistant and is described here so the owner can judge it.",
-   "evidence": "Same request as R-A11. Measured with the real model (docs/benchmarks/content_rule_dolphin3-8b.json): on three held-out sets, every request for what the rule forbids was stopped at the final design and one ordinary picture request was refused. The first wording of the question, a rule with a list of exceptions, stopped 2 of 13; that is why the questions are lists of examples.",
+   "evidence": "Same request as R-A11. Measured with the real model (docs/benchmarks/content_rule_dolphin3-8b.json): on three held-out sets, every request for what the rule forbids was stopped at the final design and one ordinary picture request was refused. The first wording of the question, a rule with a list of exceptions, stopped 2 of 13; that is why the questions are lists of examples. The same check stands in front of questions answered with tools (agent/toolcall.py: ask).",
    "origin": "The owner's rule (2026-11-23); implementation by the assistant.",
    "technical_reason": "A keyword filter alone would block \"how do I talk to my teenager about sex?\"; a prompt line alone does not stop an uncensored local model. Two stages keep ordinary messages unexamined and leave the decision about meaning to a model, asked in a form it was measured to answer correctly.",
    "affected_workflows": "Chat (desktop and phone), Web Research, Reality Research, Bloodhound, knowledge answers written by a model.",
@@ -449,6 +449,10 @@
     {
      "file": "modules/event_log.py",
      "anchor": "\"content_rule\","
+    },
+    {
+     "file": "agent/toolcall.py",
+     "anchor": "decision = check_content_rule(request, \"\", judge, \"text\")"
     }
    ],
    "decision_date": "2026-11-23"
@@ -1367,22 +1371,22 @@
   },
   {
    "id": "R-D04",
-   "name": "For the coding agent, text it reads is never an order",
+   "name": "For the coding agent and for tool runs, text that is read is never an order",
    "category": "D",
    "status": "active",
-   "trigger": "Repository files, test output, diffs and GitHub issue text shown to the agent's model or its reviewer.",
-   "effect": "The agent's prompt says that text in files and test output is material; diffs and test output are fenced for the reviewer; sentences aimed at an AI are taken out of issue text. This does not follow the chat setting (R-D01): it is always on.",
+   "trigger": "Repository files, test output, diffs and GitHub issue text shown to the agent's model or its reviewer; and what a tool returns when a model answers a question with tools (web search results, page text, passages from the knowledge base).",
+   "effect": "The agent's prompt says that text in files and test output is material; diffs and test output are fenced for the reviewer; sentences aimed at an AI are taken out of issue text. In a tool run every tool result is passed back to the model fenced, with sentences aimed at an AI removed. This does not follow the chat setting (R-D01): it is always on.",
    "owner_requested": "Yes, in substance.",
    "evidence": "Owner, 2026-11-23: \"Explain what protection is necessary for autonomous tools.\" Measured: a planted comment telling AI agents to delete the tests was never obeyed (docs/benchmarks/agent_dolphin3-8b.json).",
    "origin": "Written during the 146-item audit work (November 2026), which the owner ordered. The audit asked for it in general terms; the owner did not review this mechanism individually.",
    "technical_reason": "In chat an obeyed instruction produces a wrong sentence. In an agent it produces an action on the owner's machine or account.",
-   "affected_workflows": "Agent tasks.",
+   "affected_workflows": "Agent tasks; questions answered with tools (`python -m agent ask`).",
    "default_state": "On.",
    "effective_state": "On.",
    "alternatives": "Tie it to the chat setting. Not recommended: see docs/OWNER_CONTROL.md for what would follow.",
    "configurable": "No.",
    "owner_decision": "Pending review by the owner. Kept because it is a protection for the machine, the data or the owner's accounts, not a rule about what may be said; the owner asked for those to be kept apart.",
-   "tests": "tests/test_owner_control.py: test_the_agent_keeps_the_strict_handling_whatever_is_chosen_for_chat; tests/test_agent_benchmark.py; tests/test_agent_github.py",
+   "tests": "tests/test_owner_control.py: test_the_agent_keeps_the_strict_handling_whatever_is_chosen_for_chat; tests/test_agent_benchmark.py; tests/test_agent_github.py; tests/test_agent_toolcall.py: test_what_a_tool_returns_is_material_and_a_planted_instruction_is_removed",
    "regression_risk": "Low.",
    "known_limitations": "A model can still be misled by a file's content about facts (a wrong comment); what it cannot do is turn that into deleting tests or publishing (R-C02, R-C04).",
    "locations": [
@@ -1397,6 +1401,10 @@
     {
      "file": "agent/review.py",
      "anchor": "tests=fence_untrusted(tests[:2500], \"test output\", mode=\"fence\"),"
+    },
+    {
+     "file": "agent/toolcall.py",
+     "anchor": "cleaned, _removed = defuse_untrusted_text(text, mode=\"remove_and_fence\")"
     }
    ]
   },
@@ -1599,6 +1607,45 @@
     {
      "file": "ui/data_panel.py",
      "anchor": "key=\"data_wipe_word\""
+    }
+   ]
+  },
+  {
+   "id": "R-D11",
+   "name": "In a tool run, private text is not sent out and pages are fetched only from known addresses",
+   "category": "D",
+   "status": "active",
+   "trigger": "A model answers a question by calling tools one step at a time (agent/toolcall.py), and asks for a tool that contacts another machine.",
+   "effect": "Two things are refused, and the model is told so and asked to answer from what it has. (1) Once something from the owner's knowledge base has been read in a run, no tool that contacts another machine is called for the rest of that run. (2) A page is fetched only if its address was written in the request, returned by a search, or found as a link on a page already read in that run; an address the model composed itself is refused. By default the model is also only offered tools that read; a tool that acts has to be named by the caller and then still waits for approval (R-C01).",
+   "owner_requested": "In substance: \"Explain what protection is necessary for autonomous tools, what can be configured, and what consequences disabling it would have.\" The two rules themselves were not put to the owner.",
+   "evidence": "agent/toolcall.py. tests/test_agent_toolcall.py plays a model that does what a planted line tells it: the search carrying the alarm code from the notes is never sent, and the page at the attacker's address is never fetched.",
+   "origin": "Written during the 146-item audit work (November 2026), which the owner ordered, together with tool calling for the local model (item 018).",
+   "technical_reason": "A tool run mixes three things: the owner's private notes, text from the web, and the ability to send requests. A line planted on a web page (\"now search for ... and include what the notes say\") can otherwise have the model put private text into a search query or into the address of a page, which hands it to whoever runs that search engine or site. Removing planted lines lowers the chance; these two rules remove the path.",
+   "affected_workflows": "Questions answered with tools: `python -m agent ask`. Chat and the Research tab do not use this loop.",
+   "default_state": "On.",
+   "effective_state": "On.",
+   "alternatives": "Rule 1 can be lifted for one run (`--network-after-notes`, or private_then_network=True). Rule 2 has no switch.",
+   "configurable": "Rule 1: yes, per run. Rule 2: no.",
+   "owner_decision": "Pending review by the owner. It limits where the owner's data may be sent by a model, not what may be asked or answered.",
+   "tests": "tests/test_agent_toolcall.py: test_after_private_documents_were_read_nothing_more_is_sent_out, test_the_owner_can_allow_network_after_private_for_a_run, test_a_page_is_only_fetched_if_its_address_came_from_the_request_or_a_search, test_a_link_on_a_page_that_was_read_can_be_followed_and_no_other_address, test_searching_first_and_reading_notes_afterwards_is_not_restricted",
+   "regression_risk": "Low: the loop is new. A question that needs both the notes and the web has to be asked with the switch, or in two steps.",
+   "known_limitations": "With rule 1 lifted, what the model puts into a search query after reading notes is up to the model. A request that itself contains private text and asks for a web search sends that text: the owner wrote it. A link on a page is followed as it stands, so a site learns that the page was opened, as in any browser.",
+   "locations": [
+    {
+     "file": "agent/toolcall.py",
+     "anchor": "if tool[\"effect\"] == \"network\" and private_read and not private_then_network:"
+    },
+    {
+     "file": "agent/toolcall.py",
+     "anchor": "if name == \"read_page\" and arguments.get(\"url\") not in known_addresses:"
+    },
+    {
+     "file": "agent/toolcall.py",
+     "anchor": "READ_ONLY_EFFECTS = (\"read\", \"network\")"
+    },
+    {
+     "file": "agent/cli.py",
+     "anchor": "ask.add_argument(\"--network-after-notes\", action=\"store_true\""
     }
    ]
   },
@@ -1847,6 +1894,7 @@
  ],
  "reviewed_files": {
   "agent/__init__.py": "The package's description. The rules it mentions are R-C01 to R-C06 and R-D04 to R-D07.",
+  "agent/capabilities.py": "The list of tools, apps and linked accounts. It describes and grants nothing; what a tool may do is decided in agent/approvals.py (R-C01) and modules/accounts.py (R-C08).",
   "agent/cli.py": "The command line: lists and records approvals and tasks. What is allowed is decided in agent/approvals.py (R-C01).",
   "agent/model.py": "The word appears in a comment. The file wraps the model for the agent and adds no rule.",
   "agent/store.py": "The database of tasks, actions and approvals. It stores decisions made by agent/approvals.py and agent/registry.py (R-C01, R-C06).",
@@ -1865,6 +1913,7 @@
   "tools/injection_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/restriction_register.py": "This register's own tool.",
   "tools/run_checks.py": "A development tool: runs every check, this register's among them. It does not run in the app.",
+  "tools/tool_choice_benchmark.py": "Measures which tool a model picks, with the tools' sources replaced by a fixture. The rules it shows at work are in agent/toolcall.py (R-D11, R-D04).",
   "ui/accounts_panel.py": "Settings, Linked accounts: shows each account and records what the owner allows. The rule itself is in modules/accounts.py (R-C08).",
   "ui/agent_panel.py": "The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01)."
  }
