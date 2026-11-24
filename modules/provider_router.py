@@ -521,7 +521,7 @@ class ProviderRouter:
                 if requested:
                     return selected, f"Requested Ollama model '{requested}' is not installed; using '{selected}'."
                 return selected, ""
-            return "", "Ollama is running but no models are installed."
+            return "", "Ollama is running but no chat model is installed."
         if info.name in CLOUD_PROVIDERS:
             return _cloud_model(info.name, requested, info), ""
         if requested:

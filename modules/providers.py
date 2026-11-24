@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import importlib.util
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import requests
@@ -31,12 +31,36 @@ DEFAULT_OLLAMA_MODEL_PREFERENCES = (
 
 @dataclass
 class ProviderStatus:
-    """Current provider state shown in the Streamlit sidebar."""
+    """Current provider state shown in the Streamlit sidebar.
+
+    `models` holds only models that can write. A model that only turns text into vectors (used
+    for searching saved knowledge) is listed in `embedding_models`, so it is never offered or
+    picked as a chat model.
+    """
 
     available: bool
     message: str
     models: List[str]
     base_url: str
+    embedding_models: List[str] = field(default_factory=list)
+
+
+# How Ollama describes models that produce vectors, not text.
+EMBEDDING_FAMILIES = frozenset({"bert", "nomic-bert", "xlm-roberta", "roberta", "mpnet"})
+# For an Ollama too old to say what family a model is.
+EMBEDDING_NAME_HINTS = ("embed", "minilm", "bge-", "bge:", "-e5", "e5-", "gte-", "paraphrase-")
+
+
+def is_embedding_model(entry: dict) -> bool:
+    """True for an entry of Ollama's model list that cannot be used for chat."""
+
+    details = entry.get("details") or {}
+    families = {str(details.get("family") or "").lower(), *(str(item).lower() for item in details.get("families") or [])}
+    families.discard("")
+    if families:
+        return bool(families & EMBEDDING_FAMILIES)
+    name = str(entry.get("name") or "").lower()
+    return any(hint in name for hint in EMBEDDING_NAME_HINTS)
 
 
 def get_ollama_base_url() -> str:
@@ -92,22 +116,26 @@ def check_ollama_status(base_url: Optional[str] = None, timeout: float = 2.5) ->
         response = OLLAMA_SESSION.get(f"{resolved_url}/api/tags", timeout=timeout)
         response.raise_for_status()
         data = response.json()
-        models = [model.get("name", "") for model in data.get("models", [])]
-        models = rank_ollama_models([name for name in models if name])
+        entries = [entry for entry in data.get("models", []) if entry.get("name")]
+        embedding = [str(entry["name"]) for entry in entries if is_embedding_model(entry)]
+        models = rank_ollama_models([str(entry["name"]) for entry in entries if not is_embedding_model(entry)])
 
         if not models:
+            only = f" Only embedding models are installed ({', '.join(embedding)}); they cannot chat." if embedding else ""
             return ProviderStatus(
                 available=True,
-                message="Ollama is running, but no models are installed.",
+                message=f"Ollama is running, but no chat model is installed.{only}",
                 models=[],
                 base_url=resolved_url,
+                embedding_models=embedding,
             )
 
         return ProviderStatus(
             available=True,
-            message=f"Ollama is running with {len(models)} model(s).",
+            message=f"Ollama is running with {len(models)} chat model(s)." + (f" Also installed for search: {', '.join(embedding)}." if embedding else ""),
             models=models,
             base_url=resolved_url,
+            embedding_models=embedding,
         )
     except requests.RequestException:
         return ProviderStatus(
