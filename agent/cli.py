@@ -21,12 +21,20 @@
 
     python -m agent tools                    every capability, with what it can affect
     python -m agent sandbox                  what the operating system enforces here
+
+    python -m agent accounts                 linked accounts and what each may be used for
+    python -m agent accounts link github --allow read push [--expires 2027-03-01] [--from-variable NAME]
+                                             the token is asked for, or read from a variable; never typed as an argument
+    python -m agent accounts allow github pull_request   /   accounts withhold github push
+    python -m agent accounts unlink github   /   accounts check github
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
+import os
 import re
 import shlex
 import sys
@@ -42,6 +50,7 @@ from agent.jobs import JobQueue, Worker
 from agent.model import RouterModel
 from agent.store import AgentStore, StoreError
 from agent.workspace import WorkspaceError
+from modules import accounts
 
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)\s*(s|sec|m|min|h|hr|hour|hours|d|day|days)?$", re.IGNORECASE)
 
@@ -150,6 +159,18 @@ def main(argv: list[str] | None = None) -> int:
         job.add_parser(name).add_argument("job")
     schedule = sub.add_parser("schedule").add_subparsers(dest="action", required=True)
     schedule.add_parser("remove").add_argument("id")
+    linked = sub.add_parser("accounts").add_subparsers(dest="action")
+    link = linked.add_parser("link")
+    link.add_argument("service")
+    link.add_argument("--allow", nargs="*", default=[], metavar="PERMISSION")
+    link.add_argument("--expires", default="", help="YYYY-MM-DD")
+    link.add_argument("--from-variable", default="", help="read the credential from this environment variable instead of asking")
+    for name in ("allow", "withhold"):
+        change = linked.add_parser(name)
+        change.add_argument("service")
+        change.add_argument("permission")
+    for name in ("unlink", "check"):
+        linked.add_parser(name).add_argument("service")
     worker = sub.add_parser("worker")
     worker.add_argument("--capacity", type=int, default=2)
     worker.add_argument("--model", default="")
@@ -160,11 +181,50 @@ def main(argv: list[str] | None = None) -> int:
     queue = JobQueue(store)
     try:
         return _dispatch(args, store, queue)
-    except (StoreError, WorkspaceError, ValueError) as exc:
+    except (StoreError, WorkspaceError, ValueError, accounts.AccountError) as exc:
         print(f"Cannot do that: {exc}", file=sys.stderr)
         return 2
     finally:
         store.close()
+
+
+def _accounts(args: argparse.Namespace) -> int:
+    """Linked accounts from a terminal. A credential is never taken from the command line: it would stay in the shell's history."""
+
+    action = args.action
+    if action == "link":
+        if args.from_variable:
+            secret = os.environ.get(args.from_variable, "")
+            if not secret:
+                raise ValueError(f"The environment variable {args.from_variable} is empty or not set.")
+        else:
+            secret = getpass.getpass(f"Token or key for {args.service} (not shown): ")
+        entry = accounts.link(args.service, secret, permissions=args.allow, expires_at=f"{args.expires}T00:00:00+00:00" if args.expires else "")
+        print(f"{entry['name']} is linked and may be used for: {', '.join(entry['permissions']) or 'nothing yet'}. {entry['kept']}")
+    elif action in {"allow", "withhold"}:
+        entry = (accounts.grant if action == "allow" else accounts.withdraw)(args.service, args.permission)
+        print(f"{entry['name']} may now be used for: {', '.join(entry['permissions']) or 'nothing'}.")
+    elif action == "unlink":
+        outcome = accounts.unlink(args.service)
+        print(("Deleted from this machine. " if outcome["deleted_here"] else "Nothing was stored here. ") + ("The service confirmed that it cancelled it. " if outcome["cancelled_at_the_service"] else "") + outcome["still_to_do"])
+    elif action == "check":
+        if args.service != "github":
+            raise ValueError("Only GitHub can be asked about a token from here.")
+        answer = accounts.check_github()
+        print(f"GitHub accepts the token (account {answer['login']}, {'valid until ' + answer['expires_at'][:10] if answer['expires_at'] else 'no expiry date'})." if answer["accepted"] else f"GitHub does not accept the token (it answered {answer['status']}).")
+        return 0 if answer["accepted"] else 1
+    else:
+        for entry in accounts.accounts():
+            state = "not linked"
+            if entry["linked"]:
+                state = f"linked ({entry['how']}), may be used for: {', '.join(entry['permissions']) or 'nothing'}"
+                if entry["expires_at"]:
+                    state += f"; runs out {entry['expires_at'][:10]}" + (", renews itself" if entry["renews_itself"] else "")
+                if entry["problem"]:
+                    state += f"; {entry['problem']}"
+            print(f"{entry['service']:<13} {state}")
+        print(accounts.protection()[1])
+    return 0
 
 
 def _dispatch(args: argparse.Namespace, store: AgentStore, queue: JobQueue) -> int:
@@ -257,6 +317,8 @@ def _dispatch(args: argparse.Namespace, store: AgentStore, queue: JobQueue) -> i
     elif command == "sandbox":
         for key, value in sandbox.isolation_report().items():
             print(f"{key:<12} {value}")
+    elif command == "accounts":
+        return _accounts(args)
     elif command == "worker":
         worker = Worker(queue, default_handlers(queue, lambda: build_agent(store, args.model)), capacity=args.capacity)
         if args.once:

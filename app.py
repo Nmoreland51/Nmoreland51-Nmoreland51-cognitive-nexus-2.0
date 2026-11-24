@@ -66,6 +66,7 @@ from modules.web_research import search_sources_status
 from modules.reality_research_agent import CLAIM_CHECK_CAVEAT, ResearchRequest
 from modules.response_planner import RESPONSE_MODES
 from ui.agent_panel import render_agent_panel
+from ui.accounts_panel import render_accounts_panel
 from ui.behavior_panel import render_behavior_panel
 from ui.data_panel import render_data_panel, start_daily_snapshot
 from nexus_router import (
@@ -2284,6 +2285,8 @@ def render_settings_tab(settings: dict[str, Any]) -> None:
         after_save=clear_runtime_caches,
         read_only=is_demo_safe(settings),
     )
+    st.divider()
+    render_accounts_panel(read_only=is_demo_safe(settings))
     st.divider()
     st.subheader("Persona")
     st.caption("Name, voice and style. Like the behaviour text above, this is sent to the model as your instructions.")

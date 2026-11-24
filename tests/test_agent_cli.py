@@ -165,3 +165,36 @@ def test_a_bad_duration_is_refused():
 def test_the_module_can_be_run_as_a_program(tmp_path):
     done = subprocess.run([sys.executable, "-m", "agent", "--db", str(tmp_path / "agent.db"), "sandbox"], cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
     assert done.returncode == 0 and "environment" in done.stdout
+
+
+def test_accounts_are_linked_narrowed_and_unlinked_from_the_terminal(run, monkeypatch):
+    from modules import accounts
+
+    for described in accounts.SERVICES.values():
+        for name in described.variables:
+            monkeypatch.delenv(name, raising=False)
+    credential = "-".join(["terminal", "credential", "for", "tests"])
+    monkeypatch.setenv("CN_TEST_NEW_TOKEN", credential)
+
+    assert "github        not linked" in run("accounts")[1]
+    code, out, _err = run("accounts", "link", "github", "--allow", "read", "push", "--expires", "2031-03-01", "--from-variable", "CN_TEST_NEW_TOKEN")
+    assert code == 0 and "GitHub is linked and may be used for: push, read." in out and credential not in out
+    assert accounts.credential("github", "push") == credential
+    listed = run("accounts")[1]
+    assert "may be used for: push, read; runs out 2031-03-01" in listed and credential not in listed
+
+    assert "may now be used for: read." in run("accounts", "withhold", "github", "push")[1]
+    assert "may now be used for: pull_request, read." in run("accounts", "allow", "github", "pull_request")[1]
+    code, _out, err = run("accounts", "allow", "github", "admin")
+    assert code == 2 and "no permission named admin" in err
+
+    out = run("accounts", "unlink", "github")[1]
+    assert "Deleted from this machine." in out and "still valid at GitHub until you cancel it there" in out
+    assert "github        not linked" in run("accounts")[1]
+    code, _out, err = run("accounts", "link", "github", "--from-variable", "CN_TEST_NO_SUCH_VARIABLE")
+    assert code == 2 and "is empty or not set" in err
+
+
+def test_a_credential_cannot_be_given_as_an_argument(run):
+    with pytest.raises(SystemExit):  # there is no option for it: it would stay in the shell's history
+        run("accounts", "link", "github", "--token", "something")

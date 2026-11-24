@@ -206,6 +206,12 @@ PROTECTIONS: tuple[dict[str, str], ...] = (
         "can_change": "yes: agent_package_policy in the settings file (declared, any, off)",
     },
     {
+        "name": "Linked accounts: a credential is used only for what you ticked",
+        "what": "A stored token or key is handed to the app's own code for one named use at a time (for GitHub: read, push, pull request), and only if you allowed that use. The GitHub token is sent to GitHub and to no other host, whatever a repository's remote says.",
+        "why": "Linking an account should not mean the assistant may do everything the account can.",
+        "can_change": "yes: Settings, Linked accounts",
+    },
+    {
         "name": "Coding agent: text it reads is never an order",
         "what": "Text in repositories, issues, diffs and tool output is always treated as material for the agent, whatever is chosen for chat.",
         "why": "An agent acts on what it reads, so a line planted in a file would become an action on your machine or account.",
