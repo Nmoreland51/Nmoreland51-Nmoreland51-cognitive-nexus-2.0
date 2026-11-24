@@ -119,3 +119,108 @@ class UrlSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---- the connection goes to the address that was checked (DNS rebinding) -------------------------------
+
+import threading  # noqa: E402
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: E402
+
+import pytest  # noqa: E402
+
+from modules import url_safety  # noqa: E402
+
+
+class _Site(BaseHTTPRequestHandler):
+    """A stand-in for a public web server; it records the Host it was asked for."""
+
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        self.server.hosts.append(self.headers.get("Host"))
+        if self.path == "/start":
+            self.send_response(302)
+            self.send_header("Location", f"http://second.test:{self.server.server_address[1]}/final")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        body = b"hello"
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@pytest.fixture
+def rebinding(monkeypatch):
+    """A name server that gives a good address the first time a name is asked for and a private one ever after."""
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Site)
+    server.hosts = []
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    asked: list[str] = []
+    system = url_safety._system_getaddrinfo
+
+    def lookup(host, port, *args, **kwargs):
+        if isinstance(host, str) and host.endswith(".test"):
+            asked.append(host)
+            return system("127.0.0.1" if asked.count(host) == 1 else "10.9.9.9", port, *args, **kwargs)
+        return system(host, port, *args, **kwargs)
+
+    monkeypatch.setattr(url_safety, "_system_getaddrinfo", lookup)
+    # The stand-in on this machine plays the public server; the address handed out afterwards is private.
+    monkeypatch.setattr(url_safety, "_is_public_address", lambda address: address == "127.0.0.1")
+    monkeypatch.setenv("NO_PROXY", "*")
+    monkeypatch.delenv("ALLOW_PRIVATE_URL_FETCH", raising=False)
+    yield type("Rebinding", (), {"port": server.server_address[1], "hosts": server.hosts, "asked": asked})
+    server.shutdown()
+    server.server_close()
+
+
+def test_the_request_connects_to_the_address_that_was_checked(rebinding):
+    """Checked once, connected once, to the same address: the second answer of the name server is never used."""
+
+    response = url_safety.safe_get(f"http://rebind.test:{rebinding.port}/page", timeout=5)
+
+    assert response.status_code == 200 and response.text == "hello"
+    assert rebinding.hosts == [f"rebind.test:{rebinding.port}"]  # the site still sees the name it was asked for
+    assert rebinding.asked == ["rebind.test"]  # the name server was asked once; the connection did not ask it again
+
+
+def test_without_the_pin_the_same_name_server_would_have_sent_the_connection_elsewhere(rebinding):
+    """What the pin prevents, shown by taking it away: the lookup made to connect gets the private address."""
+
+    assert url_safety.public_addresses(f"http://rebind.test:{rebinding.port}/page") == ["127.0.0.1"]
+    second = socket.getaddrinfo("rebind.test", rebinding.port, type=socket.SOCK_STREAM)
+    assert {entry[4][0] for entry in second} == {"10.9.9.9"}
+
+
+def test_every_redirect_hop_is_checked_and_pinned_by_itself(rebinding):
+    response = url_safety.safe_get(f"http://rebind.test:{rebinding.port}/start", timeout=5)
+
+    assert response.status_code == 200 and response.url == f"http://second.test:{rebinding.port}/final"
+    assert rebinding.hosts == [f"rebind.test:{rebinding.port}", f"second.test:{rebinding.port}"]
+    assert rebinding.asked == ["rebind.test", "second.test"]
+
+
+def test_a_pin_holds_for_its_block_and_its_thread_only(monkeypatch):
+    system = url_safety._system_getaddrinfo
+    monkeypatch.setattr(url_safety, "_system_getaddrinfo", lambda host, port, *a, **k: system(host, port, *a, **k) if host[:1].isdigit() else [("from the name server", host)])
+    elsewhere = []
+
+    with url_safety.pinned("Example.ORG.", ["127.0.0.1"]):
+        mine = socket.getaddrinfo("example.org", 80, type=socket.SOCK_STREAM)
+        other = threading.Thread(target=lambda: elsewhere.append(socket.getaddrinfo("example.org", 80)))
+        other.start()
+        other.join()
+        with url_safety.pinned("example.org", ["127.0.0.2"]):
+            assert {entry[4][0] for entry in socket.getaddrinfo("example.org", 80, type=socket.SOCK_STREAM)} == {"127.0.0.2"}
+        assert {entry[4][0] for entry in socket.getaddrinfo("example.org", 80, type=socket.SOCK_STREAM)} == {"127.0.0.1"}  # the outer pin is back
+        assert socket.getaddrinfo("another.example", 80) == [("from the name server", "another.example")]  # only the pinned name
+
+    assert {entry[4][0] for entry in mine} == {"127.0.0.1"}
+    assert elsewhere == [[("from the name server", "example.org")]]  # another thread is not affected
+    assert socket.getaddrinfo("example.org", 80) == [("from the name server", "example.org")]  # and afterwards neither is this one
+    with url_safety.pinned("example.org", []):  # nothing was checked here (a proxy, or private fetching allowed): nothing is pinned
+        assert socket.getaddrinfo("example.org", 80) == [("from the name server", "example.org")]
