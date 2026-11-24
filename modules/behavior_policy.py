@@ -58,6 +58,13 @@ CONTENT_RULE_PICTURE_REPLY = (
     "Not drawn. This app does not make pictures that show anyone under 18 nude or undressed, whatever the scene.\n\n"
     "Reword the request without the nudity, or leave the child out of the picture."
 )
+# The model was asked and its answers could not be read. That is not a finding that the rule applies.
+CONTENT_RULE_UNCLEAR_REPLY = (
+    "Not answered yet. This message has to pass the app's one content check (no sexual content involving minors), "
+    "and the model that makes the check did not give a usable answer, so the check could not decide. This is not a "
+    "finding that your message breaks the rule. Send it again; if it keeps happening, the selected model may not suit "
+    "the check (Diagnostics shows the stage)."
+)
 # A message that needs the check is not answered until a model has made it.
 CONTENT_RULE_UNCHECKED_REPLY = (
     "Not answered yet. This message has to pass the app's one content check (no sexual content involving minors), "
@@ -356,6 +363,82 @@ _MINOR_AGES = (
 )
 _MINOR = re.compile(rf"\b(?:{_MINOR_WORDS})\b|{_MINOR_AGES}", re.IGNORECASE)
 
+# Said to rule minors out, not in: "no minors", "nobody under 18", "none of them is a child",
+# "without any minors". Only these filler words may stand between the negation and the term, so
+# "No, make her a child" is not read as a negation. Such phrases are taken out before the first
+# look; every other mention of a minor in the message still counts.
+_NEGATED_MINOR = re.compile(
+    r"\b(?:no|not|nobody|no\s*-?\s*one|none|neither|without|never)\b"
+    r"(?:\s+(?:of|the|them|these|those|characters?|people|persons?|participants?|one|here|involved|in|it|this|story|scene|is|are|was|were|be|being|any|a|an|real|actual|ever|involving|involved|featuring|including|depicting|with))"
+    r"{0,6}\s+(?:minors?|child(?:ren)?|kids?|underage|under-?aged|teens?|teenagers?|under\s*-?\s*(?:18|eighteen))\b",
+    re.IGNORECASE,
+)
+# Words that are often used for adults ("two college girls, both 22"). They count as a mention of a
+# minor unless the message states the people's ages and every one is 18 or over, or calls them adults.
+_ADULT_USABLE_WORDS = frozenset({"girl", "girls", "boy", "boys"})
+_STATED_AGE = re.compile(
+    r"\b(\d{1,3})\s*-?\s*(?:years?|yrs?|y/?o)\b"
+    r"|\b(?:aged?|ages)\s+(\d{1,3})(?:\s*(?:and|&|,)\s*(\d{1,3}))?"
+    r"|\(\s*(\d{1,3})\s*\)"
+    r"|,\s*(\d{1,3})\s*(?=[,.;)]|\s+(?:and|who|is)\b)"
+    r"|\bboth\s+(\d{1,3})\b",
+    re.IGNORECASE,
+)
+_ADULTS_STATED = re.compile(
+    r"\b(?:consenting\s+adults?|both\s+(?:are\s+)?adults|(?:all|everyone|everybody)\b[^.!?]{0,40}\b(?:adults?|over\s+18|18\s*\+)"
+    r"|adults?\s+only|in\s+(?:their|her|his)\s+(?:twenties|thirties|forties|fifties|sixties|seventies|[2-7]0s))\b",
+    re.IGNORECASE,
+)
+# A message that refers back to earlier turns. Only then do those turns count: "continue" after a
+# stopped request, "make her younger", "the same scene again".
+_REFERS_BACK = re.compile(
+    r"\b(?:continue|go\s+on|keep\s+going|carry\s+on|again|the\s+same|same\s+(?:story|scene|one|characters?|girl|boy)|"
+    r"rewrite|redo|another\s+(?:one|version|part)|next\s+(?:part|chapter|scene)|part\s+\d+|more\s+of\s+(?:this|that|it)|"
+    r"make\s+(?:her|him|them|it|the\s+\w+)|change\s+(?:her|his|their|the)\s+age|(?:her|his|their)\s+age|now\s+(?:she|he|they|make|have|let))\b",
+    re.IGNORECASE,
+)
+
+
+def refers_back(message: str) -> bool:
+    """True when a message continues or changes something said before, so earlier turns belong to it."""
+
+    text = str(message or "").strip()
+    return bool(_REFERS_BACK.search(text)) or len(text.split()) <= 4
+
+
+def settles_adults(message: str) -> bool:
+    """True when the message itself says who is involved and that they are adults.
+
+    Every age it states is 18 or over, or it calls them adults, or it says there are no minors.
+    """
+
+    text = str(message or "")
+    ages = [int(number) for match in _STATED_AGE.finditer(text) for number in match.groups() if number]
+    return bool((ages and min(ages) >= 18) or _ADULTS_STATED.search(text) or _NEGATED_MINOR.search(text))
+
+
+def history_counts(message: str, recent: str) -> bool:
+    """Whether earlier turns are read with a message.
+
+    They are, unless the message settles on its own that only adults are involved and does not refer
+    back. So "do it anyway" after a stopped request is read with it, while an adult request that
+    states the ages is not made suspect by an earlier question about someone's child.
+    """
+
+    return bool(recent and recent.strip()) and (refers_back(message) or not settles_adults(message))
+
+
+def _minor_mentions(text: str) -> tuple[str, ...]:
+    """Mentions of a minor that are not ruled out by the message itself."""
+
+    cleaned = _NEGATED_MINOR.sub(" ", text or "")
+    found = tuple(dict.fromkeys(match.group(0).lower() for match in _MINOR.finditer(cleaned)))
+    if found and set(found) <= _ADULT_USABLE_WORDS:
+        ages = [int(number) for match in _STATED_AGE.finditer(cleaned) for number in match.groups() if number]
+        if (ages and min(ages) >= 18) or _ADULTS_STATED.search(cleaned):
+            return ()
+    return found
+
 # Stage two. What works with a small local model was measured, not assumed: stating the rule with
 # its exceptions and asking "YES or NO" got 2 of 13 right (the model said NO to everything, even
 # while calling a request inappropriate). Labelled examples got 13 of 13. Two sets of examples in
@@ -496,6 +579,8 @@ class RuleDecision:
             return ""
         if self.stage == "judge_unavailable":
             return CONTENT_RULE_UNCHECKED_REPLY
+        if self.stage == "judge_unclear":
+            return CONTENT_RULE_UNCLEAR_REPLY
         return CONTENT_RULE_PICTURE_REPLY if self.kind == "image" else CONTENT_RULE_REPLY
 
     def to_dict(self) -> dict[str, Any]:
@@ -528,8 +613,10 @@ def rule_candidate(message: str, recent: str = "", kind: str = "text") -> tuple[
     if kind == "image":
         here_minor = found(_MINOR, message)
         return ((found(_SEXUAL, message) or ("a picture that names a minor",)), here_minor) if here_minor else ((), ())
-    window = f"{message or ''}\n{recent or ''}"
-    minor = found(_MINOR, window)
+    # Earlier turns belong to the request only when it refers back to them. Otherwise a question
+    # about a child earlier in the conversation would make an unrelated adult request look closer.
+    window = f"{message or ''}\n{recent or ''}" if history_counts(message, recent) else str(message or "")
+    minor = _minor_mentions(window)
     if not minor:
         return (), ()
     reason = found(_SEXUAL, window) or found(_CREATIVE, message)
@@ -543,6 +630,7 @@ def rule_fingerprint() -> str:
 
     parts = (
         _SEXUAL.pattern, _MINOR.pattern, _CREATIVE.pattern, _UNDRESSED.pattern,
+        _NEGATED_MINOR.pattern, _STATED_AGE.pattern, _ADULTS_STATED.pattern, _REFERS_BACK.pattern,
         JUDGE_EXAMPLES_A, JUDGE_EXAMPLES_B, IMAGE_EXAMPLES_A, IMAGE_EXAMPLES_B, IMAGE_CLOTHED_QUESTION,
     )  # fmt: skip
     return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()[:16]
@@ -574,7 +662,7 @@ def judge_questions(message: str, recent: str = "", kind: str = "text") -> list[
             (IMAGE_EXAMPLES_B.format(request=request), "no", "yes"),
             (IMAGE_CLOTHED_QUESTION.format(request=request), "clothed", "unclothed"),
         ]
-    earlier = _as_one_line(recent.strip()[-900:], 900) if recent.strip() else ""
+    earlier = _as_one_line(recent.strip()[-900:], 900) if history_counts(message, recent) else ""
     if earlier:
         request = f"(earlier in the conversation: {earlier}) {request}"
     return [(JUDGE_EXAMPLES_A.format(request=request), "no", "yes"), (JUDGE_EXAMPLES_B.format(request=request), "no", "yes")]
@@ -588,6 +676,11 @@ def read_judgement(answer: str, accepted: tuple[str, ...] = ("yes", "no")) -> st
     """
 
     words = re.findall(r"[a-z]+", (answer or "").lower())
+    # The examples are labelled "Label: YES", and with earlier turns in the question the model
+    # sometimes answers in that form. Measured on 2026-11-23: "Label: NO" twice, read as no answer,
+    # and the owner's adult request was stopped as "unclear". A leading label word is skipped.
+    while words and words[0] in {"label", "answer", "verdict", "request", "message", "picture"} and len(words) > 1:
+        words = words[1:]
     if not words:
         return ""
     first = words[0]
