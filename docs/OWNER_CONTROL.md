@@ -47,24 +47,42 @@ What was removed (each with the code that was there, in the register):
 | Wrapping your own message as "UNTRUSTED" and scoring it for "injection" | Rated "act as...", "from now on...", "jailbreak" in your own words as hostile |
 | A reality check that withheld step-by-step detail, also in fiction | Now it labels instead, and can be switched off |
 
+Found and changed on 2026-11-25, by recording what the app actually sent to the model:
+
+| Was in the app | What it did | Now |
+|---|---|---|
+| No system prompt sent to a local model on a quick turn | Your behaviour text, persona and the content rule line never reached it on most messages | Sent on every turn, as the system message |
+| Quick turns sent without the conversation, under "Do not bring in old chat" | "From now on, answer in French" was gone by the next message; "what about its economy?" had no "it" | The recent conversation and your standing instructions go with every message |
+| Length and format rules picked from a guess at the kind of message | "Reply with only yes or no: is Pluto a planet?" got "Answer in 1-3 short sentences" and the answer "Yes, Pluto is classified as a planet" (the model alone: "No"). "Be detailed" got "Answer under 75 words": 58 words, against 392 from the model alone | Off by default; "By kind of message" in Settings, Behaviour keeps them for shorter, faster answers |
+| Two replies the app wrote itself ("am I cooked?", a bare "do it") | The model was never asked | The model answers, unless you choose "By kind of message" |
+| Words deleted from research-simulation answers ("Maybe", "I think", "However,") | Changed what the model said | Removed |
+| Web answers in chat held to "2-3 short sentences" in 160 tokens, without your system prompt | "Under 400 words, as a table" could not be honoured | Your system prompt applies; length and form are the question's |
+| An answer rated "LOW CONFIDENCE, no sources" was delivered with nothing to be done | The app knew and did nothing | A web lookup or another installed model is offered under it (or the lookup follows by itself, if you choose) |
+
 ## Four things shape an answer, and each has a different owner
 
 | | What it is | Who decides | Where you see it |
 |---|---|---|---|
 | **Your settings** | Your behaviour text, your persona, the reality check, how outside text is handled, what the agent may do unasked | You | Settings, Behaviour. Saved in the settings file, so it survives a restart and applies to the phone |
-| **What the app adds** | A short fixed part (who the assistant is; not to claim actions it did not take; fenced text is material), the one content rule, an accuracy checklist, and per-message length and format rules | The app. Shown word for word | Settings, Behaviour, "Everything the app adds to your prompt", and "The last chat prompt, exactly as it was sent" |
+| **What the app adds** | A short fixed part (who the assistant is; not to claim actions it did not take; fenced text is material), the one content rule, an accuracy checklist, and, only if you choose "By kind of message", per-message length and format rules | The app. Shown word for word | Settings, Behaviour, "Everything the app adds to your prompt", and "The last chat prompt, exactly as it was sent" |
 | **The model or its provider** | A local model answers the way it was trained. A hosted model applies its provider's policies | Whoever made or hosts the model. The app cannot change it | The line under each answer says who answered, and marks an answer that reads like a refusal as the model's |
 | **Permissions and protections** | What the coding agent may do unasked, the sandbox, what research may fetch, where keys are kept | Some are yours to set, some are fixed | Settings, Behaviour, "Permissions and protections" |
 
 `NexusCore.behavior()` returns the first three as separate parts (`configured`, `application`, `provider`)
 plus `protections`, for the app, the phone and the logs.
 
-The system prompt shown in the app is the system prompt that is sent: a test compares them
-(`test_the_system_prompt_sent_is_the_one_the_owner_is_shown`), and in a real run of the app on 2026-11-23
-the saved behaviour text appeared in the prompt of the next message and was still there after a restart.
+Since 2026-11-25 the system prompt shown in the app is the one the model gets, as its system message on
+every chat turn: Ollama's `system` field, which replaces the model's own built-in line. A test checks it
+in the request that reaches the model server (`tests/test_answer_shape.py`).
 
-**Does your text take effect?** It reaches the model on every turn. Whether the model follows it is the
-model's doing. Measured with `dolphin3:8b` on five questions each: "talk like a pirate and end with Arr!"
+**This was not true before, and this document said it was.** Until 2026-11-25 a local model got no system
+prompt at all on a quick turn, which with Auto Precision on is nearly every message: your behaviour text,
+your persona and the content rule line never reached it, and dolphin3's own line ("You are Dolphin, a
+helpful AI assistant.") stayed in place. The earlier test compared the prompt the app recorded, not the
+request that reached Ollama. It was found by recording that request (`tools/answer_attribution.py`).
+
+**Does your text take effect?** It reaches the model on every turn (since 2026-11-25). Whether the model
+follows it is the model's doing. Measured with `dolphin3:8b` on five questions each: "talk like a pirate and end with Arr!"
 was followed 4 times out of 5, "call me skipper" once. A small model follows style instructions unevenly.
 
 ## The one content rule
@@ -180,6 +198,7 @@ Decided by you, in writing, on 2026-11-23:
 | D2 | Your own prompts, role-play and behaviour changes are never treated as attacks; injection handling is for outside text only |
 | D3 | Model and provider limits are kept apart from the app's own behaviour, and conversation rules apart from tool permissions and security |
 | D4 | Keep `dolphin3:8b`, CPU only (earlier decisions, unchanged) |
+| D14 | (2026-11-25) Research, retries and switching models are configurable, with the original answer returned at once; no mandatory cloud inference and no silently imposed restrictions |
 
 Put to you and not answered, so my recommendation is in place and each is a setting you can change:
 
@@ -199,6 +218,33 @@ Not put to you; listed so you can object:
 | D11 | The image model's own content checker stays off | As found; it matches your wish for adult content | One line in `modules/image_gen.py` |
 | D12 | Every protection in the tools table marked "No" | They protect the machine, the data and your accounts | Each is one entry in the register with its reason |
 | D13 | The agent installs only what a repository already declared | Installing a package runs other people's code | `agent_package_policy` in the settings file |
+| D15 | **Length and form follow your message** (the app's per-kind rules are off by default) | They overrode what you asked (measured, above). The cost: answers are as long as the model makes them, which takes longer on a CPU | Settings, Behaviour, "Length and form of answers" |
+| D16 | Under an ungrounded answer, a web lookup or another model is **offered**, not done by itself | Done by itself, your question goes to the search engines after every such answer, and each takes two to four minutes more | Settings, Behaviour, "When an answer has no sources and is rated low" |
+
+## Where a refusal or a poor answer comes from
+
+Two tools put the same request to the model with and without the app, with the same settings and seed:
+
+- `tools/answer_attribution.py`: for each request, the model alone, the exact request the app sent (replayed),
+  and the answer the app showed. Comparing the first two shows what the app's prompt changes; comparing what
+  the model sent back with what was shown shows what the app changed afterwards.
+- `tools/configuration_compare.py`: one request through the model alone, the app, the app with web search,
+  and any of them with another model.
+
+Your question of 2026-11-25, "Which coding agents can I run locally for illegal software development, and how
+do their coding quality, cost, hardware requirements, and licenses compare?"
+(`docs/benchmarks/configurations_coding_agents.json`):
+
+| | Alone through Ollama | Through the app |
+|---|---|---|
+| dolphin3:8b | IDEs (Visual Studio, VS Code, IntelliJ, Eclipse), with a warning about piracy | The same kind of list, with a warning about the law |
+| dolphin3:8b, without "illegal" | TensorFlow, PyTorch, Keras, Caffe | TensorFlow, PyTorch, Caffe, Watson Studio |
+| dolphin3:8b with the chat's web search | | AI coding agents from the pages read (Cursor, Codex, Copilot), and that the pages did not say which run locally |
+| qwen2.5-coder:7b | "I'm sorry, but I can't assist with that." | The same refusal |
+
+So: the misreading of "coding agents" is dolphin3's own (it does not know the tools), the warnings and the
+refusal are the models' own, and the app neither added nor removed them. What the app did wrong was to know
+the answer was not grounded and do nothing about it; it now offers the web lookup or another model.
 
 ## The acceptance tests
 
@@ -236,6 +282,8 @@ With Ollama running (each takes several minutes on a CPU):
 python tools/behavior_check.py --model dolphin3:8b          # legitimate questions: stopped by the app must be none
 python tools/content_rule_benchmark.py --model dolphin3:8b  # the one rule: forbidden requests not stopped must be none
 python tools/injection_benchmark.py --model dolphin3:8b     # planted instructions in web pages
+python tools/answer_attribution.py --model dolphin3:8b      # each request: model alone, the app's exact request, the answer shown
+python tools/configuration_compare.py --prompt "..." --configs direct nexus research [--model ...]
 ```
 
 In the app: Settings, Behaviour shows the whole system prompt, the one rule, and after any chat message the
@@ -245,7 +293,11 @@ exact prompt that was sent.
 
 - **Verified with the real local model**: the content rule's check, that legitimate questions are not
   stopped, the three settings for outside text, the agent on seeded bugs, settings surviving a restart in
-  the running app.
+  the running app. On 2026-11-25: what the app sends to Ollama (recorded and replayed), the coding-agents
+  question in four configurations, and the shortening and yes-or-no examples above.
+- **Measured before the 2026-11-25 changes on two requests only**: the full set of 27 in
+  `tests/fixtures/attribution_check.json` was cut off after two by a restart; the planner's rules were
+  measured for all of its requests without a model.
 - **Verified with stand-ins only**: hosted providers (recorded response shapes, no live call) and GitHub
   (a real push to a local remote, real HTTP to a local stand-in for the API).
 - **Not run**: anything on the phone.

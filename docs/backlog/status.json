@@ -761,9 +761,9 @@
  },
  "130": {
   "commits": "be4bb0a",
-  "evidence": "docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. The audit ledger is the backlog, and the project dashboard (item 140) shows its sections as milestones with their progress. No GitHub issues or milestones exist: creating them would publish on the owner's repository.",
-  "needs": "The owner's go-ahead to create GitHub milestones (one per audit section) and issues on the repository; they are public there.",
-  "status": "PARTIAL"
+  "evidence": "GitHub has seven milestones, M1 to M7 (Owner-controlled behavior; Real workflows and model verification; Owner documentation and restrictions; Integration review; Coding agent and persistent jobs; Android, performance and release; Independent 146-item verification), each holding one 'acceptance evidence' issue (#2 to #8). They were made from the owner's account on 2026-11-23, not by this work, and were read through GitHub's public API on 2026-11-25. Earlier versions of this entry said no milestones or issues existed: that was never checked, and it was wrong. docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done and .github/CODEOWNERS names the owner. The project dashboard (item 140) shows the audit's sections, not yet the GitHub milestones.",
+  "status": "COMPLETE",
+  "tests": "Read on 2026-11-25 through GitHub's public API (the repository's milestones and issues, all states): seven milestones, M1 to M7, and issues #2 to #8, one in each. The decision record, definition of done and code owners file are in the repository; the ledger check confirms each item has its evidence."
  },
  "131": {
   "commits": "dc1662f",

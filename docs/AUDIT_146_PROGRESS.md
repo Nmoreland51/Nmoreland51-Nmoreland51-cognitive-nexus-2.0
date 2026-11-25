@@ -8,8 +8,8 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 79 |
-| PARTIAL | 51 |
+| COMPLETE | 80 |
+| PARTIAL | 50 |
 | MISSING | 15 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
@@ -25,7 +25,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
 | 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
 | 9. Security, privacy and data integrity (P0) | 7 | 6 | 0 | 0 |
-| 10. Code quality, tests, delivery, and maintenance (P0) | 7 | 7 | 2 | 0 |
+| 10. Code quality, tests, delivery, and maintenance (P0) | 8 | 6 | 2 | 0 |
 | 11. Usability, transparency, and long-term polish (P2) | 1 | 6 | 4 | 0 |
 
 Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
@@ -113,7 +113,6 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **126** (PARTIAL): An OpenAI or Anthropic key for the cloud half.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
-- **130** (PARTIAL): The owner's go-ahead to create GitHub milestones (one per audit section) and issues on the repository; they are public there.
 - **134** (MISSING): Code-signing certificates and the Android signing keys (repository secrets).
 - **135** (PARTIAL): Owner approval to tag and publish a release.
 - **136** (MISSING): Owner decision: is the default product an everyday assistant, a research workbench, a software agent, or selectable modes?
@@ -1497,13 +1496,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Commits:** 9899eb8, ce2c584, be4bb0a
 - **Needs:** Owner approval to change the repository's branch protection settings.
 
-### 130 · P0 · recommended · PARTIAL
+### 130 · P0 · recommended · COMPLETE
 
 > Write a current architectural decision record, code owners, issues/milestones and definition of done.
 
-- **Evidence:** docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. The audit ledger is the backlog, and the project dashboard (item 140) shows its sections as milestones with their progress. No GitHub issues or milestones exist: creating them would publish on the owner's repository.
+- **Evidence:** GitHub has seven milestones, M1 to M7 (Owner-controlled behavior; Real workflows and model verification; Owner documentation and restrictions; Integration review; Coding agent and persistent jobs; Android, performance and release; Independent 146-item verification), each holding one 'acceptance evidence' issue (#2 to #8). They were made from the owner's account on 2026-11-23, not by this work, and were read through GitHub's public API on 2026-11-25. Earlier versions of this entry said no milestones or issues existed: that was never checked, and it was wrong. docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done and .github/CODEOWNERS names the owner. The project dashboard (item 140) shows the audit's sections, not yet the GitHub milestones.
+- **Tests:** Read on 2026-11-25 through GitHub's public API (the repository's milestones and issues, all states): seven milestones, M1 to M7, and issues #2 to #8, one in each. The decision record, definition of done and code owners file are in the repository; the ledger check confirms each item has its evidence.
 - **Commits:** be4bb0a
-- **Needs:** The owner's go-ahead to create GitHub milestones (one per audit section) and issues on the repository; they are public there.
 
 ### 131 · P0 · observed · COMPLETE
 
