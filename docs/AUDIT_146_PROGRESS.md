@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 78 |
+| COMPLETE | 79 |
 | PARTIAL | 51 |
-| MISSING | 16 |
+| MISSING | 15 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -26,7 +26,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 8. Performance and local hardware (P1) | 6 | 5 | 0 | 0 |
 | 9. Security, privacy and data integrity (P0) | 7 | 6 | 0 | 0 |
 | 10. Code quality, tests, delivery, and maintenance (P0) | 7 | 7 | 2 | 0 |
-| 11. Usability, transparency, and long-term polish (P2) | 0 | 6 | 5 | 0 |
+| 11. Usability, transparency, and long-term polish (P2) | 1 | 6 | 4 | 0 |
 
 Owner-control requirement (Priority 0, cuts across the items above): 30 complete, 9 partial, 0 missing, 0 not applicable of 39. See the section after *Items that need the owner*.
 
@@ -74,6 +74,7 @@ Updated at the end of each work batch; see the newest entry at the bottom.
 - 2026-11-24, resuming the 146 items on branch audit/remaining-items (stacked on quality/corrective-phase, whose pull request the owner has to open: the in-app form never reached GitHub). Heavy work (098, 105): modules/heavy_work.py makes one picture at a time across processes, makes room in memory before the local pipeline loads (the chat model is taken out of Ollama's memory when the picture would not fit beside it; setting picture_memory), keeps chat from loading the model beside a picture, and stops a picture at its time limit; the agent's job queue is bounded (agent/jobs.py QUEUE_LIMITS). Measured with tools/picture_memory_check.py (docs/benchmarks/picture_memory.json); the peak varies by about 1.4 GB between runs, so the higher figure is used. Register entry R-D12. Ledger corrections from code that already existed: 109 (the agent's permissioned tools and sandbox) and 118 (approvals, now with the exact arguments and the branch's changes shown). Next: 104 and 101 with tools/app_profile.py (the app's own time and its HTTP requests per rerun, stand-in model), then 030 and 028 (research claims by meaning), then the security documents (114, 110, 117), then 120 and 121 guided by the profile.
 - 2026-11-24, later: profiling (104, 101) found that on Windows every new connection to "localhost" waits 2.05 s for an IPv6 attempt (Ollama listens on IPv4 only), and that the measuring tools opened one per call: the published CN-QA-007 comparison and the speed benchmark's first-word times were about 2 s off. Corrected on quality/corrective-phase (aab9c45, CN-QA-007 back to partial there) and merged here; here local servers are 127.0.0.1 (modules/local_address.py), streamed answers keep their connection, ComfyUI's status and Ollama's model list are cached, and the app's share of the first word is +0.5 to +0.8 s (CN-QA-007 complete here). Lesson: time anything against a local server only on a kept-open connection to 127.0.0.1, or the 2 s lands in the figure. 028: modules/claim_map.py maps answer sentences to pages by rules; its held-out set (tests/fixtures/claim_map_cases.json) has now been seen, so a change to the rules needs a new held-out set before a figure is quoted. Next: 030 (one rumour on many sites), then 114, 110, 117, then 120 and 121 with tools/app_profile.py before and after.
 - 2026-11-24, item 030 (8363502): a story retold in other words counts once (modules/retellings.py, all-minilm, threshold measured by tools/retelling_benchmark.py; its held-out pairs have now been seen). Lesson: the claim check had only been measured on labelled passages; the first real pages showed a well-known myth called LIKELY TRUE, because debunking pages open by stating the myth. Check claim-check changes on real pages too: tools/claim_check_real_pages.py fetch once, judge every version on the same pages (pages stay in data/benchmark_pages/, not committed). Its held-out claims have now been seen: write a new set before quoting a figure for changed rules. Next: 110, then 120 and 121 with tools/app_profile.py before and after, 048, 140.
+- 2026-11-24, later: 110 (976955d: modules/redaction.py on the log file, event log, answer checks and picture metadata), 120 (ae3f7ef: every tab in its own ui/ module; app.py 152 lines), 121 partly (423bd6e: NexusCore built from five service classes; stream_chat_response is still one 800-line method), 048 (f96afec: agent/project_memory.py) and 140 (6ebdec3: the project dashboard in the Agent tab, with the audit's sections as milestones). Lessons: moving code by script and then checking every definition is identical as a syntax tree made two large refactors safe; tests that patch a module's names must follow the code (patch where the name is looked up). GitHub milestones and issues (item 130) need the owner's go-ahead: they are public. Next: 121 (split stream_chat_response by route), 137, 143, the owner's decisions listed in the report.
 
 ## Items that need the owner
 
@@ -112,6 +113,7 @@ Hardware, credentials, paid services or approval that this work could not supply
 - **126** (PARTIAL): An OpenAI or Anthropic key for the cloud half.
 - **128** (MISSING): A physical Android phone (or an emulator image plus a JDK); neither exists on the development machine.
 - **129** (PARTIAL): Owner approval to change the repository's branch protection settings.
+- **130** (PARTIAL): The owner's go-ahead to create GitHub milestones (one per audit section) and issues on the repository; they are public there.
 - **134** (MISSING): Code-signing certificates and the Android signing keys (repository secrets).
 - **135** (PARTIAL): Owner approval to tag and publish a release.
 - **136** (MISSING): Owner decision: is the default product an everyday assistant, a research workbench, a software agent, or selectable modes?
@@ -1499,8 +1501,9 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 
 > Write a current architectural decision record, code owners, issues/milestones and definition of done.
 
-- **Evidence:** docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. Issues and milestones are not set up; the audit ledger currently serves as the backlog.
+- **Evidence:** docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. The audit ledger is the backlog, and the project dashboard (item 140) shows its sections as milestones with their progress. No GitHub issues or milestones exist: creating them would publish on the owner's repository.
 - **Commits:** be4bb0a
+- **Needs:** The owner's go-ahead to create GitHub milestones (one per audit section) and issues on the repository; they are public there.
 
 ### 131 · P0 · observed · COMPLETE
 
@@ -1572,11 +1575,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Evidence:** The Research tab and the markdown report list supporting and contradicting passages with links.
 - **Commits:** 1eb0e4a
 
-### 140 · P2 · recommended · MISSING
+### 140 · P2 · recommended · COMPLETE
 
 > Provide a project dashboard for active bugs, build state, agent progress, time estimates and recent GitHub changes.
 
-- **Evidence:** No project dashboard.
+- **Evidence:** A project dashboard at the top of the Agent tab (ui/dashboard_panel.py, modules/project_dashboard.py): milestones (one per section of the 146-item audit, with complete, partial and missing counts from the ledger), build state (the last test runs the agent recorded, and GitHub's workflow runs and latest commits for the branch, looked up only while a switch is on), active bugs (known bugs in the project memory and the agent's failed, handed-back or blocked tasks), agent progress (tasks by status; attempts and minutes used of what each open task is allowed), a time estimate (the median time of the project's finished tasks, labelled as such) and recent changes (the branch's newest commits). Tried for real against this repository on GitHub. In demo-safe mode it shows no path and looks nothing up.
+- **Tests:** tests/test_project_dashboard.py (GitHub played by a stand-in; the milestones checked against the ledger), tests/test_agent_panel.py.
+- **Commits:** 6ebdec3
 
 ### 141 · P2 · recommended · PARTIAL
 

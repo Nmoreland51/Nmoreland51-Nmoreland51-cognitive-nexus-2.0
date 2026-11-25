@@ -761,7 +761,8 @@
  },
  "130": {
   "commits": "be4bb0a",
-  "evidence": "docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. Issues and milestones are not set up; the audit ledger currently serves as the backlog.",
+  "evidence": "docs/adr/0001-local-first-engine.md records the architecture decisions, docs/DEFINITION_OF_DONE.md defines done, and .github/CODEOWNERS names the owner. The audit ledger is the backlog, and the project dashboard (item 140) shows its sections as milestones with their progress. No GitHub issues or milestones exist: creating them would publish on the owner's repository.",
+  "needs": "The owner's go-ahead to create GitHub milestones (one per audit section) and issues on the repository; they are public there.",
   "status": "PARTIAL"
  },
  "131": {
@@ -814,8 +815,10 @@
   "status": "PARTIAL"
  },
  "140": {
-  "evidence": "No project dashboard.",
-  "status": "MISSING"
+  "commits": "6ebdec3",
+  "evidence": "A project dashboard at the top of the Agent tab (ui/dashboard_panel.py, modules/project_dashboard.py): milestones (one per section of the 146-item audit, with complete, partial and missing counts from the ledger), build state (the last test runs the agent recorded, and GitHub's workflow runs and latest commits for the branch, looked up only while a switch is on), active bugs (known bugs in the project memory and the agent's failed, handed-back or blocked tasks), agent progress (tasks by status; attempts and minutes used of what each open task is allowed), a time estimate (the median time of the project's finished tasks, labelled as such) and recent changes (the branch's newest commits). Tried for real against this repository on GitHub. In demo-safe mode it shows no path and looks nothing up.",
+  "status": "COMPLETE",
+  "tests": "tests/test_project_dashboard.py (GitHub played by a stand-in; the milestones checked against the ledger), tests/test_agent_panel.py."
  },
  "141": {
   "commits": "34d7d67",
