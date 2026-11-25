@@ -1403,6 +1403,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/nexus_config.py` | 2 | R-A14, R-B03, R-C01, R-C07, R-D01, R-D08, R-E01, R-F05 | - |
 | `modules/nexus_core.py` | 28 | R-A04, R-A05, R-A12, R-A18, R-D08, R-E01 | - |
 | `modules/profile_store.py` | 1 | - | A comment about error handling when forgetting a fact. |
+| `modules/project_dashboard.py` | 3 | - | What the project dashboard shows: milestones from the audit ledger, task counts by status (including 'blocked' and 'waiting for approval'), bugs, test results, commits and GitHub's workflow runs. It reads and shows; it decides nothing (approvals are R-C01). |
 | `modules/provider_router.py` | 4 | R-B02, R-B03, R-C08, R-D09 | - |
 | `modules/reality_research_agent.py` | 11 | R-D01, R-E03 | - |
 | `modules/research_plan.py` | 2 | - | Decides which search results the model reads: results about another meaning of the question's words are dropped (lawn care for a question about cannabis), either because they carry words of that other meaning or because the model, asked about a result that names nothing of the meant sense, says it is about something else. A quality control on sources, not a limit on what may be asked or answered: the meaning is the asker's, and the judge is told only what the person means. The setting plan_web_search switches the planning and the judging off. |
@@ -1427,6 +1428,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `ui/agent_panel.py` | 23 | - | The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01). |
 | `ui/answer_diagnostics.py` | 3 | - | Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none. |
 | `ui/behavior_panel.py` | 13 | R-F03 | - |
+| `ui/dashboard_panel.py` | 1 | - | The project dashboard in the Agent tab: shows what modules/project_dashboard.py reads, including how many actions wait for approval. It decides nothing. |
 | `ui/diagnostics_tab.py` | 2 | - | The Diagnostics tab: shows the last content-rule check and counts of problems by kind. It shows decisions made elsewhere (R-A12); it makes none. |
 | `ui/images_tab.py` | 3 | - | The Image Generation tab: when the core stops a picture under the one content rule, it shows the rule's reply. The rule and its check are elsewhere (R-A11, R-A12); this decides nothing. |
 | `ui/knowledge_tabs.py` | 2 | - | The Files / Knowledge, Memory and Tools tabs: when the core stops a request under the one content rule, they show the rule's reply. The rule and its check are elsewhere (R-A11, R-A12). |

@@ -19,6 +19,8 @@ from agent.capabilities import catalogue
 from agent.coder import CodingAgent, changes_this_app, describe
 from agent.jobs import JobQueue, Worker
 from agent.store import AgentStore, StoreError, Task
+from modules.project_status import PROJECT_ROOT
+from ui.dashboard_panel import render_project_dashboard
 from ui.project_memory_panel import render_project_memory
 from agent.workspace import WorkspaceError
 
@@ -179,6 +181,7 @@ def render_agent_panel(
     notice = st.session_state.pop(NOTICE_KEY, "")
     if notice:
         st.success(notice)
+    render_project_dashboard(store, PROJECT_ROOT, read_only=read_only)
 
     tasks = store.list_tasks()
     approvals = store.approvals()
