@@ -8,9 +8,9 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 
 | Status | Items |
 |---|---|
-| COMPLETE | 77 |
+| COMPLETE | 78 |
 | PARTIAL | 51 |
-| MISSING | 17 |
+| MISSING | 16 |
 | NOT APPLICABLE | 1 |
 | **Total** | **146** |
 
@@ -19,7 +19,7 @@ A status is **COMPLETE** only when a real implementation exists and was verified
 | 1. Fix the foundations and release confusion (P0) | 4 | 5 | 1 | 0 |
 | 2. Make core AI chat genuinely reliable (P1) | 6 | 7 | 0 | 0 |
 | 3. Fix reality-first reasoning, fact checking, and research (P0) | 14 | 1 | 0 | 0 |
-| 4. Give memory and knowledge real durability and accuracy (P1) | 12 | 1 | 1 | 0 |
+| 4. Give memory and knowledge real durability and accuracy (P1) | 13 | 1 | 0 | 0 |
 | 5. Build the autonomous software engineer you actually want (P1) | 13 | 4 | 0 | 0 |
 | 6. Make external actions and automation useful (P1) | 8 | 3 | 0 | 0 |
 | 7. Make Android and desktop work together (P1) | 0 | 6 | 8 | 1 |
@@ -829,11 +829,13 @@ The register of every restriction and behaviour-affecting mechanism is `docs/OWN
 - **Tests:** tests/test_profile_store.py (replacement, remember also, expiry, forgetting, vague requests, adaptive memory); tests/test_backup.py::test_forgetting_a_fact_removes_it_from_snapshots_too.
 - **Commits:** 0de33c3, 3bbc845, e70c99c
 
-### 048 · P1 · recommended · MISSING
+### 048 · P1 · recommended · COMPLETE
 
 > Offer meaningful project-specific memory for repository state, objectives, bugs, tests and decisions.
 
-- **Evidence:** No project-specific memory (repository state, objectives, bugs, decisions) exists.
+- **Evidence:** agent/project_memory.py keeps, for each project, the objectives, decisions and known bugs the owner writes (Agent tab or python -m agent memory) and the last result of each acceptance command and the repository's state (branch, last commit, uncommitted files), which the coding agent records on the untouched code and after its change. The agent is shown what is known before every attempt, the owner's notes marked as such; without notes its prompt is unchanged. Notes are closed, not deleted, and persist in the agent's database. Limits: it covers the coding agent's projects; chat does not read it.
+- **Tests:** tests/test_project_memory.py (a whole task run with a scripted model on a real repository, the command line, the Agent tab panel).
+- **Commits:** f96afec
 
 ### 049 · P1 · observed · COMPLETE
 

@@ -276,8 +276,10 @@
   "tests": "tests/test_profile_store.py (replacement, remember also, expiry, forgetting, vague requests, adaptive memory); tests/test_backup.py::test_forgetting_a_fact_removes_it_from_snapshots_too."
  },
  "048": {
-  "evidence": "No project-specific memory (repository state, objectives, bugs, decisions) exists.",
-  "status": "MISSING"
+  "commits": "f96afec",
+  "evidence": "agent/project_memory.py keeps, for each project, the objectives, decisions and known bugs the owner writes (Agent tab or python -m agent memory) and the last result of each acceptance command and the repository's state (branch, last commit, uncommitted files), which the coding agent records on the untouched code and after its change. The agent is shown what is known before every attempt, the owner's notes marked as such; without notes its prompt is unchanged. Notes are closed, not deleted, and persist in the agent's database. Limits: it covers the coding agent's projects; chat does not read it.",
+  "status": "COMPLETE",
+  "tests": "tests/test_project_memory.py (a whole task run with a scripted model on a real repository, the command line, the Agent tab panel)."
  },
  "049": {
   "commits": "ba0708c",
