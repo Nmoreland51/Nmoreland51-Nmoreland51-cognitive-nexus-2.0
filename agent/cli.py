@@ -13,6 +13,10 @@
     python -m agent approve REQUEST --by NAME     /     python -m agent deny REQUEST --by NAME --note "why"
     python -m agent history [--task TASK]    every action taken: inputs, approval, result
 
+    python -m agent memory [list --repo PATH]     what is known about each project: objectives, decisions, bugs, tests, state
+    python -m agent memory add --repo PATH --kind bug "The importer drops the last row"     (objective, decision or bug)
+    python -m agent memory close NOTE --by NAME [--note "fixed in 3f2a1c"]
+
     python -m agent queue TASK               hand a task to the background worker
     python -m agent remind "Call the dentist" --in 2h
     python -m agent watch https://example.org/releases --every 6h [--phrase "version 3"]
@@ -151,6 +155,17 @@ def main(argv: list[str] | None = None) -> int:
     history = sub.add_parser("history")
     history.add_argument("--task", default=None)
     history.add_argument("--limit", type=int, default=30)
+
+    memory = sub.add_parser("memory").add_subparsers(dest="action")
+    memory.add_parser("list").add_argument("--repo", default="")
+    write = memory.add_parser("add")
+    write.add_argument("--repo", required=True)
+    write.add_argument("--kind", required=True, choices=("objective", "decision", "bug"))
+    write.add_argument("text")
+    shut = memory.add_parser("close")
+    shut.add_argument("note_id")
+    shut.add_argument("--by", required=True)
+    shut.add_argument("--note", default="")
 
     queue_task = sub.add_parser("queue")
     queue_task.add_argument("task")
@@ -347,6 +362,23 @@ def _dispatch(args: argparse.Namespace, store: AgentStore, queue: JobQueue) -> i
             checked = "" if action_row["verified"] is None else (" checked" if action_row["verified"] else " CHECK FAILED")
             shown = json.dumps(action_row["arguments"], ensure_ascii=False)
             print(f"{action_row['started_at'][11:19]}  {action_row['status']:<11} {action_row['effect']:<8} {action_row['tool']:<18} {shown[:70]}{checked}")
+    elif command == "memory":
+        from agent.project_memory import ProjectMemory
+
+        memory = ProjectMemory(store)
+        if args.action == "add":
+            print(memory.add(args.repo, args.kind, args.text, source="owner")["id"])
+        elif args.action == "close":
+            closed = memory.close(args.note_id, by=args.by, note=args.note)
+            print(f"closed: {closed['text'][:100]}")
+        else:
+            projects = [args.repo] if getattr(args, "repo", "") else memory.projects()
+            if not projects:
+                print("Nothing is known about any project yet.")
+            for project in projects:
+                print(project)
+                for row in memory.notes(project):
+                    print(f"  {row['id']}  {row['kind']:<9} {row['text'][:110]}  ({row['source']}, {row['updated_at'][:10]})")
     elif command == "queue":
         store.get_task(args.task)
         print(queue.enqueue("coding_task", {"task_id": args.task}, timeout_seconds=7200, max_attempts=2, idempotency_key=f"coding:{args.task}:{store.get_task(args.task).updated_at}"))

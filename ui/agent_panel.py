@@ -19,6 +19,7 @@ from agent.capabilities import catalogue
 from agent.coder import CodingAgent, changes_this_app, describe
 from agent.jobs import JobQueue, Worker
 from agent.store import AgentStore, StoreError, Task
+from ui.project_memory_panel import render_project_memory
 from agent.workspace import WorkspaceError
 
 NOTICE_KEY = "agent_notice"
@@ -302,6 +303,8 @@ def render_agent_panel(
                 st.write(f"{str(event['at'])[11:19]}  {event['message']}")
             for attempt in chosen.state.get("attempts", []):
                 st.caption(f"Attempt {attempt['number']}: {(attempt.get('problem') or 'worked').splitlines()[0][:200]}")
+
+    render_project_memory(store, read_only=read_only, repos=[task.repo for task in tasks])
 
     # ---- everything it did ---------------------------------------------------------------------------
     with st.expander("Every action taken (inputs, approval, result)", expanded=False):
