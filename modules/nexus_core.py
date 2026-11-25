@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import re
 import time
@@ -453,6 +454,12 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
         else:
             classifier = self._make_classifier(settings, router_config)
             route_decision = route_message(user_message, router_config, classifier=classifier)
+        if settings.get("_force_web_research"):
+            # The owner asked for this question to be looked up on the web (modules/answer_resolution.py).
+            route_decision = dataclasses.replace(
+                route_decision, category="web_research", requires_web_search=True, search_query=route_decision.search_query or user_message
+            )
+            settings = {**settings, "use_web_for_chat": True}
         bloodhound_query = detect_bloodhound_query(user_message)
         reality_research_query = detect_reality_research_query(user_message)
         timings["routing_ms"] = _elapsed_ms(route_start)
@@ -736,12 +743,27 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             model_answered = False
             sentence_sources: list[dict[str, Any]] = []
             if gathered["has_sources"]:
-                prompt = build_summary_prompt(query, results, gathered["scraped_pages"], brief=True, meaning=search_plan.topic if search_plan.source == "model" else "")
+                # A web answer in chat is still a chat answer: the owner's system prompt applies, and with
+                # "Length and form follow your message" (the default) its length and form are the question's,
+                # not "2-3 short sentences" in 160 tokens.
+                follow_request = plan.diagnostics.get("answer_shape") != "kind"
+                prompt = build_summary_prompt(
+                    query,
+                    results,
+                    gathered["scraped_pages"],
+                    brief=True,
+                    meaning=search_plan.topic if search_plan.source == "model" else "",
+                    follow_request=follow_request,
+                )
+                summary_options = dict(BRIEF_WEB_SUMMARY_OPTIONS)
+                if follow_request:
+                    summary_options.update(num_predict=int(plan.max_tokens), num_ctx=max(int(summary_options["num_ctx"]), int(plan.num_ctx)))
                 request = self._provider_request(
                     prompt,
                     settings,
-                    BRIEF_WEB_SUMMARY_OPTIONS,
+                    summary_options,
                     model=settings.get("selected_model") or "",
+                    system_prompt=chat_system_prompt(profile, {**self.config, **settings}),
                 )
                 chunks: list[str] = []
                 for chunk in self.provider_router.stream(request):

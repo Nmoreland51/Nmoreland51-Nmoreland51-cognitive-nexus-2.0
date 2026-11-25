@@ -107,6 +107,7 @@ REALITY_CHECK_MODES = ("label", "withhold", "off")
 UNTRUSTED_CONTENT_MODES = ("remove_and_fence", "fence", "off")
 AGENT_AUTONOMY_MODES = ("publishing_asks", "publish_drafts", "ask_first", "read_only")
 ANSWER_SHAPE_MODES = ("request", "kind")
+UNGROUNDED_MODES = ("offer", "research", "off")
 
 # Where a chat reply stops when the owner's message and settings ask for no particular length. Only
 # so that a runaway answer ends; the line under an answer says when it was reached.
@@ -141,6 +142,11 @@ ANSWER_SHAPE_HELP = {
     "request": "Length and form follow your message, and every message is sent with the recent conversation and your standing instructions. The app adds no length or format rule of its own; a length or form you ask for is the only one. A reply stops at 2,048 tokens so that a runaway answer ends, and the line under the answer says when that happened.",
     "kind": "The app sorts each message by kind (small talk, quick fact, explanation, plan, code) and adds a length and format rule and a reply limit for it: shorter, faster answers. It can misread a request: 'Be detailed' got 'Answer under 75 words', and 'reply with only yes or no' got 'Answer in 1-3 short sentences'. A quick message is sent without the earlier conversation, so 'from now on...' instructions and follow-ups such as 'what about its economy?' are lost, and small-talk replies have stock phrases taken out. This was the behaviour before 25 November 2026.",
 }
+UNGROUNDED_HELP = {
+    "offer": "The answer is shown at once. When it used no sources and the app rates it low or speculative, two choices appear under it: look the question up on the web and answer again, or have another installed model answer it. Nothing is sent anywhere unless you choose the web lookup.",
+    "research": "As above, and the web lookup follows by itself: the question is sent to the search engines and answered again from what they return, after the first answer. Slower; your question leaves this machine.",
+    "off": "The answer is shown with its confidence note and nothing more (the behaviour before 25 November 2026).",
+}
 AGENT_AUTONOMY_HELP = {
     "publishing_asks": "Edits, tests and commits on the task's own branch, and reading from GitHub, run unasked. Pushing a branch or opening a pull request asks once.",
     "publish_drafts": "As above, and the agent also pushes the task's own branch and opens draft pull requests unasked. It still never merges, force-pushes or touches another branch.",
@@ -158,6 +164,7 @@ class BehaviorPolicy:
     untrusted_content: str = "remove_and_fence"
     agent_autonomy: str = "publishing_asks"
     answer_shape: str = "request"
+    ungrounded_answers: str = "offer"
 
     def to_settings(self) -> dict[str, str]:
         return asdict(self)
@@ -182,6 +189,7 @@ def policy_from(settings: dict[str, Any] | None) -> BehaviorPolicy:
         untrusted_content=_choice(settings.get("untrusted_content"), UNTRUSTED_CONTENT_MODES, "remove_and_fence"),
         agent_autonomy=_choice(settings.get("agent_autonomy"), AGENT_AUTONOMY_MODES, "publishing_asks"),
         answer_shape=_choice(settings.get("answer_shape"), ANSWER_SHAPE_MODES, "request"),
+        ungrounded_answers=_choice(settings.get("ungrounded_answers"), UNGROUNDED_MODES, "offer"),
     )
 
 
@@ -199,6 +207,7 @@ def apply_behavior_changes(config: dict[str, Any], changes: dict[str, Any]) -> d
         ("untrusted_content", UNTRUSTED_CONTENT_MODES),
         ("agent_autonomy", AGENT_AUTONOMY_MODES),
         ("answer_shape", ANSWER_SHAPE_MODES),
+        ("ungrounded_answers", UNGROUNDED_MODES),
     ):
         if key in changes and changes[key] is not None:
             value = str(changes[key]).strip().lower()
@@ -842,6 +851,7 @@ def effective_policy(
             "system_prompt_sent_as": SYSTEM_PROMPT_DELIVERY,
             "per_turn_additions": list(PER_TURN_ADDITIONS),
             "answer_shape": ANSWER_SHAPE_HELP[policy.answer_shape],
+            "ungrounded_answers": UNGROUNDED_HELP[policy.ungrounded_answers],
             "content_rules": [CONTENT_RULE],
             "content_rule_check": (
                 "Applied to chat messages, knowledge questions, research queries and image prompts. A request that "

@@ -95,6 +95,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # Length and form of answers: "request" (follow the owner's message; the default since 2026-11-25)
     # or "kind" (the app's per-kind rules, as before). modules/behavior_policy.py says what each does.
     "answer_shape": "request",
+    # An answer with no sources that the app rates low: "offer" a web lookup or another model under it
+    # (default), look it up on the web by itself ("research"), or "off". modules/answer_resolution.py.
+    "ungrounded_answers": "offer",
     "untrusted_content": "remove_and_fence",
     "agent_autonomy": "publishing_asks",
     # What the coding agent may install for a task: "declared" (the repository's own requirement

@@ -19,7 +19,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | B. Model and provider | 5 | 1 | 0 |
 | C. Tools and side effects | 8 | 1 | 0 |
 | D. Integrity and security | 10 | 2 | 1 |
-| E. Quality controls | 2 | 1 | 0 |
+| E. Quality controls | 3 | 1 | 0 |
 | F. Interface defaults and labels | 4 | 0 | 1 |
 
 | ID | Mechanism | Status | Default | Can the owner change it? | Owner decision |
@@ -77,6 +77,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | R-E01 | The reality check | changed | label | Yes | Pending: the owner was asked on 2026-11-23 and did not answer, so the recommended option is the default and it is a setting |
 | R-E02 | Notes about grounding and checks after an answer | active | On; notes hidden in ordinary conversation | Yes | Pending review by the owner |
 | R-E03 | Research answers come from the sources and say when the sources do not have the answer | active | On | No setting | Pending review by the owner |
+| R-E04 | An ungrounded answer can be looked up on the web or asked again | active | Offer | Yes | Decided by the owner on 2026-11-25: "Retries and model switching should be configurable, with the option to return the original answer immediately." The default (offer, not by itself) is the assistant's choice, because the web lookup sends the question off this machine |
 | R-F01 | Auto Precision disables the manual answer controls | active | Auto Precision on | Yes | Pending review by the owner |
 | R-F02 | Demo Safe Mode | active | Off | Yes | Pending review by the owner |
 | R-F03 | The Behaviour panel | active | Shown | It is where the configuring is done | Decided by the owner on 2026-11-23: "The one categorical content restriction I am explicitly requesting is sexual content involving minors |
@@ -338,17 +339,17 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A12 · The check behind the one content rule (text) · active
 
-- **Where:** `modules/behavior_policy.py:719` — `def check_content_rule(`
-- **Where:** `modules/behavior_policy.py:338` — `_SEXUAL = re.compile(`
-- **Where:** `modules/behavior_policy.py:350` — `_CREATIVE = re.compile(`
-- **Where:** `modules/behavior_policy.py:472` — `JUDGE_EXAMPLES_A = """`
-- **Where:** `modules/behavior_policy.py:493` — `JUDGE_EXAMPLES_B = """`
-- **Where:** `modules/nexus_core.py:356` — `rule = self.content_rule(user_message, settings, recent_turns)`
-- **Where:** `modules/nexus_core.py:307` — `def _require_content_rule(`
+- **Where:** `modules/behavior_policy.py:728` — `def check_content_rule(`
+- **Where:** `modules/behavior_policy.py:347` — `_SEXUAL = re.compile(`
+- **Where:** `modules/behavior_policy.py:359` — `_CREATIVE = re.compile(`
+- **Where:** `modules/behavior_policy.py:481` — `JUDGE_EXAMPLES_A = """`
+- **Where:** `modules/behavior_policy.py:502` — `JUDGE_EXAMPLES_B = """`
+- **Where:** `modules/nexus_core.py:357` — `rule = self.content_rule(user_message, settings, recent_turns)`
+- **Where:** `modules/nexus_core.py:308` — `def _require_content_rule(`
 - **Where:** `modules/event_log.py:33` — `"content_rule",`
 - **Where:** `agent/toolcall.py:285` — `decision = check_content_rule(request, "", judge, "text")`
-- **Where:** `modules/behavior_policy.py:446` — `def history_counts(message: str, recent: str) -> bool:`
-- **Where:** `modules/behavior_policy.py:396` — `_NEGATED_MINOR = re.compile(`
+- **Where:** `modules/behavior_policy.py:455` — `def history_counts(message: str, recent: str) -> bool:`
+- **Where:** `modules/behavior_policy.py:405` — `_NEGATED_MINOR = re.compile(`
 - **Trigger:** Chat messages, research queries and knowledge questions answered by a model. A request is looked at when it names a minor (in the message or the last four turns) together with a sexual term, or asks for something to be written, described or continued. Everything else is passed on untouched and no model is asked.
 - **Effect:** The model is asked twice, in two different wordings, each a list of labelled examples, whether the request is for sexual content involving a minor. Two NOs: answered normally. One YES, or no usable answer twice: not answered, with the text "Not written. This app has one content rule...". No model available: not answered yet, with a text saying the check could not be made. Since 2026-11-23 (corrective phase, CN-QA-001): phrases that rule minors out ("no minors", "nobody under 18") are taken out before the first look; "girl(s)" and "boy(s)" do not count when every stated age is 18 or over or the people are called adults; earlier turns are read unless the message itself settles that only adults are involved and does not refer back; a judge answer of the form "Label: NO" is read; and an answer that cannot be read gets a reply saying the check could not decide, not that the rule was broken.
 - **Owner requested:** The rule: yes. This way of enforcing it was designed by the assistant and is described here so the owner can judge it.
@@ -391,7 +392,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-A14 · The owner's behaviour text · active
 
 - **Where:** `modules/behavior_policy.py:35` — `DEFAULT_BEHAVIOR_TEXT = (`
-- **Where:** `modules/behavior_policy.py:188` — `def apply_behavior_changes(`
+- **Where:** `modules/behavior_policy.py:196` — `def apply_behavior_changes(`
 - **Where:** `modules/nexus_config.py:93` — `"behavior_text": None,`
 - **Trigger:** Every chat turn.
 - **Effect:** The owner's own text is sent as instructions under "How the owner wants you to answer". The default says to answer directly and completely, without warnings or moral commentary, and to treat adult subjects, drugs, money and politics like any other subject.
@@ -413,7 +414,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A15 · The persona · active
 
-- **Where:** `modules/behavior_policy.py:291` — `def persona_lines(`
+- **Where:** `modules/behavior_policy.py:300` — `def persona_lines(`
 - **Where:** `modules/chat_profile.py:54` — `humor_notes: str = (`
 - **Trigger:** Every chat turn, when the persona is enabled.
 - **Effect:** Name, voice, tone, style, humour and extra instructions are sent as "Persona, as the owner set it". The default humour note says to skip jokes for grief, legal, medical or urgent matters unless invited.
@@ -480,9 +481,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A18 · Replies the app writes itself, without a model · changed
 
-- **Where:** `modules/nexus_core.py:150` — `def _direct_response_instruction(`
-- **Where:** `modules/nexus_core.py:607` — `"provider": "local_followup_clarification",`
-- **Where:** `modules/nexus_core.py:571` — `"provider": "local_fast_path",`
+- **Where:** `modules/nexus_core.py:151` — `def _direct_response_instruction(`
+- **Where:** `modules/nexus_core.py:614` — `"provider": "local_followup_clarification",`
+- **Where:** `modules/nexus_core.py:578` — `"provider": "local_fast_path",`
 - **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). Only with 'Length and form of answers: By kind of message': (d) a bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?"; (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
 - **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject. Since 2026-11-25 (d) and (e) go to the model unless the owner chose 'By kind of message'.
 - **Owner requested:** No.
@@ -547,9 +548,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A21 · Pictures: no minor shown nude or undressed, whatever the scene · active
 
-- **Where:** `modules/behavior_policy.py:357` — `_UNDRESSED = re.compile(`
-- **Where:** `modules/behavior_policy.py:567` — `IMAGE_CLOTHED_QUESTION = """`
-- **Where:** `modules/behavior_policy.py:519` — `IMAGE_EXAMPLES_A = """`
+- **Where:** `modules/behavior_policy.py:366` — `_UNDRESSED = re.compile(`
+- **Where:** `modules/behavior_policy.py:576` — `IMAGE_CLOTHED_QUESTION = """`
+- **Where:** `modules/behavior_policy.py:528` — `IMAGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:57` — `CONTENT_RULE_PICTURE_REPLY = (`
 - **Where:** `modules/core_pictures.py:29` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
 - **Where:** `modules/core_pictures.py:52` — `self._require_content_rule(str(prompt or ""), kind="image")`
@@ -596,7 +597,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B01 · A local model answers the way it was trained · active
 
-- **Where:** `modules/behavior_policy.py:789` — `def provider_constraints(`
+- **Where:** `modules/behavior_policy.py:798` — `def provider_constraints(`
 - **Trigger:** Any request answered by an Ollama or local Transformers model.
 - **Effect:** The app passes the request on unchanged. Whether the model declines something is the model's own behaviour; dolphin3:8b, the model in use, is trained to decline little.
 - **Owner requested:** The owner chose the model (dolphin3:8b) and asked that model limits be kept apart from the app's.
@@ -618,7 +619,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-B02 · A hosted model applies its provider's policies · active
 
 - **Where:** `modules/provider_router.py:992` — `if stop_reason == "refusal":`
-- **Where:** `modules/behavior_policy.py:798` — `applies its own usage policies and may refuse or cut off an answer`
+- **Where:** `modules/behavior_policy.py:807` — `applies its own usage policies and may refuse or cut off an answer`
 - **Trigger:** A request sent to OpenAI or Anthropic (a cloud provider first in the order, or cloud fallback allowed).
 - **Effect:** The provider may refuse or cut off an answer. When Anthropic's API reports a refusal the app shows "Claude declined this request (category: ...)" as the reason; it never writes an answer of its own in its place.
 - **Owner requested:** The owner asked that this be disclosed, not hidden.
@@ -661,8 +662,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B04 · The answer line says who answered and who declined · active
 
-- **Where:** `modules/behavior_policy.py:780` — `def looks_like_model_refusal(`
-- **Where:** `modules/answer_meta.py:179` — `This reads like a refusal by`
+- **Where:** `modules/behavior_policy.py:789` — `def looks_like_model_refusal(`
+- **Where:** `modules/answer_meta.py:183` — `This reads like a refusal by`
 - **Trigger:** Every answer.
 - **Effect:** Under each answer: which provider and model wrote it, whether the prompt left the machine, and, when the answer opens like a refusal, "This reads like a refusal by the model; the app passed your message on unchanged and did not block it." The answer itself is never changed.
 - **Owner requested:** Yes.
@@ -729,7 +730,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `agent/approvals.py:36` — `AUTONOMY: dict[str, tuple[str, tuple[str, ...]]] = {`
 - **Where:** `agent/approvals.py:62` — `def decide(self, tool: str, effect: str) -> str:`
-- **Where:** `modules/nexus_config.py:99` — `"agent_autonomy": "publishing_asks",`
+- **Where:** `modules/nexus_config.py:102` — `"agent_autonomy": "publishing_asks",`
 - **Trigger:** Every action the agent takes. Each tool declares what it can affect: read, write, execute, network, external.
 - **Effect:** Default "publishing_asks": reading, editing, running tests, committing to the task's own branch and reading from GitHub run without asking; pushing a branch or opening a pull request asks once. Other choices: publish drafts unasked, ask before every change, read only.
 - **Owner requested:** Yes: autonomous development with owner-controlled permissions, and no unnecessary approval gates.
@@ -859,7 +860,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `agent/environment.py:118` — `def changed_since_start(`
 - **Where:** `agent/coder.py:809` — `def install_what_is_missing(`
 - **Where:** `agent/tools.py:328` — `Packages are installed with setup_environment`
-- **Where:** `modules/nexus_config.py:102` — `"agent_package_policy": "declared",`
+- **Where:** `modules/nexus_config.py:105` — `"agent_package_policy": "declared",`
 - **Trigger:** A task's tests cannot import a package, or the agent calls setup_environment.
 - **Effect:** The task gets a virtual environment of its own, created and used inside the sandbox. Under the default policy ('declared') only the repository's own requirement files are installed, as they were before the task started, from the package index only, and only as ready-built packages, so nothing from a package runs in order to install it. A requirement file the task itself wrote or changed is refused, as are lines pointing at URLs, version-control repositories or other indexes. With the policy 'off' nothing is installed and the task is handed to a person with the name of the missing package.
 - **Owner requested:** In general terms: the audit asked for a package installation policy (item 058). The default was not put to the owner.
@@ -939,7 +940,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/web_research.py:627` — `def _fenced_context(`
 - **Where:** `modules/reality_research_agent.py:859` — `fence_untrusted(cleaned, 'passage')`
 - **Where:** `search/bloodhound_search.py:568` — `fence_untrusted("\n\n".join(cleaned), "search results")`
-- **Where:** `modules/nexus_config.py:98` — `"untrusted_content": "remove_and_fence",`
+- **Where:** `modules/nexus_config.py:101` — `"untrusted_content": "remove_and_fence",`
 - **Trigger:** Web pages, search results, passages from uploaded and saved documents, and earlier answers that were built from them, when they are put into a prompt.
 - **Effect:** The text is placed between [BEGIN UNTRUSTED ...] and [END UNTRUSTED ...] markers that it cannot forge, with a note that it is information and not instruction. In the default setting, sentences in web pages that address an AI ("ignore previous instructions") are also left out, and the count is shown.
 - **Owner requested:** Yes, for outside text.
@@ -1097,14 +1098,14 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-D08 · Keys and tokens stay out of the settings file, the logs, picture metadata, backups and the sandbox · active
 
-- **Where:** `modules/nexus_config.py:224` — `if "key" not in key.lower()`
+- **Where:** `modules/nexus_config.py:227` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
-- **Where:** `modules/nexus_core.py:304` — `record_event("content_rule",`
+- **Where:** `modules/nexus_core.py:305` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
 - **Where:** `modules/data_stores.py:233` — `holds_credentials=True,`
 - **Where:** `modules/accounts.py:145` — `def _dpapi(data: bytes, *, protect: bool) -> bytes:`
 - **Where:** `modules/redaction.py:90` — `def redact(text: str) -> str:`
-- **Where:** `modules/nexus_core.py:109` — `redaction.install_log_redaction()`
+- **Where:** `modules/nexus_core.py:110` — `redaction.install_log_redaction()`
 - **Trigger:** Saving settings; linking an account; publishing to GitHub; recording events; writing the log file or the answer checks; saving a picture's metadata or a ComfyUI picture; making a backup, an export or a snapshot.
 - **Effect:** Settings whose name contains "key" are not written to the settings file. A credential the owner chooses to store goes into one file only, the linked accounts (R-C08): encrypted for the Windows user on Windows, readable by the user only elsewhere, never shown again after it was typed. That file is left out of every backup, export and snapshot, cannot be asked for by name, and an archive that contains one is refused on restore. The GitHub token travels in Git's environment configuration and is not written to any record of an action. Events about accounts record the service and the permissions, never the secret. The event recorded when the content rule stops a request holds the stage, not the message. Everything the app writes to its log file, its event log and its answer checks, and the metadata saved with pictures (including the workflow text a ComfyUI picture carries inside it), passes through modules/redaction.py first: text shaped like a key or token, a password or key in a web address, the value of an Authorization header, and this machine's own secrets (secret-named environment variables, and credentials the app has read this session) become "[redacted: ...]". The owner's chat, the prompts sent to the model and the answers are not changed (item 110).
 - **Owner requested:** Yes (owner's test OC-T15).
@@ -1234,7 +1235,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
-- **Where:** `modules/nexus_core.py:490` — `reality_check != "off"`
+- **Where:** `modules/nexus_core.py:497` — `reality_check != "off"`
 - **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
@@ -1275,7 +1276,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-E03 · Research answers come from the sources and say when the sources do not have the answer · active
 
-- **Where:** `modules/web_research.py:754` — `The web results do not say`
+- **Where:** `modules/web_research.py:757` — `The web results do not say`
 - **Where:** `modules/reality_research_agent.py:880` — `def apply_second_opinion(`
 - **Trigger:** Web research, research reports, claim checks.
 - **Effect:** The prompts tell the model to use only the supplied sources, to cite them, and to begin with "The web results do not say" when they do not contain the answer. Links that were not among the results are flagged. A claim check labels each passage as supporting, contradicting or unclear.
@@ -1292,6 +1293,28 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Tests:** tests/test_research_hardening.py, tests/test_research_benchmark.py, tests/test_claim_check_evidence.py, tests/test_stance_benchmark.py
 - **Regression risk:** Low.
 - **Known limitations:** Measured: on questions the pages did not answer, the model said so 1 time in 3.
+- **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
+
+### R-E04 · An ungrounded answer can be looked up on the web or asked again · active
+
+- **Where:** `modules/answer_resolution.py:23` — `def is_ungrounded(`
+- **Where:** `ui/chat_tab.py:263` — `def _offer_resolution(`
+- **Trigger:** A model's chat answer that used no sources and that the reality audit rates LOW CONFIDENCE or SPECULATIVE.
+- **Effect:** The answer is shown at once and is not changed. With 'Offer' (the default) two choices appear under it: look the question up on the web and answer again, or have another installed chat model answer it. With 'Look it up on the web by itself' the web lookup follows on its own. The second answer is a new message, and the line under it says how it was made.
+- **Owner requested:** Yes, in substance: on 2026-11-25 the owner asked for research, a retry or another model when confidence is low, configurable, with the original answer returned at once and nothing imposed.
+- **Evidence:** modules/answer_resolution.py, ui/chat_tab.py. The owner's question about local coding agents: dolphin3:8b listed IDEs or ML frameworks; with the web search it named AI coding agents (docs/benchmarks/configurations_coding_agents.json).
+- **Origin:** Added by the assistant on 2026-11-25 at the owner's request.
+- **Technical reason:** A small local model does not know what it does not know; the app can tell when an answer is not grounded, and the web or another model may know.
+- **Affected workflows:** Desktop chat.
+- **Default:** Offer.
+- **Effective now:** Offer.
+- **Alternatives:** 'Look it up on the web by itself' (slower; the question goes to the search engines after every such answer), or 'Nothing'.
+- **Can the owner change it?:** Yes. Settings, Behaviour, 'When an answer has no sources and is rated low' (Offer / By itself / Nothing).
+- **Owner decision:** Decided by the owner on 2026-11-25: "Retries and model switching should be configurable, with the option to return the original answer immediately." The default (offer, not by itself) is the assistant's choice, because the web lookup sends the question off this machine.
+- **Decision date:** 2026-11-25
+- **Tests:** tests/test_answer_resolution.py
+- **Regression risk:** Low: nothing is changed or held back; a choice is added under some answers.
+- **Known limitations:** The rating comes from the reality audit, which judges whether an answer is grounded, not whether it is right: a wrong answer rated high gets no offer, and a right one rated low gets one. The web lookup is only as good as the search engines, which sometimes block or rate-limit automated searches. A phone answer gets no offer yet.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
 
@@ -1339,7 +1362,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F03 · The Behaviour panel · active
 
-- **Where:** `ui/behavior_panel.py:84` — `def render_behavior_panel(`
+- **Where:** `ui/behavior_panel.py:89` — `def render_behavior_panel(`
 - **Where:** `ui/settings_tab.py:28` — `render_behavior_panel(`
 - **Trigger:** Settings tab.
 - **Effect:** Shows and saves the owner's behaviour text and the three behaviour settings; prints the whole system prompt, the one content rule and how it is checked, the texts the app can show instead of an answer, what is added to each message, the last prompt as it was sent, what the selected model or provider may do, and the permissions and protections.
@@ -1383,7 +1406,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F05 · Tor (.onion) search is off by default · active
 
-- **Where:** `modules/nexus_config.py:128` — `"enable_onion_search": False,`
+- **Where:** `modules/nexus_config.py:131` — `"enable_onion_search": False,`
 - **Trigger:** Bloodhound search.
 - **Effect:** Onion sites are searched only when the setting is on and a Tor proxy runs on this machine.
 - **Owner requested:** No.
@@ -1432,6 +1455,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `core/reasoning/generation_constraints.py` | 1 | R-E01 | - |
 | `modules/accounts.py` | 13 | R-C08, R-D08 | - |
 | `modules/answer_meta.py` | 8 | R-A04, R-B04 | - |
+| `modules/answer_resolution.py` | 1 | R-E04 | - |
 | `modules/behavior_policy.py` | 56 | R-A11, R-A12, R-A13, R-A14, R-A15, R-A21, R-B01, R-B02, R-B04 | - |
 | `modules/chat_profile.py` | 5 | R-A08, R-A15, R-A16 | - |
 | `modules/chunking.py` | 1 | - | The keyword "protected" in a list of programming-language keywords used to split code files. |

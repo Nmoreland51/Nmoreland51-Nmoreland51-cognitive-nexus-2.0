@@ -482,6 +482,8 @@ def render_sidebar(
             "provider_ready": status.available and bool(status.models),
             "ollama_running": status.available,
             "selected_model": selected_model,
+            # The installed chat models, for "Answered again by another model" under an ungrounded answer.
+            "chat_models": list(status.models or []),
             "base_url": status.base_url,
             "provider_message": status.message,
             "use_memory": use_memory,

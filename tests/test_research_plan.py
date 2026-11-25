@@ -116,6 +116,23 @@ def test_names_the_sources_do_not_contain_are_listed():
     assert unsourced_names_note("Nothing named here.", sources) == ""
 
 
+def test_possessives_initials_and_sentence_openers_are_not_unsourced_names():
+    # The answer the app gave on 2026-11-24; every name in it is in its sources. The note it got was
+    # "Not found in the sources above: Hacker's, Additionally, Clearview AI's, U.S, Senator Edward J."
+    answer = (
+        "They mention that Hacker's mailing lists, chat channels and forums are used for testing. Additionally, Clearview AI's "
+        "use of facial recognition has raised privacy concerns, with U.S. Senator Edward J. Markey writing to the company."
+    )
+    sources = (
+        "PAGE Hacker - Wikipedia: a hacker is a skilled programmer. PAGE Clearview AI - Wikipedia: Clearview AI is a facial "
+        "recognition company. In 2020 U.S. Senator Edward J. Markey wrote to Clearview AI about its practices."
+    )
+
+    assert unsourced_names(answer, sources) == []
+    # A name the sources do not have is still caught, possessive or not.
+    assert unsourced_names("Additionally, PimEyes's tool is similar.", sources) == ["PimEyes's"]
+
+
 def test_the_benchmark_scores_the_old_pipeline_without_a_model():
     rows = [bench.run_case(case, None) for case in bench.load()]
 

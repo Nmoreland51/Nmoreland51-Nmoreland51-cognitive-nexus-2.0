@@ -730,7 +730,10 @@ def _build_brief_prompt(
     results: list[dict[str, Any]],
     scraped_pages: list[dict[str, Any]],
     meaning: str = "",
+    *,
+    follow_request: bool = False,
 ) -> str:
+    length = "in the length and form the question asks for" if follow_request else "in 2-3 short sentences"
     blocks = [
         f"[{idx}] {r.get('title', '')}: {_shorten(str(r.get('snippet', '')), BRIEF_SNIPPET_CHARS)}"
         for idx, r in enumerate(results, 1)
@@ -748,7 +751,7 @@ Fresh web results (newer than your training data):
 {context}
 {note}
 
-Answer the question in 2-3 short sentences using only these web results. Include dates or
+Answer the question {length} using only these web results. Include dates or
 version numbers when relevant. Name a business, product or place only if it appears in the results
 above. Do not list sources or URLs; the app shows them. If the results do not contain the answer,
 begin with "The web results do not say" and name what is missing. Then add, in one or two
@@ -977,11 +980,16 @@ def build_summary_prompt(
     scraped_pages: list[dict[str, Any]],
     brief: bool = False,
     meaning: str = "",
+    follow_request: bool = False,
 ) -> str:
-    """Prompt for summarizing research: brief chat answer or full report."""
+    """Prompt for summarizing research: brief chat answer or full report.
+
+    follow_request: the chat answer takes the length and form the question asks for (the owner's default,
+    "Length and form follow your message"), instead of "2-3 short sentences".
+    """
 
     if brief:
-        return _build_brief_prompt(query, results, scraped_pages, meaning)
+        return _build_brief_prompt(query, results, scraped_pages, meaning, follow_request=follow_request)
     return _build_research_prompt(query, results, scraped_pages)
 
 

@@ -89,6 +89,10 @@ def answer_meta(provider_result: dict[str, Any] | None) -> dict[str, Any]:
     if note:
         # For example: the chosen model is not installed and another one answered instead.
         meta["note"] = note[:300]
+    resolution = str(result.get("resolution") or "").strip()
+    if resolution:
+        # The same question asked again by the owner's choice (modules/answer_resolution.py).
+        meta["resolution"] = resolution[:120]
     return meta
 
 
@@ -108,7 +112,7 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
     model_provider = str(meta.get("model_provider") or "")
     answered = bool(meta.get("answered"))
     reason = str(meta.get("reason") or "")
-    parts: list[str] = []
+    parts: list[str] = [str(meta["resolution"])] if meta.get("resolution") else []
 
     if provider in WEB_TOOL_PROVIDERS:
         tool = WEB_TOOL_PROVIDERS[provider]

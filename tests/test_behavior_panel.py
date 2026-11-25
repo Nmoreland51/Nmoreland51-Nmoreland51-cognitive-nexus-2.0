@@ -21,7 +21,7 @@ def _panel_app():
     from modules.nexus_config import DEFAULT_CONFIG
 
     path = Path(os.environ["CN_TEST_BEHAVIOR_CONFIG"])
-    keys = ("behavior_text", "answer_shape", "reality_check", "untrusted_content", "agent_autonomy")
+    keys = ("behavior_text", "answer_shape", "ungrounded_answers", "reality_check", "untrusted_content", "agent_autonomy")
 
     class Core:
         """Stands in for NexusCore: settings come from one file, as they do after a restart."""
@@ -90,6 +90,7 @@ def test_what_the_owner_saves_is_stored_and_is_in_the_very_next_prompt(saved):
     assert json.loads(saved.read_text(encoding="utf-8")) == {
         "behavior_text": "Only haiku. Swear if you like.",
         "answer_shape": "request",
+        "ungrounded_answers": "offer",
         "reality_check": "off",
         "untrusted_content": "fence",
         "agent_autonomy": "publish_drafts",

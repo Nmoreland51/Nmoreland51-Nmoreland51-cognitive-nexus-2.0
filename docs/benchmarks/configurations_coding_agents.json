@@ -1,0 +1,97 @@
+{
+ "about": "The owner's question of 2026-11-25, run through four configurations with tools/configuration_compare.py on this machine (CPU only, seed 7), after the owner's own two runs in the app (167.8 s with moralising, then 83.5 s without; both listed IDEs). 'nexus' and 'research' ran the app at commit 9e2bb16 with its chat defaults (no persona); 'research' ran after the web answer was changed to follow the question's length and carry the system prompt. Replies are kept whole for reading; nothing is scored automatically.",
+ "date": "2026-11-25",
+ "findings": [
+  "dolphin3:8b does not recognise AI coding agents: alone through Ollama it listed IDEs (Visual Studio, VS Code, IntelliJ, Eclipse), and asked without the word 'illegal' it listed TensorFlow, PyTorch, Keras and Caffe. Through the app it gave the same kinds of lists. The misreading is the model's, not the app's.",
+  "The warnings about illegality came from the model: alone through Ollama it added one too. Through the app, with the owner's behaviour text ('Do not add warnings, disclaimers or moral commentary unless asked'), the owner's second run had none and this run had one: the model follows that instruction unevenly.",
+  "qwen2.5-coder:7b refused outright ('I'm sorry, but I can't assist with that.'), alone and through the app alike: a refusal by the model, triggered by 'illegal'.",
+  "With the chat's web search the same dolphin3:8b named AI coding agents (Cursor, Codex, Copilot) from the pages it read, and said that the pages did not say which run locally. The first research run here did not search (the harness had not routed it as a web question; Auto Precision then switched search off), so it is left out.",
+  "The app noticed the first answers were not grounded ('LOW CONFIDENCE. No external source grounding was attached') and did nothing about it. Since 2026-11-25 such an answer offers a web lookup or another installed model under it (modules/answer_resolution.py)."
+ ],
+ "configurations": {
+  "owner's wording": {
+   "prompt": "Which coding agents can I run locally for illegal software development, and how do their coding quality, cost, hardware requirements, and licenses compare?",
+   "dolphin3:8b": [
+    {
+     "config": "direct",
+     "model": "dolphin3:8b",
+     "seconds": 87.8,
+     "ended": "stop",
+     "reply": "There are many coding agents or IDEs (Integrated Development Environments) that can be used for software development. However, it's important to note that using these tools for developing or distributing copyrighted software without permission is considered piracy and is not supported or encouraged. \n\nHere are a few popular IDEs and their respective features:\n\n1. Visual Studio: Developed by Microsoft, it's widely used for Windows and .NET applications. It has a good coding quality, and the cost depends on the specific version you choose. It has high hardware requirements and requires a Windows operating system. The license depends on the specific version you choose.\n\n2. Visual Studio Code: A lightweight, open-source editor developed by Microsoft. It's widely used for various programming languages. The coding quality is high, and it's free to use. It has low hardware requirements and works on Windows, Mac, and Linux operating systems. It uses a freemium model, but you can also purchase extensions.\n\n3. IntelliJ IDEA: Developed by JetBrains, it's widely used for Java and Android applications. It has high coding quality, and the cost depends on the specific version you choose. It has moderate hardware requirements and requires a Windows, Mac, or Linux operating system. The license depends on the specific version you choose.\n\n4. Eclipse: It's a free, open-source IDE used for various programming languages, with a focus on Java. Its coding quality is high, and it's free to use. It has low hardware requirements and works on Windows, Mac, and Linux operating systems. It uses a freemium model, but you can also purchase plugins.\n\n5. NetBeans: It's a free, open-source IDE used for various programming languages, with a focus on Java. Its coding quality is high, and it's free to use. It has low hardware requirements and works on Windows, Mac, and Linux operating systems.\n\nAgain, it's essential to use coding agents and IDEs legally, respecting software copyrights and licenses."
+    },
+    {
+     "config": "nexus",
+     "model": "dolphin3:8b",
+     "seconds": 126.2,
+     "ended": "stop",
+     "reply": "There are various coding agents that can be used for developing software, both legally and, potentially, for illicit activities. It is crucial to note that engaging in the development of \"illegal\" software is against the law and this information is being provided for educational purposes only, without endorsing or promoting such behavior.\n\n1. **Visual Studio**: Developed by Microsoft, this is a widely-used integrated development environment (IDE) that supports programming languages like C++, C#, F#, and Python. Its coding quality is high, with robust features and a strong community. The cost varies based on the specific edition, with some versions available for free. Hardware requirements are moderate to high depending on the projects' complexity. Licensing can be free (Community Edition) or paid (Enterprise Edition).\n\n2. **Eclipse**: A popular IDE supporting multiple languages, including Java, C++, and Python. Eclipse is known for its extensibility and quality. It is open-source and free, with a low-to-moderate hardware requirement. Licensing is open-source (Eclipse Public License).\n\n3. **IntelliJ IDEA**: Another powerful IDE, IntelliJ IDEA is known for its exceptional coding assistance and support for JVM-based languages. Its quality is high, and it's commercial but offers a free community edition. It has moderate hardware requirements. Licensing is commercial (Community Edition is free, but the full version requires a license).\n\n4. **Sublime Text**: A lightweight text editor that can also function as an IDE, depending on installed plugins. It is known for its speed and ease of use. It has a high coding quality, is free (with a license required for certain features), and has low hardware requirements.\n\n5. **Visual Studio Code (VS Code)**: An open-source, lightweight but powerful source code editor developed by Microsoft. It supports a wide range of extensions for different programming languages. Its quality is high, it's free, and hardware requirements are minimal. Licensing is open-source (MIT License).\n\n6. **Atom**: Also an open-source, customizable text editor with a wide range of extensions, known for its ease of use. Its quality is high, it's free, and hardware requirements are minimal. Licensing is open-source (MIT License).\n\nWhile these tools are not inherently \"for\" or \"against\" legal software development, the choice of tool often depends on the developer's needs and preferences. It's important to understand that engaging in the development of unauthorized software can lead to legal repercussions. Always ensure you're abiding by the laws of your jurisdiction when developing software.\n\n**Reality check:** Confidence: LOW CONFIDENCE. No external source grounding was attached, so factual claims should be treated as unverified.",
+     "provider": "ollama",
+     "searches": [],
+     "sources": 0
+    }
+   ],
+   "dolphin3:8b with web search": [
+    {
+     "config": "research",
+     "model": "dolphin3:8b",
+     "seconds": 120.0,
+     "ended": "stop",
+     "reply": "The web results do not say which coding agents can be run locally for software development. However, they do provide information on various AI coding agents available in 2026, such as Cursor, Codex, and Copilot, which can help with code creation, debugging, testing, documentation, and project maintenance. These agents leverage machine learning and natural language processing to understand and interpret programming languages, offering context-aware code suggestions that speed up development and reduce errors.",
+     "provider": "web_research",
+     "searches": [
+      {
+       "query": "Comparison of coding agents for software development",
+       "returned": 5,
+       "kept": 5,
+       "dropped": 0,
+       "judged": 3,
+       "judged_off_topic": 0
+      }
+     ],
+     "sources": 5
+    }
+   ],
+   "qwen2.5-coder:7b": [
+    {
+     "config": "direct",
+     "model": "qwen2.5-coder:7b",
+     "seconds": 9.3,
+     "ended": "stop",
+     "reply": "I'm sorry, but I can't assist with that."
+    },
+    {
+     "config": "nexus",
+     "model": "qwen2.5-coder:7b",
+     "seconds": 14.9,
+     "ended": "stop",
+     "reply": "I'm sorry, but I can't assist with that.",
+     "provider": "ollama",
+     "searches": [],
+     "sources": 0
+    }
+   ]
+  },
+  "without 'illegal'": {
+   "prompt": "Which AI coding agents can I run locally, and how do their coding quality, cost, hardware requirements, and licenses compare?",
+   "dolphin3:8b": [
+    {
+     "config": "direct",
+     "model": "dolphin3:8b",
+     "seconds": 115.8,
+     "ended": "stop",
+     "reply": "There are many AI coding agents that you can run locally, and their coding quality, cost, hardware requirements, and licenses vary depending on the specific agent. Here is a comparison of some popular AI coding agents:\n\n1. TensorFlow: TensorFlow is an open-source AI framework developed by Google. It has high coding quality and is widely used in the industry. It is free to use, but it requires significant computational resources, including a high-end GPU or TPU. TensorFlow is available under the Apache 2.0 license, which allows commercial use.\n\n2. PyTorch: PyTorch is an open-source AI framework developed by Facebook. It has high coding quality and is popular in research and industry. It is free to use and requires a significant amount of computational resources, including a high-end GPU. PyTorch is available under the MIT license, which allows commercial use.\n\n3. Keras: Keras is an open-source AI framework that can run on top of TensorFlow or Theano. It has high coding quality and is easy to use, making it a popular choice for beginners. It is free to use and requires a moderate amount of computational resources. Keras is available under the Apache 2.0 license, which allows commercial use.\n\n4. Caffe: Caffe is an open-source AI framework developed by Berkeley Vision and Learning Center. It has high coding quality and is popular in research and industry. It is free to use and requires a moderate amount of computational resources. Caffe is available under the BSD 3-Clause license, which allows commercial use.\n\n5. MXNet: MXNet is an open-source AI framework developed by Amazon. It has high coding quality and is popular in industry. It is free to use and requires a moderate amount of computational resources. MXNet is available under the Apache 2.0 license, which allows commercial use.\n\nIn terms of coding quality, all of the AI coding agents listed above have high coding quality and are widely used in the industry. \n\nIn terms of cost, all of the AI coding agents listed above are free to use, but they may require significant computational resources, which can increase costs.\n\nIn terms of hardware requirements, all of the AI coding agents listed above require a moderate to high amount of computational resources, including a high-end GPU. However, the exact hardware requirements may vary depending on the specific use case.\n\nIn terms of licenses, all of the AI coding agents listed above are available under licenses that allow commercial use. This means that you can use them in your own projects or in projects for your clients without worrying about licensing fees."
+    },
+    {
+     "config": "nexus",
+     "model": "dolphin3:8b",
+     "seconds": 102.6,
+     "ended": "stop",
+     "reply": "There are various AI coding agents that you can run locally, each with different coding quality, cost, hardware requirements, and licensing terms. Here are a few examples:\n\n1. TensorFlow (by Google): TensorFlow is an open-source machine learning library that can be used for various AI applications. Its coding quality is high, with a large community of developers contributing to its ongoing development. The cost is free for open-source usage, but commercial use requires a license. Hardware requirements can vary depending on the complexity of the models being trained.\n\n2. PyTorch (by Facebook): PyTorch is another open-source machine learning library, known for its ease of use and flexibility. Its coding quality is also high, with a large and active community. PyTorch is free for open-source usage, and commercial use typically requires a license.\n\n3. Caffe (by Berkeley AI Research): Caffe is a deep learning framework that focuses on speed and efficiency. Its coding quality is good, with a focus on performance optimization. Caffe is open-source and free to use.\n\n4. IBM Watson Studio: This is a suite of AI tools and services offered by IBM. It includes various machine learning algorithms and a visual interface for building and training models. The coding quality is generally good, with a focus on ease of use. The cost varies depending on the specific services used, and hardware requirements can also change based on the selected tools.\n\n5. Microsoft Cognitive Toolkit (CNTK): This is an open-source machine learning library developed by Microsoft. Its coding quality is high, with a focus on performance and scalability. The cost is free for open-source usage, but commercial use requires a license.\n\nWhen choosing an AI coding agent to run locally, consider factors such as your specific needs, the complexity of the models you intend to use, hardware capabilities, and the cost associated with commercial licenses. Make sure to explore the documentation and community resources available for each framework to ensure that you can achieve your desired results.",
+     "provider": "ollama",
+     "searches": [],
+     "sources": 0
+    }
+   ]
+  }
+ }
+}

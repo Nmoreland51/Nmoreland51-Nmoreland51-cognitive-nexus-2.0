@@ -1931,6 +1931,38 @@
    ]
   },
   {
+   "id": "R-E04",
+   "name": "An ungrounded answer can be looked up on the web or asked again",
+   "category": "E",
+   "status": "active",
+   "trigger": "A model's chat answer that used no sources and that the reality audit rates LOW CONFIDENCE or SPECULATIVE.",
+   "effect": "The answer is shown at once and is not changed. With 'Offer' (the default) two choices appear under it: look the question up on the web and answer again, or have another installed chat model answer it. With 'Look it up on the web by itself' the web lookup follows on its own. The second answer is a new message, and the line under it says how it was made.",
+   "owner_requested": "Yes, in substance: on 2026-11-25 the owner asked for research, a retry or another model when confidence is low, configurable, with the original answer returned at once and nothing imposed.",
+   "evidence": "modules/answer_resolution.py, ui/chat_tab.py. The owner's question about local coding agents: dolphin3:8b listed IDEs or ML frameworks; with the web search it named AI coding agents (docs/benchmarks/configurations_coding_agents.json).",
+   "origin": "Added by the assistant on 2026-11-25 at the owner's request.",
+   "technical_reason": "A small local model does not know what it does not know; the app can tell when an answer is not grounded, and the web or another model may know.",
+   "affected_workflows": "Desktop chat.",
+   "default_state": "Offer.",
+   "effective_state": "Offer.",
+   "alternatives": "'Look it up on the web by itself' (slower; the question goes to the search engines after every such answer), or 'Nothing'.",
+   "configurable": "Yes. Settings, Behaviour, 'When an answer has no sources and is rated low' (Offer / By itself / Nothing).",
+   "owner_decision": "Decided by the owner on 2026-11-25: \"Retries and model switching should be configurable, with the option to return the original answer immediately.\" The default (offer, not by itself) is the assistant's choice, because the web lookup sends the question off this machine.",
+   "tests": "tests/test_answer_resolution.py",
+   "regression_risk": "Low: nothing is changed or held back; a choice is added under some answers.",
+   "known_limitations": "The rating comes from the reality audit, which judges whether an answer is grounded, not whether it is right: a wrong answer rated high gets no offer, and a right one rated low gets one. The web lookup is only as good as the search engines, which sometimes block or rate-limit automated searches. A phone answer gets no offer yet.",
+   "decision_date": "2026-11-25",
+   "locations": [
+    {
+     "file": "modules/answer_resolution.py",
+     "anchor": "def is_ungrounded("
+    },
+    {
+     "file": "ui/chat_tab.py",
+     "anchor": "def _offer_resolution("
+    }
+   ]
+  },
+  {
    "id": "R-F01",
    "name": "Auto Precision disables the manual answer controls",
    "category": "F",

@@ -22,6 +22,8 @@ from modules.behavior_policy import (
     DEFAULT_BEHAVIOR_TEXT,
     REALITY_CHECK_HELP,
     REALITY_CHECK_MODES,
+    UNGROUNDED_HELP,
+    UNGROUNDED_MODES,
     UNTRUSTED_CONTENT_HELP,
     UNTRUSTED_CONTENT_MODES,
     apply_behavior_changes,
@@ -31,12 +33,14 @@ from modules.nexus_config import save_runtime_config
 
 TEXT_KEY = "behavior_text_input"
 SHAPE_KEY = "behavior_answer_shape"
+UNGROUNDED_KEY = "behavior_ungrounded_answers"
 REALITY_KEY = "behavior_reality_check"
 OUTSIDE_KEY = "behavior_untrusted_content"
 AGENT_KEY = "behavior_agent_autonomy"
 NOTICE_KEY = "behavior_notice"
 
 SHAPE_LABELS = {"request": "Follow my message", "kind": "By kind of message (shorter and faster)"}
+UNGROUNDED_LABELS = {"offer": "Offer a web lookup or another model", "research": "Look it up on the web by itself", "off": "Nothing"}
 REALITY_LABELS = {"label": "Answer in full, label what is not real", "withhold": "Hold back detail on impossible things", "off": "Off"}
 OUTSIDE_LABELS = {
     "remove_and_fence": "Remove lines aimed at an AI, and mark the rest as material",
@@ -67,6 +71,7 @@ def _save_clicked(core: Any, after_save: Callable[[], None] | None) -> None:
             # The default is stored as "no text of my own", so an improved default reaches the owner later.
             "behavior_text": None if text == DEFAULT_BEHAVIOR_TEXT else text,
             "answer_shape": st.session_state.get(SHAPE_KEY),
+            "ungrounded_answers": st.session_state.get(UNGROUNDED_KEY),
             "reality_check": st.session_state.get(REALITY_KEY),
             "untrusted_content": st.session_state.get(OUTSIDE_KEY),
             "agent_autonomy": st.session_state.get(AGENT_KEY),
@@ -122,6 +127,15 @@ def render_behavior_panel(
         disabled=read_only,
     )
     st.caption(ANSWER_SHAPE_HELP[shape])
+    ungrounded = st.selectbox(
+        "When an answer has no sources and is rated low",
+        list(UNGROUNDED_MODES),
+        index=UNGROUNDED_MODES.index(policy.ungrounded_answers),
+        format_func=lambda value: UNGROUNDED_LABELS[value],
+        key=UNGROUNDED_KEY,
+        disabled=read_only,
+    )
+    st.caption(UNGROUNDED_HELP[ungrounded])
     reality = st.selectbox(
         "Reality check",
         list(REALITY_CHECK_MODES),

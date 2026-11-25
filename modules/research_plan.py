@@ -371,11 +371,15 @@ def _gather_context(plan: SearchPlan, search: Callable[..., list[dict[str, Any]]
 
 # ---- names in the answer that the sources do not contain ------------------------------------------
 
-_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+# A sentence ends at . ! or ?, but not after a single capital letter ("U.S.", "Edward J. Markey"): that split
+# used to turn "U.S. Senator Edward J. Markey" into the "names" "U.S" and "Senator Edward J.", flagged as unsourced.
+_SENTENCE = re.compile(r"(?<=[.!?])(?<!\b[A-Z]\.)\s+|\n+")
 _CAPITALISED = re.compile(r"[A-Z][\w'’&.-]*")
+_POSSESSIVE = re.compile(r"['’]s\b")
 _JOINERS = {"of", "the", "and", "&", "de", "la", "le", "von", "van", "on", "at"}
 _NOT_NAMES = frozenset(
     "I A An The This That These Those It Its There Their They We You Your Our My However Based According Also Some Many Most "
+    "Additionally Furthermore Moreover Meanwhile Instead Finally First Second Third Then Next Still Thus Therefore Otherwise "
     "Yes No Not None Note If When While Although Because For In On At By From With Without To As Overall Here Both Each "
     "Monday Tuesday Wednesday Thursday Friday Saturday Sunday January February March April May June July August September October November December "
     "Web Results Sources Source".split()
@@ -414,7 +418,8 @@ def unsourced_names(answer: str, sources: str, question: str = "") -> list[str]:
     missing: list[str] = []
     for sentence in _SENTENCE.split(str(answer or "")):
         for name in _names_in(sentence.strip()):
-            plain = " ".join(_WORD.findall(name.lower()))
+            # "Clearview AI's" is Clearview AI: the source does not have to say "Clearview AI's".
+            plain = " ".join(_WORD.findall(_POSSESSIVE.sub("", name).lower()))
             if plain and re.search(r"\b" + re.escape(plain) + r"\b", known) is None and name not in missing:
                 missing.append(name)
     return missing

@@ -10,12 +10,19 @@ from typing import Any
 import streamlit as st
 
 from modules.answer_meta import answer_meta, describe_answer
+from modules.answer_resolution import is_ungrounded, other_models, resolution_label, resolution_settings
+from modules.behavior_policy import policy_from
 from modules.memory import (
     add_message,
     get_messages,
     save_session_history,
 )
 from ui.shared import clear_chat_state, clear_runtime_caches, get_nexus_core, is_demo_safe, record_perf, reset_session_state, sync_core_diagnostics
+
+
+# An ungrounded answer that can be answered again, and the choice the owner made under it.
+RESOLVABLE_KEY = "chat_resolvable_answer"
+RESOLVE_KEY = "chat_resolve_choice"
 
 
 def normalize_assistant_response(response: Any) -> str:
@@ -212,20 +219,87 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
                 cols[3].metric("Mode", str(constraints.get("epistemic_mode", "auto")))
                 st.json(epistemic)
 
+    # Asked for under the last answer: the same question again, looked up on the web or by another model.
+    resolve = st.session_state.pop(RESOLVE_KEY, None)
     user_message = st.chat_input("Message Cognitive Nexus")
+    if resolve and not user_message:
+        research, model = bool(resolve.get("research")), str(resolve.get("model") or "")
+        _answer(
+            messages_box,
+            str(resolve["question"]),
+            resolution_settings(settings, research=research, model=model),
+            demo_safe,
+            history=list(resolve.get("history") or []),
+            resolution=resolution_label(research, model),
+        )
+        return
     if not user_message:
+        with messages_box:
+            _offer_resolution(settings, demo_safe)
         return
 
+    st.session_state.pop(RESOLVABLE_KEY, None)
     add_message("user", user_message)
     with messages_box.chat_message("user"):
         st.markdown(user_message)
+    history = list(get_messages())
+    ungrounded = _answer(messages_box, user_message, settings, demo_safe)
+    if not ungrounded or demo_safe:
+        return
+    mode = policy_from({**get_nexus_core().config, **settings}).ungrounded_answers
+    if mode == "research":
+        _answer(messages_box, user_message, resolution_settings(settings, research=True), demo_safe, history=history, resolution=resolution_label(True, ""))
+    elif mode == "offer":
+        st.session_state[RESOLVABLE_KEY] = {"question": user_message, "model": str(settings.get("selected_model") or ""), "history": history}
+        with messages_box:
+            _offer_resolution(settings, demo_safe)
+
+
+def _choose_resolution(choice: dict[str, Any]) -> None:
+    st.session_state.pop(RESOLVABLE_KEY, None)
+    st.session_state[RESOLVE_KEY] = choice
+
+
+def _offer_resolution(settings: dict[str, Any], demo_safe: bool) -> None:
+    """Under an answer that used no sources and was rated low: look it up on the web, or ask another installed model."""
+
+    offer = st.session_state.get(RESOLVABLE_KEY)
+    if not offer or demo_safe:
+        return
+    models = other_models(settings.get("chat_models"), str(offer.get("model") or ""))
+    st.caption("This answer used no sources and is rated low. The same question can be answered again:")
+    columns = st.columns(1 + len(models))
+    base = {"question": offer["question"], "history": offer.get("history") or []}
+    columns[0].button(
+        "Look it up on the web",
+        key="chat_resolve_web",
+        on_click=_choose_resolution,
+        args=({**base, "research": True},),
+        help="Sends the question to the search engines and answers it again from what they return.",
+    )
+    for index, model in enumerate(models, start=1):
+        columns[index].button(f"Ask {model}", key=f"chat_resolve_model_{index}", on_click=_choose_resolution, args=({**base, "model": model},))
+
+
+def _answer(
+    messages_box: Any,
+    question: str,
+    settings: dict[str, Any],
+    demo_safe: bool,
+    *,
+    history: list[dict[str, Any]] | None = None,
+    resolution: str = "",
+) -> bool:
+    """Stream one answer into the chat and save it. True when it used no sources and was rated low."""
 
     with messages_box.chat_message("assistant"):
         started = time.perf_counter()
         provider_order = list(settings.get("provider_order") or [])
         primary_provider = next((provider for provider in provider_order if provider != "fallback"), "fallback")
         selected_model = str(settings.get("selected_model") or "").strip()
-        if primary_provider == "ollama" and selected_model:
+        if resolution:
+            status_label = f"{resolution}..."
+        elif primary_provider == "ollama" and selected_model:
             status_label = f"Generating with Ollama / {selected_model}..."
         elif primary_provider == "fallback":
             status_label = "Checking provider fallback path..."
@@ -234,7 +308,7 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         response_status = st.empty()
         try:
             response_status.info(status_label)
-            response = st.write_stream(get_nexus_core().stream_chat_response(user_message, get_messages(), settings))
+            response = st.write_stream(get_nexus_core().stream_chat_response(question, history if history is not None else get_messages(), settings))
         except Exception as exc:
             response_status.error(f"Response failed: {exc}")
             raise
@@ -262,7 +336,11 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         if not response:
             response = empty_assistant_response_message(st.session_state.last_provider_result)
             st.warning(response)
-        answer_line = "" if demo_safe else describe_answer(answer_meta(st.session_state.get("last_provider_result")))
+        result = dict(st.session_state.get("last_provider_result") or {})
+        if resolution:
+            result["resolution"] = resolution
+            st.session_state.last_provider_result = result
+        answer_line = "" if demo_safe else describe_answer(answer_meta(result))
         if answer_line:
             st.caption(answer_line)
         record_perf("chat.stream_response", time.perf_counter() - started, settings)
@@ -272,5 +350,5 @@ def render_chat_tab(settings: dict[str, Any]) -> None:
         if timings:
             with messages_box.expander("Performance Timings", expanded=False):
                 st.json(timings)
-
     persist_assistant_response(response, st.session_state.get("last_provider_result"))
+    return is_ungrounded(st.session_state.get("last_provider_result"), st.session_state.get("last_reality_audit"))
