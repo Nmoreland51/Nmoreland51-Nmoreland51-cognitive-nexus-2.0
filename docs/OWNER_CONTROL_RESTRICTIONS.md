@@ -15,8 +15,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 | Layer | Active | Changed | Removed |
 |---|---|---|---|
-| A. Conversation behaviour | 10 | 2 | 9 |
-| B. Model and provider | 5 | 0 | 0 |
+| A. Conversation behaviour | 7 | 6 | 9 |
+| B. Model and provider | 5 | 1 | 0 |
 | C. Tools and side effects | 8 | 1 | 0 |
 | D. Integrity and security | 10 | 2 | 1 |
 | E. Quality controls | 2 | 1 | 0 |
@@ -40,16 +40,18 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 | R-A14 | The owner's behaviour text | active | The default text | Yes | Decided by the owner on 2026-11-23: "The one categorical content restriction I am explicitly requesting is sexual content involving minors |
 | R-A15 | The persona | active | On, with the default persona "ENI" | Yes | Decided by the owner on 2026-11-23: "The one categorical content restriction I am explicitly requesting is sexual content involving minors |
 | R-A16 | The greeting's statement of limits | changed | Shown on a fresh chat | Yes | Decided by the owner on 2026-11-23: "The one categorical content restriction I am explicitly requesting is sexual content involving minors |
-| R-A17 | Length and format rules added to each message | active | Auto Precision on | Yes | Pending review by the owner |
-| R-A18 | Replies the app writes itself, without a model | active | On | No setting | Pending review by the owner |
-| R-A19 | Edits made to a model's answer after it is written | active | On | No setting | Pending review by the owner |
+| R-A17 | Length and format rules added to each message | changed | Off: 'Follow my message' since 2026-11-25 | Yes | Pending review by the owner |
+| R-A18 | Replies the app writes itself, without a model | changed | (a) to (c) on | (d) and (e): Settings, Behaviour, 'Length and form of answers' | Pending review by the owner |
+| R-A19 | Edits made to a model's answer after it is written | changed | On | (b): Settings, Behaviour, 'Length and form of answers' | Pending review by the owner |
 | R-A20 | Memory notes and self-critique hints added to the prompt | active | Memory off in the sidebar's manual controls; Auto Precision switches it on for project questions | Yes | Pending review by the owner |
 | R-A21 | Pictures: no minor shown nude or undressed, whatever the scene | active | On | No | Pending: this goes beyond what the owner asked for and was not put to the owner before it was built, because the assistant would not build the alternative |
+| R-A22 | Quick turns sent without the conversation | changed | The conversation is kept (since 2026-11-25) | Yes | Pending review by the owner |
 | R-B01 | A local model answers the way it was trained | active | dolphin3:8b on this machine | Yes, by choosing the model (sidebar: Chat model) | Decided by the owner on 2026-11-23: keep dolphin3:8b; "Keep model-provider limitations separate from Cognitive Nexus's own configurable behavior." |
 | R-B02 | A hosted model applies its provider's policies | active | Not used: no cloud key is configured on this machine, and cloud fallback is off | By choosing the provider | Decided by the owner on 2026-11-23: "Keep model-provider limitations separate from Cognitive Nexus's own configurable behavior." |
 | R-B03 | Anthropic: ask for the provider's own fallback when its classifier declines | active | On | Yes | Pending review by the owner |
 | R-B04 | The answer line says who answered and who declined | active | On | Hidden in Demo Safe Mode | Decided by the owner on 2026-11-23: "Keep model-provider limitations separate from Cognitive Nexus's own configurable behavior." |
 | R-B05 | The image model's built-in content checker is not loaded | active | Checker off | No setting | Pending review by the owner |
+| R-B06 | The model's own built-in system line | changed | The app's system prompt is sent (since 2026-11-25) | What it says is: Settings, Behaviour | Decided by the owner on 2026-11-23: "Keep model-selection, system-prompt, temperature, and behavioral settings transparent and owner-configurable" (restated 2026-11-25) |
 | R-C01 | What the coding agent may do unasked (agent_autonomy) | changed | publishing_asks | Yes | Pending: the owner was asked on 2026-11-23 and did not answer, so the recommended option is the default and it is a setting |
 | R-C02 | The agent publishes only its own branch, as a draft, and never merges | active | On | The approval: yes (R-C01) | Pending review by the owner |
 | R-C03 | Programs the agent may start | active | The list above | Yes | Pending review by the owner |
@@ -130,7 +132,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A03 · Keyword classifier that sorted messages into "sensitive" and "harmful" topics · removed
 
-- **Where:** `modules/response_planner.py:469` — `"reason": "topics_are_not_classified"`
+- **Where:** `modules/response_planner.py:470` — `"reason": "topics_are_not_classified"`
 - **Where it was:** `modules/response_planner.py` — `RISKY_TOPIC_RE = re.compile(` (no longer in the file)
 - **Where it was:** `modules/response_planner.py` — `"direct_harmful_instruction",` (no longer in the file)
 - **Where it was:** `modules/response_planner.py` — `DIRECT_OPERATION_RE` (no longer in the file)
@@ -336,17 +338,17 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A12 · The check behind the one content rule (text) · active
 
-- **Where:** `modules/behavior_policy.py:693` — `def check_content_rule(`
-- **Where:** `modules/behavior_policy.py:312` — `_SEXUAL = re.compile(`
-- **Where:** `modules/behavior_policy.py:324` — `_CREATIVE = re.compile(`
-- **Where:** `modules/behavior_policy.py:446` — `JUDGE_EXAMPLES_A = """`
-- **Where:** `modules/behavior_policy.py:467` — `JUDGE_EXAMPLES_B = """`
+- **Where:** `modules/behavior_policy.py:719` — `def check_content_rule(`
+- **Where:** `modules/behavior_policy.py:338` — `_SEXUAL = re.compile(`
+- **Where:** `modules/behavior_policy.py:350` — `_CREATIVE = re.compile(`
+- **Where:** `modules/behavior_policy.py:472` — `JUDGE_EXAMPLES_A = """`
+- **Where:** `modules/behavior_policy.py:493` — `JUDGE_EXAMPLES_B = """`
 - **Where:** `modules/nexus_core.py:356` — `rule = self.content_rule(user_message, settings, recent_turns)`
 - **Where:** `modules/nexus_core.py:307` — `def _require_content_rule(`
 - **Where:** `modules/event_log.py:33` — `"content_rule",`
 - **Where:** `agent/toolcall.py:285` — `decision = check_content_rule(request, "", judge, "text")`
-- **Where:** `modules/behavior_policy.py:420` — `def history_counts(message: str, recent: str) -> bool:`
-- **Where:** `modules/behavior_policy.py:370` — `_NEGATED_MINOR = re.compile(`
+- **Where:** `modules/behavior_policy.py:446` — `def history_counts(message: str, recent: str) -> bool:`
+- **Where:** `modules/behavior_policy.py:396` — `_NEGATED_MINOR = re.compile(`
 - **Trigger:** Chat messages, research queries and knowledge questions answered by a model. A request is looked at when it names a minor (in the message or the last four turns) together with a sexual term, or asks for something to be written, described or continued. Everything else is passed on untouched and no model is asked.
 - **Effect:** The model is asked twice, in two different wordings, each a list of labelled examples, whether the request is for sexual content involving a minor. Two NOs: answered normally. One YES, or no usable answer twice: not answered, with the text "Not written. This app has one content rule...". No model available: not answered yet, with a text saying the check could not be made. Since 2026-11-23 (corrective phase, CN-QA-001): phrases that rule minors out ("no minors", "nobody under 18") are taken out before the first look; "girl(s)" and "boy(s)" do not count when every stated age is 18 or over or the people are called adults; earlier turns are read unless the message itself settles that only adults are involved and does not refer back; a judge answer of the form "Label: NO" is read; and an answer that cannot be read gets a reply saying the check could not decide, not that the rule was broken.
 - **Owner requested:** The rule: yes. This way of enforcing it was designed by the assistant and is described here so the owner can judge it.
@@ -389,7 +391,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-A14 · The owner's behaviour text · active
 
 - **Where:** `modules/behavior_policy.py:35` — `DEFAULT_BEHAVIOR_TEXT = (`
-- **Where:** `modules/behavior_policy.py:163` — `def apply_behavior_changes(`
+- **Where:** `modules/behavior_policy.py:188` — `def apply_behavior_changes(`
 - **Where:** `modules/nexus_config.py:93` — `"behavior_text": None,`
 - **Trigger:** Every chat turn.
 - **Effect:** The owner's own text is sent as instructions under "How the owner wants you to answer". The default says to answer directly and completely, without warnings or moral commentary, and to treat adult subjects, drugs, money and politics like any other subject.
@@ -411,7 +413,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A15 · The persona · active
 
-- **Where:** `modules/behavior_policy.py:265` — `def persona_lines(`
+- **Where:** `modules/behavior_policy.py:291` — `def persona_lines(`
 - **Where:** `modules/chat_profile.py:54` — `humor_notes: str = (`
 - **Trigger:** Every chat turn, when the persona is enabled.
 - **Effect:** Name, voice, tone, style, humour and extra instructions are sent as "Persona, as the owner set it". The default humour note says to skip jokes for grief, legal, medical or urgent matters unless invited.
@@ -453,76 +455,78 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Known limitations:** None.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
-### R-A17 · Length and format rules added to each message · active
+### R-A17 · Length and format rules added to each message · changed
 
-- **Where:** `modules/core_prompts.py:328` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
-- **Where:** `modules/response_planner.py:720` — `def apply_auto_precision_settings(`
-- **Where:** `modules/core_prompts.py:226` — `routed_system = "Answer only the current message.`
-- **Trigger:** Every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.
-- **Effect:** Lines such as "Answer in 1-3 short sentences", "Maximum output: about N tokens", and for small talk a list of stock phrases to avoid, are added to the prompt; the reply length limit is set to match. For quick turns the prompt also says "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics."
+- **Where:** `modules/core_prompts.py:332` — `"simple_fact": "Answer in 1-3 short sentences. No bullets unless the user asks."`
+- **Where:** `modules/response_planner.py:721` — `def apply_auto_precision_settings(`
+- **Where:** `modules/core_prompts.py:233` — `routed_system = "Answer only the current message.`
+- **Where:** `modules/response_planner.py:962` — `shape = "kind" if str(settings.get("answer_shape") or "") == "kind" else "request"`
+- **Trigger:** Only with the owner's setting 'Length and form of answers: By kind of message' (answer_shape "kind"): every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.
+- **Effect:** With 'By kind of message': lines such as "Answer in 1-3 short sentences", "Maximum output: about N tokens", "Give exactly 3 short concrete steps", and for small talk a list of stock phrases to avoid, are added to the prompt, the reply length limit is set to match, and the temperature is moved (a quick fact at 0.1). With the default 'Follow my message' (since 2026-11-25) none of this is added: a length or form stated in the message is passed on, the owner's Response controls set to short or deep add one line, the route's temperature is used, and a reply stops at 2,048 tokens.
 - **Owner requested:** Yes, in part: the owner asked for fast answers (about 60 seconds for web answers) and less filler.
-- **Evidence:** modules/response_planner.py; the last prompt sent is shown in Settings, Behaviour.
+- **Evidence:** modules/response_planner.py, modules/core_prompts.py; the last prompt sent is shown in Settings, Behaviour. Measured with dolphin3:8b on 2026-11-25 (tools/answer_attribution.py): 'Reply with only yes or no: is Pluto a planet?' came back through the app as a sentence saying Pluto is a planet, and from the model alone as 'No'; 'How does MDMA affect the brain, and what are the risks? Be detailed.' was 58 words through the app (a 140-token limit and 'Answer under 75 words') against 392 from the model alone.
 - **Origin:** Earlier AI-written code: it was in the repository before 2026-11-23 and no request by the owner for it is recorded.
 - **Technical reason:** On a CPU every written token takes about a quarter of a second, so short questions get short answers.
 - **Affected workflows:** All chat.
-- **Default:** Auto Precision on.
-- **Effective now:** On.
-- **Alternatives:** Turn Auto Precision off and set response mode, verbosity and reasoning depth by hand.
-- **Can the owner change it?:** Yes. Sidebar: Auto Precision Mode, Advanced Overrides.
-- **Owner decision:** Pending review by the owner. It concerns length and form, not subjects.
-- **Tests:** tests/test_response_planner.py, tests/test_intent_routing.py
+- **Default:** Off: 'Follow my message' since 2026-11-25. Before that, on, and the Response controls did not turn it off.
+- **Effective now:** Off.
+- **Alternatives:** 'By kind of message': shorter, faster answers, at the cost of misread requests.
+- **Can the owner change it?:** Yes. Settings, Behaviour, 'Length and form of answers' (Follow my message / By kind of message).
+- **Owner decision:** Pending review by the owner. The default was changed by the assistant on 2026-11-25, under the owner's directive to remove prompt instructions that interfere with the intended model behaviour; the earlier behaviour is one setting away.
+- **Tests:** tests/test_answer_shape.py (the default), tests/test_response_planner.py and tests/test_nexus_core.py (By kind of message), tests/test_intent_routing.py
 - **Regression risk:** Low.
-- **Known limitations:** A length limit can cut a long answer short; the answer line says when that happened.
+- **Known limitations:** With the default, an answer is as long as the model makes it, which on a CPU takes longer for a long answer. With 'By kind of message' a length limit can cut a long answer short; the answer line says when that happened.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
-### R-A18 · Replies the app writes itself, without a model · active
+### R-A18 · Replies the app writes itself, without a model · changed
 
 - **Where:** `modules/nexus_core.py:150` — `def _direct_response_instruction(`
-- **Where:** `modules/nexus_core.py:601` — `"provider": "local_followup_clarification",`
-- **Where:** `modules/nexus_core.py:566` — `"provider": "local_fast_path",`
-- **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). (d) A bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?". (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
-- **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject.
+- **Where:** `modules/nexus_core.py:607` — `"provider": "local_followup_clarification",`
+- **Where:** `modules/nexus_core.py:571` — `"provider": "local_fast_path",`
+- **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). Only with 'Length and form of answers: By kind of message': (d) a bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?"; (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
+- **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject. Since 2026-11-25 (d) and (e) go to the model unless the owner chose 'By kind of message'.
 - **Owner requested:** No.
 - **Evidence:** modules/nexus_core.py, stream_chat_response.
 - **Origin:** Earlier AI-written code: it was in the repository before 2026-11-23 and no request by the owner for it is recorded.
 - **Technical reason:** Speed: these need no model call (a model call takes seconds to minutes on this CPU).
 - **Affected workflows:** All chat.
-- **Default:** On.
-- **Effective now:** On.
+- **Default:** (a) to (c) on. (d) and (e) off since 2026-11-25.
+- **Effective now:** (a) to (c) on; (d) and (e) off.
 - **Alternatives:** Send everything to the model. Consequence: the same replies, slower.
-- **Can the owner change it?:** No setting.
+- **Can the owner change it?:** (d) and (e): Settings, Behaviour, 'Length and form of answers'. (a) to (c): no setting; (a) is the owner's own instruction and (c) a function, not an answer.
 - **Owner decision:** Pending review by the owner. These are shortcuts, not rules about subjects.
-- **Tests:** tests/test_nexus_core.py: test_ambiguous_short_prompt_without_context_asks_clarification and the direct-response tests
+- **Tests:** tests/test_nexus_core.py: test_ambiguous_short_prompt_without_context_asks_clarification and the direct-response tests; tests/test_answer_shape.py (the model answers (d) and (e) by default)
 - **Regression risk:** Low.
 - **Known limitations:** The follow-up shortcut can misread a very short message as a follow-up.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
-### R-A19 · Edits made to a model's answer after it is written · active
+### R-A19 · Edits made to a model's answer after it is written · changed
 
 - **Where:** `modules/core_answers.py:46` — `def _clean_model_answer(`
 - **Where:** `modules/core_answers.py:94` — `def _repair_social_presence_answer(`
-- **Where:** `modules/core_answers.py:196` — `def _reduce_hedging(`
-- **Trigger:** (a) An answer that begins with leaked prompt text ("User request:", "Response plan:"). (b) Small talk containing stock phrases ("It's great to hear...", "How's it going?"). (c) The research-simulation route with the persona's default settings.
-- **Effect:** (a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. (c) Phrases such as "However,", "Note that", "I think" are deleted from the app's stored copy of the answer; the text already shown while streaming is not changed. None of this depends on the subject and none of it turns an answer into a refusal or back.
+- **Where it was:** `modules/core_answers.py` — `def _reduce_hedging(` (no longer in the file)
+- **Where it was:** `modules/core_answers.py` — `def _compress_response(` (no longer in the file)
+- **Trigger:** (a) An answer that begins with leaked prompt text ("User request:", "Response plan:"). (b) Only with 'Length and form of answers: By kind of message': small talk containing stock phrases ("It's great to hear...", "How's it going?").
+- **Effect:** (a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. Removed on 2026-11-25: on the research-simulation route, words such as "Maybe", "I think", "However," and "Note that" were deleted from the stored copy of the answer, and at the persona's higher setting all line breaks were collapsed. None of this depends on the subject and none of it turns an answer into a refusal or back.
 - **Owner requested:** No.
-- **Evidence:** modules/nexus_core.py: _clean_model_answer, _repair_social_presence_answer, _compress_response, _reduce_hedging.
+- **Evidence:** modules/core_answers.py: _clean_model_answer, _repair_social_presence_answer. _compress_response and _reduce_hedging were removed on 2026-11-25.
 - **Origin:** Earlier AI-written code: it was in the repository before 2026-11-23 and no request by the owner for it is recorded.
-- **Technical reason:** (a) and (b): small local models sometimes echo the prompt or fall into customer-support phrasing. (c) has no good reason: deleting "However," can change a sentence's meaning, and it only affects the stored copy.
+- **Technical reason:** (a): small local models sometimes echo the prompt. (b): they fall into customer-support phrasing. The removed edits had no good reason: deleting "However," can change a sentence's meaning.
 - **Affected workflows:** All chat.
 - **Default:** On.
 - **Effective now:** On.
-- **Alternatives:** Remove (c) (recommended; planned with the clean-up of modules/nexus_core.py). Removing (a) and (b) would show the raw output.
-- **Can the owner change it?:** No setting.
-- **Owner decision:** Pending review by the owner. Recommendation: keep (a) and (b), remove (c).
-- **Tests:** tests/test_nexus_core.py (social presence and scaffolding tests)
+- **Alternatives:** Removing (a) would show the raw output, prompt scaffolding included. (b) is off unless the owner chooses 'By kind of message'.
+- **Can the owner change it?:** (b): Settings, Behaviour, 'Length and form of answers'. (a): no setting.
+- **Owner decision:** Pending review by the owner. The research-simulation edits were removed on 2026-11-25, as recommended on 2026-11-23.
+- **Tests:** tests/test_nexus_core.py (scaffolding, and social presence under By kind of message); tests/test_answer_shape.py (research-simulation answers are not rewritten)
 - **Regression risk:** Low.
-- **Known limitations:** (c) is effectively without visible effect today; it is listed because it is code that alters a model's words.
+- **Known limitations:** (a) recognises a few English scaffolding phrases.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
 ### R-A20 · Memory notes and self-critique hints added to the prompt · active
 
-- **Where:** `modules/core_prompts.py:36` — `def _memory_context(`
-- **Where:** `modules/core_prompts.py:388` — `def _self_critic_prompt_hints(`
+- **Where:** `modules/core_prompts.py:35` — `def _memory_context(`
+- **Where:** `modules/core_prompts.py:394` — `def _self_critic_prompt_hints(`
 - **Where:** `modules/context_manager.py:431` — `Relevant memory (the app's notes about the owner)`
 - **Trigger:** Memory switched on: an "Adaptive response policy" (tone, detail, directness) inferred from the owner's earlier messages, with saved preferences and facts. Always: up to three hints from the app's notes on its own earlier answers ("use warmer, less formal wording").
 - **Effect:** Added to the prompt as plain notes. They shape tone and length. They are not about subjects.
@@ -543,9 +547,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A21 · Pictures: no minor shown nude or undressed, whatever the scene · active
 
-- **Where:** `modules/behavior_policy.py:331` — `_UNDRESSED = re.compile(`
-- **Where:** `modules/behavior_policy.py:541` — `IMAGE_CLOTHED_QUESTION = """`
-- **Where:** `modules/behavior_policy.py:493` — `IMAGE_EXAMPLES_A = """`
+- **Where:** `modules/behavior_policy.py:357` — `_UNDRESSED = re.compile(`
+- **Where:** `modules/behavior_policy.py:567` — `IMAGE_CLOTHED_QUESTION = """`
+- **Where:** `modules/behavior_policy.py:519` — `IMAGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:57` — `CONTENT_RULE_PICTURE_REPLY = (`
 - **Where:** `modules/core_pictures.py:29` — `self._require_content_rule(str(request.prompt or ""), kind="image")`
 - **Where:** `modules/core_pictures.py:52` — `self._require_content_rule(str(prompt or ""), kind="image")`
@@ -566,12 +570,33 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Known limitations:** Measured: of 21 ordinary picture requests naming a child, one was refused (a toddler wrapped in a towel). The first held-out run let a bath scene through; the third question was added for that and a fresh set of 16 was clean except for that one refusal. The check reads the words of the request, never the picture. A prompt that describes a minor without any word for one (no age, no "girl", "boy", "child", "teen") is not looked at.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
+### R-A22 · Quick turns sent without the conversation · changed
+
+- **Where:** `modules/core_prompts.py:228` — `bare_quick_turn = minimal_context and str(settings.get("_answer_shape") or "") == "kind"`
+- **Where:** `modules/response_planner.py:742` — `effective["_minimal_context_for_turn"] = bool(profile.get("minimal_context", False)`
+- **Trigger:** A 'quick turn': with Auto Precision on (the default) nearly every chat message, and casual chat and short follow-ups.
+- **Effect:** Until 2026-11-25 the model got only the new message, under "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics." The owner's earlier instructions ("from now on, answer in French") were gone by the next message, and "what about its economy?" reached the model without what "its" was. Now a quick turn carries the recent conversation and the owner's saved facts and standing instructions; only the app's memory notes, files and research are left out. With 'By kind of message' a quick turn is the bare message, as before.
+- **Owner requested:** No. The owner asked for the opposite: "Distinguish instructions I deliberately give Cognitive Nexus" and reliable instruction following.
+- **Evidence:** modules/core_prompts.py, build_chat_prompt; modules/response_planner.py, apply_auto_precision_settings. Found on 2026-11-25 by sending a two-turn conversation through the chat path and reading the prompt.
+- **Origin:** Earlier AI-written code (the quick path, 2026-07-02); its one line was reworded by the assistant on 2026-11-23 without noticing that it dropped the conversation.
+- **Technical reason:** Speed: a shorter prompt starts answering sooner on a CPU. The model server keeps the start of the previous prompt, so most of the conversation does not have to be read again.
+- **Affected workflows:** All chat, on the desktop and the phone.
+- **Default:** The conversation is kept (since 2026-11-25).
+- **Effective now:** The conversation is kept.
+- **Alternatives:** 'By kind of message': the bare message, faster to start, and earlier instructions are lost.
+- **Can the owner change it?:** Yes. Settings, Behaviour, 'Length and form of answers'. How many recent messages are kept: recent_message_limit (8).
+- **Owner decision:** Pending review by the owner. Changed under the owner's directive (reliable instruction following).
+- **Tests:** tests/test_answer_shape.py (a quick turn keeps the conversation and the standing instructions; under By kind of message it does not); tests/test_nexus_core.py (the bare quick turn under By kind of message)
+- **Regression risk:** Medium: longer prompts on quick turns; the first word can come later on the first message after the model is loaded.
+- **Known limitations:** Older turns beyond the recent ones are summarised, not quoted. The app's memory notes, files and research still need a full turn.
+- **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
+
 
 ## B. Model and provider (outside the app's control; disclosed, not changeable here)
 
 ### R-B01 · A local model answers the way it was trained · active
 
-- **Where:** `modules/behavior_policy.py:763` — `def provider_constraints(`
+- **Where:** `modules/behavior_policy.py:789` — `def provider_constraints(`
 - **Trigger:** Any request answered by an Ollama or local Transformers model.
 - **Effect:** The app passes the request on unchanged. Whether the model declines something is the model's own behaviour; dolphin3:8b, the model in use, is trained to decline little.
 - **Owner requested:** The owner chose the model (dolphin3:8b) and asked that model limits be kept apart from the app's.
@@ -592,8 +617,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B02 · A hosted model applies its provider's policies · active
 
-- **Where:** `modules/provider_router.py:985` — `if stop_reason == "refusal":`
-- **Where:** `modules/behavior_policy.py:772` — `applies its own usage policies and may refuse or cut off an answer`
+- **Where:** `modules/provider_router.py:992` — `if stop_reason == "refusal":`
+- **Where:** `modules/behavior_policy.py:798` — `applies its own usage policies and may refuse or cut off an answer`
 - **Trigger:** A request sent to OpenAI or Anthropic (a cloud provider first in the order, or cloud fallback allowed).
 - **Effect:** The provider may refuse or cut off an answer. When Anthropic's API reports a refusal the app shows "Claude declined this request (category: ...)" as the reason; it never writes an answer of its own in its place.
 - **Owner requested:** The owner asked that this be disclosed, not hidden.
@@ -614,7 +639,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B03 · Anthropic: ask for the provider's own fallback when its classifier declines · active
 
-- **Where:** `modules/provider_router.py:963` — `if self.config.get("anthropic_refusal_fallback", True):`
+- **Where:** `modules/provider_router.py:970` — `if self.config.get("anthropic_refusal_fallback", True):`
 - **Where:** `modules/nexus_config.py:91` — `"anthropic_refusal_fallback": True,`
 - **Where:** `config/nexus_config.json:13` — `"anthropic_refusal_fallback": true`
 - **Trigger:** A request to Anthropic with the setting anthropic_refusal_fallback on.
@@ -636,7 +661,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B04 · The answer line says who answered and who declined · active
 
-- **Where:** `modules/behavior_policy.py:754` — `def looks_like_model_refusal(`
+- **Where:** `modules/behavior_policy.py:780` — `def looks_like_model_refusal(`
 - **Where:** `modules/answer_meta.py:179` — `This reads like a refusal by`
 - **Trigger:** Every answer.
 - **Effect:** Under each answer: which provider and model wrote it, whether the prompt left the machine, and, when the answer opens like a refusal, "This reads like a refusal by the model; the app passed your message on unchanged and did not block it." The answer itself is never changed.
@@ -676,6 +701,27 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Known limitations:** Nothing looks at the picture that was produced; R-A21 reads the request only.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
+### R-B06 · The model's own built-in system line · changed
+
+- **Where:** `modules/provider_router.py:753` — `payload["system"] = request.system_prompt`
+- **Trigger:** A local model whose Modelfile carries a SYSTEM line. dolphin3:8b: "You are Dolphin, a helpful AI assistant."
+- **Effect:** Ollama uses it as the system message of any request without a system field. Until 2026-11-25 the app sent Ollama no system field at all: on a longer turn the app's system prompt was inside the prompt text, and on a quick turn (most messages) it was not sent, so the owner's behaviour text, persona and the content rule line never reached a local model, while the Behaviour panel showed them as sent. Now the app's system prompt is the system message of every chat turn and replaces the built-in line.
+- **Owner requested:** No.
+- **Evidence:** modules/provider_router.py, _stream_ollama; the model's own line is in `ollama show dolphin3:8b --modelfile`. Found on 2026-11-25 by recording the request the app posted to Ollama.
+- **Origin:** The model's maker (the built-in line); the app's provider code (not sending the system field).
+- **Technical reason:** None for not sending it. Ollama accepts a system field on /api/generate.
+- **Affected workflows:** All chat with a local model, on the desktop and the phone.
+- **Default:** The app's system prompt is sent (since 2026-11-25).
+- **Effective now:** The app's system prompt is sent.
+- **Alternatives:** None needed: the owner's behaviour text and persona are what the system prompt says.
+- **Can the owner change it?:** What it says is: Settings, Behaviour. That it is sent: no setting.
+- **Owner decision:** Decided by the owner on 2026-11-23: "Keep model-selection, system-prompt, temperature, and behavioral settings transparent and owner-configurable" (restated 2026-11-25).
+- **Decision date:** 2026-11-23
+- **Tests:** tests/test_answer_shape.py (the system field reaches Ollama; a local model without one gets the system prompt first; every chat turn sends it once)
+- **Regression risk:** Low. Prompts are longer by the system prompt, which the model server keeps between turns.
+- **Known limitations:** A summary, a check or another request the app makes without a system prompt still gets the model's own line.
+- **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
+
 
 ## C. Tools and side effects (what the agent may do, and what waits for the owner)
 
@@ -683,7 +729,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `agent/approvals.py:36` — `AUTONOMY: dict[str, tuple[str, tuple[str, ...]]] = {`
 - **Where:** `agent/approvals.py:62` — `def decide(self, tool: str, effect: str) -> str:`
-- **Where:** `modules/nexus_config.py:96` — `"agent_autonomy": "publishing_asks",`
+- **Where:** `modules/nexus_config.py:99` — `"agent_autonomy": "publishing_asks",`
 - **Trigger:** Every action the agent takes. Each tool declares what it can affect: read, write, execute, network, external.
 - **Effect:** Default "publishing_asks": reading, editing, running tests, committing to the task's own branch and reading from GitHub run without asking; pushing a branch or opening a pull request asks once. Other choices: publish drafts unasked, ask before every change, read only.
 - **Owner requested:** Yes: autonomous development with owner-controlled permissions, and no unnecessary approval gates.
@@ -813,7 +859,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `agent/environment.py:118` — `def changed_since_start(`
 - **Where:** `agent/coder.py:809` — `def install_what_is_missing(`
 - **Where:** `agent/tools.py:328` — `Packages are installed with setup_environment`
-- **Where:** `modules/nexus_config.py:99` — `"agent_package_policy": "declared",`
+- **Where:** `modules/nexus_config.py:102` — `"agent_package_policy": "declared",`
 - **Trigger:** A task's tests cannot import a package, or the agent calls setup_environment.
 - **Effect:** The task gets a virtual environment of its own, created and used inside the sandbox. Under the default policy ('declared') only the repository's own requirement files are installed, as they were before the task started, from the package index only, and only as ready-built packages, so nothing from a package runs in order to install it. A requirement file the task itself wrote or changed is refused, as are lines pointing at URLs, version-control repositories or other indexes. With the policy 'off' nothing is installed and the task is handed to a person with the name of the missing package.
 - **Owner requested:** In general terms: the audit asked for a package installation policy (item 058). The default was not put to the owner.
@@ -839,7 +885,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `agent/github.py:55` — `def token_for(permission: str) -> str:`
 - **Where:** `agent/github.py:246` — `if not _is_github(context, address):`
 - **Where:** `modules/provider_router.py:507` — `usable, why = accounts.available("openai", "chat")`
-- **Where:** `modules/provider_router.py:947` — `api_key = accounts.credential("anthropic", "chat")`
+- **Where:** `modules/provider_router.py:954` — `api_key = accounts.credential("anthropic", "chat")`
 - **Where:** `modules/web_research.py:273` — `headers={"X-Subscription-Token": accounts.credential("brave_search", "search")},`
 - **Where:** `agent/cli.py:265` — `def _accounts(args: argparse.Namespace) -> int:`
 - **Trigger:** Code in the app needs a credential for an outside service: a cloud model provider, Brave Search, GitHub, or a service the owner added.
@@ -893,7 +939,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/web_research.py:627` — `def _fenced_context(`
 - **Where:** `modules/reality_research_agent.py:859` — `fence_untrusted(cleaned, 'passage')`
 - **Where:** `search/bloodhound_search.py:568` — `fence_untrusted("\n\n".join(cleaned), "search results")`
-- **Where:** `modules/nexus_config.py:95` — `"untrusted_content": "remove_and_fence",`
+- **Where:** `modules/nexus_config.py:98` — `"untrusted_content": "remove_and_fence",`
 - **Trigger:** Web pages, search results, passages from uploaded and saved documents, and earlier answers that were built from them, when they are put into a prompt.
 - **Effect:** The text is placed between [BEGIN UNTRUSTED ...] and [END UNTRUSTED ...] markers that it cannot forge, with a note that it is information and not instruction. In the default setting, sentences in web pages that address an AI ("ignore previous instructions") are also left out, and the count is shown.
 - **Owner requested:** Yes, for outside text.
@@ -1051,7 +1097,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-D08 · Keys and tokens stay out of the settings file, the logs, picture metadata, backups and the sandbox · active
 
-- **Where:** `modules/nexus_config.py:221` — `if "key" not in key.lower()`
+- **Where:** `modules/nexus_config.py:224` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
 - **Where:** `modules/nexus_core.py:304` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
@@ -1188,7 +1234,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
-- **Where:** `modules/nexus_core.py:489` — `reality_check != "off"`
+- **Where:** `modules/nexus_core.py:490` — `reality_check != "off"`
 - **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
@@ -1293,7 +1339,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F03 · The Behaviour panel · active
 
-- **Where:** `ui/behavior_panel.py:79` — `def render_behavior_panel(`
+- **Where:** `ui/behavior_panel.py:84` — `def render_behavior_panel(`
 - **Where:** `ui/settings_tab.py:28` — `render_behavior_panel(`
 - **Trigger:** Settings tab.
 - **Effect:** Shows and saves the owner's behaviour text and the three behaviour settings; prints the whole system prompt, the one content rule and how it is checked, the texts the app can show instead of an answer, what is added to each message, the last prompt as it was sent, what the selected model or provider may do, and the permissions and protections.
@@ -1337,7 +1383,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F05 · Tor (.onion) search is off by default · active
 
-- **Where:** `modules/nexus_config.py:125` — `"enable_onion_search": False,`
+- **Where:** `modules/nexus_config.py:128` — `"enable_onion_search": False,`
 - **Trigger:** Bloodhound search.
 - **Effect:** Onion sites are searched only when the setting is on and a Tor proxy runs on this machine.
 - **Owner requested:** No.
@@ -1390,9 +1436,9 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/chat_profile.py` | 5 | R-A08, R-A15, R-A16 | - |
 | `modules/chunking.py` | 1 | - | The keyword "protected" in a list of programming-language keywords used to split code files. |
 | `modules/context_manager.py` | 6 | R-A20, R-D01, R-D02 | - |
-| `modules/core_answers.py` | 3 | R-A19, R-E02 | - |
+| `modules/core_answers.py` | 2 | R-A19, R-E02 | - |
 | `modules/core_pictures.py` | 4 | R-A21 | - |
-| `modules/core_prompts.py` | 6 | R-A17, R-A20 | - |
+| `modules/core_prompts.py` | 6 | R-A17, R-A20, R-A22 | - |
 | `modules/core_research.py` | 6 | - | NexusCore's research outside the chat (web research, Bloodhound search, Reality-First research, knowledge answers): each request is put to the one content rule before it runs, through NexusCore._require_content_rule in modules/nexus_core.py (R-A11, R-A12). Nothing else is checked or restricted here. |
 | `modules/data_stores.py` | 1 | R-D08 | A description of what the agent's database holds, for the Your data panel. |
 | `modules/event_log.py` | 3 | R-A12 | - |
@@ -1404,15 +1450,16 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/nexus_core.py` | 28 | R-A04, R-A05, R-A12, R-A18, R-D08, R-E01 | - |
 | `modules/profile_store.py` | 1 | - | A comment about error handling when forgetting a fact. |
 | `modules/project_dashboard.py` | 3 | - | What the project dashboard shows: milestones from the audit ledger, task counts by status (including 'blocked' and 'waiting for approval'), bugs, test results, commits and GitHub's workflow runs. It reads and shows; it decides nothing (approvals are R-C01). |
-| `modules/provider_router.py` | 4 | R-B02, R-B03, R-C08, R-D09 | - |
+| `modules/provider_router.py` | 5 | R-B02, R-B03, R-B06, R-C08, R-D09 | - |
 | `modules/reality_research_agent.py` | 11 | R-D01, R-E03 | - |
 | `modules/research_plan.py` | 2 | - | Decides which search results the model reads: results about another meaning of the question's words are dropped (lawn care for a question about cannabis), either because they carry words of that other meaning or because the model, asked about a result that names nothing of the meant sense, says it is about something else. A quality control on sources, not a limit on what may be asked or answered: the meaning is the asker's, and the judge is told only what the person means. The setting plan_web_search switches the planning and the judging off. |
-| `modules/response_planner.py` | 10 | R-A03, R-A06, R-A17 | - |
+| `modules/response_planner.py` | 10 | R-A03, R-A06, R-A17, R-A22 | - |
 | `modules/url_safety.py` | 2 | R-D05 | - |
 | `modules/web_research.py` | 8 | R-C08, R-D01, R-E03 | - |
 | `nexus_router.py` | 1 | R-A08, R-A09, R-A10 | - |
 | `search/bloodhound_search.py` | 4 | R-D01 | - |
 | `tools/agent_benchmark.py` | 4 | - | A development tool. It measures or checks; it does not run in the app. |
+| `tools/answer_attribution.py` | 13 | - | Measures where a refusal, a redirect or a shortened answer comes from: the model alone, the exact request the app sent, and the answer the app showed. It changes nothing in the app and restricts nothing. |
 | `tools/audit_ledger.py` | 4 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/behavior_check.py` | 12 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/check_repo_hygiene.py` | 1 | - | A development tool: keeps private data and secrets out of the repository. It does not run in the app. |

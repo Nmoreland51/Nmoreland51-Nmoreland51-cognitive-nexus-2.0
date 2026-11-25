@@ -602,22 +602,22 @@
    "id": "R-A17",
    "name": "Length and format rules added to each message",
    "category": "A",
-   "status": "active",
-   "trigger": "Every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.",
-   "effect": "Lines such as \"Answer in 1-3 short sentences\", \"Maximum output: about N tokens\", and for small talk a list of stock phrases to avoid, are added to the prompt; the reply length limit is set to match. For quick turns the prompt also says \"Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics.\"",
+   "status": "changed",
+   "trigger": "Only with the owner's setting 'Length and form of answers: By kind of message' (answer_shape \"kind\"): every chat turn. Auto Precision, or the Response controls when it is off, choose a response mode from the message.",
+   "effect": "With 'By kind of message': lines such as \"Answer in 1-3 short sentences\", \"Maximum output: about N tokens\", \"Give exactly 3 short concrete steps\", and for small talk a list of stock phrases to avoid, are added to the prompt, the reply length limit is set to match, and the temperature is moved (a quick fact at 0.1). With the default 'Follow my message' (since 2026-11-25) none of this is added: a length or form stated in the message is passed on, the owner's Response controls set to short or deep add one line, the route's temperature is used, and a reply stops at 2,048 tokens.",
    "owner_requested": "Yes, in part: the owner asked for fast answers (about 60 seconds for web answers) and less filler.",
-   "evidence": "modules/response_planner.py; the last prompt sent is shown in Settings, Behaviour.",
+   "evidence": "modules/response_planner.py, modules/core_prompts.py; the last prompt sent is shown in Settings, Behaviour. Measured with dolphin3:8b on 2026-11-25 (tools/answer_attribution.py): 'Reply with only yes or no: is Pluto a planet?' came back through the app as a sentence saying Pluto is a planet, and from the model alone as 'No'; 'How does MDMA affect the brain, and what are the risks? Be detailed.' was 58 words through the app (a 140-token limit and 'Answer under 75 words') against 392 from the model alone.",
    "origin": "Earlier AI-written code: it was in the repository before 2026-11-23 and no request by the owner for it is recorded.",
    "technical_reason": "On a CPU every written token takes about a quarter of a second, so short questions get short answers.",
    "affected_workflows": "All chat.",
-   "default_state": "Auto Precision on.",
-   "effective_state": "On.",
-   "alternatives": "Turn Auto Precision off and set response mode, verbosity and reasoning depth by hand.",
-   "configurable": "Yes. Sidebar: Auto Precision Mode, Advanced Overrides.",
-   "owner_decision": "Pending review by the owner. It concerns length and form, not subjects.",
-   "tests": "tests/test_response_planner.py, tests/test_intent_routing.py",
+   "default_state": "Off: 'Follow my message' since 2026-11-25. Before that, on, and the Response controls did not turn it off.",
+   "effective_state": "Off.",
+   "alternatives": "'By kind of message': shorter, faster answers, at the cost of misread requests.",
+   "configurable": "Yes. Settings, Behaviour, 'Length and form of answers' (Follow my message / By kind of message).",
+   "owner_decision": "Pending review by the owner. The default was changed by the assistant on 2026-11-25, under the owner's directive to remove prompt instructions that interfere with the intended model behaviour; the earlier behaviour is one setting away.",
+   "tests": "tests/test_answer_shape.py (the default), tests/test_response_planner.py and tests/test_nexus_core.py (By kind of message), tests/test_intent_routing.py",
    "regression_risk": "Low.",
-   "known_limitations": "A length limit can cut a long answer short; the answer line says when that happened.",
+   "known_limitations": "With the default, an answer is as long as the model makes it, which on a CPU takes longer for a long answer. With 'By kind of message' a length limit can cut a long answer short; the answer line says when that happened.",
    "locations": [
     {
      "file": "modules/core_prompts.py",
@@ -630,27 +630,32 @@
     {
      "file": "modules/core_prompts.py",
      "anchor": "routed_system = \"Answer only the current message."
+    },
+    {
+     "file": "modules/response_planner.py",
+     "anchor": "shape = \"kind\" if str(settings.get(\"answer_shape\") or \"\") == \"kind\" else \"request\""
     }
-   ]
+   ],
+   "decision_date": ""
   },
   {
    "id": "R-A18",
    "name": "Replies the app writes itself, without a model",
    "category": "A",
-   "status": "active",
-   "trigger": "(a) \"say exactly: ...\": the text is returned as given. (b) \"what can you do\": the greeting. (c) A memory command (\"remember that...\"). (d) A bare follow-up such as \"do it\" with nothing before it: \"I can do that, but what should I continue?\". (e) \"am I cooked?\" and similar: \"Maybe, but I need the situation first...\".",
-   "effect": "A fixed short reply is shown and the line under it says \"Built-in reply, no model used\". None of these is a refusal or depends on the subject.",
+   "status": "changed",
+   "trigger": "(a) \"say exactly: ...\": the text is returned as given. (b) \"what can you do\": the greeting. (c) A memory command (\"remember that...\"). Only with 'Length and form of answers: By kind of message': (d) a bare follow-up such as \"do it\" with nothing before it: \"I can do that, but what should I continue?\"; (e) \"am I cooked?\" and similar: \"Maybe, but I need the situation first...\".",
+   "effect": "A fixed short reply is shown and the line under it says \"Built-in reply, no model used\". None of these is a refusal or depends on the subject. Since 2026-11-25 (d) and (e) go to the model unless the owner chose 'By kind of message'.",
    "owner_requested": "No.",
    "evidence": "modules/nexus_core.py, stream_chat_response.",
    "origin": "Earlier AI-written code: it was in the repository before 2026-11-23 and no request by the owner for it is recorded.",
    "technical_reason": "Speed: these need no model call (a model call takes seconds to minutes on this CPU).",
    "affected_workflows": "All chat.",
-   "default_state": "On.",
-   "effective_state": "On.",
+   "default_state": "(a) to (c) on. (d) and (e) off since 2026-11-25.",
+   "effective_state": "(a) to (c) on; (d) and (e) off.",
    "alternatives": "Send everything to the model. Consequence: the same replies, slower.",
-   "configurable": "No setting.",
+   "configurable": "(d) and (e): Settings, Behaviour, 'Length and form of answers'. (a) to (c): no setting; (a) is the owner's own instruction and (c) a function, not an answer.",
    "owner_decision": "Pending review by the owner. These are shortcuts, not rules about subjects.",
-   "tests": "tests/test_nexus_core.py: test_ambiguous_short_prompt_without_context_asks_clarification and the direct-response tests",
+   "tests": "tests/test_nexus_core.py: test_ambiguous_short_prompt_without_context_asks_clarification and the direct-response tests; tests/test_answer_shape.py (the model answers (d) and (e) by default)",
    "regression_risk": "Low.",
    "known_limitations": "The follow-up shortcut can misread a very short message as a follow-up.",
    "locations": [
@@ -672,22 +677,22 @@
    "id": "R-A19",
    "name": "Edits made to a model's answer after it is written",
    "category": "A",
-   "status": "active",
-   "trigger": "(a) An answer that begins with leaked prompt text (\"User request:\", \"Response plan:\"). (b) Small talk containing stock phrases (\"It's great to hear...\", \"How's it going?\"). (c) The research-simulation route with the persona's default settings.",
-   "effect": "(a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. (c) Phrases such as \"However,\", \"Note that\", \"I think\" are deleted from the app's stored copy of the answer; the text already shown while streaming is not changed. None of this depends on the subject and none of it turns an answer into a refusal or back.",
+   "status": "changed",
+   "trigger": "(a) An answer that begins with leaked prompt text (\"User request:\", \"Response plan:\"). (b) Only with 'Length and form of answers: By kind of message': small talk containing stock phrases (\"It's great to hear...\", \"How's it going?\").",
+   "effect": "(a) The leaked prompt text is cut off. (b) Sentences containing the stock phrase are dropped when something usable is left. Removed on 2026-11-25: on the research-simulation route, words such as \"Maybe\", \"I think\", \"However,\" and \"Note that\" were deleted from the stored copy of the answer, and at the persona's higher setting all line breaks were collapsed. None of this depends on the subject and none of it turns an answer into a refusal or back.",
    "owner_requested": "No.",
-   "evidence": "modules/nexus_core.py: _clean_model_answer, _repair_social_presence_answer, _compress_response, _reduce_hedging.",
+   "evidence": "modules/core_answers.py: _clean_model_answer, _repair_social_presence_answer. _compress_response and _reduce_hedging were removed on 2026-11-25.",
    "origin": "Earlier AI-written code: it was in the repository before 2026-11-23 and no request by the owner for it is recorded.",
-   "technical_reason": "(a) and (b): small local models sometimes echo the prompt or fall into customer-support phrasing. (c) has no good reason: deleting \"However,\" can change a sentence's meaning, and it only affects the stored copy.",
+   "technical_reason": "(a): small local models sometimes echo the prompt. (b): they fall into customer-support phrasing. The removed edits had no good reason: deleting \"However,\" can change a sentence's meaning.",
    "affected_workflows": "All chat.",
    "default_state": "On.",
    "effective_state": "On.",
-   "alternatives": "Remove (c) (recommended; planned with the clean-up of modules/nexus_core.py). Removing (a) and (b) would show the raw output.",
-   "configurable": "No setting.",
-   "owner_decision": "Pending review by the owner. Recommendation: keep (a) and (b), remove (c).",
-   "tests": "tests/test_nexus_core.py (social presence and scaffolding tests)",
+   "alternatives": "Removing (a) would show the raw output, prompt scaffolding included. (b) is off unless the owner chooses 'By kind of message'.",
+   "configurable": "(b): Settings, Behaviour, 'Length and form of answers'. (a): no setting.",
+   "owner_decision": "Pending review by the owner. The research-simulation edits were removed on 2026-11-25, as recommended on 2026-11-23.",
+   "tests": "tests/test_nexus_core.py (scaffolding, and social presence under By kind of message); tests/test_answer_shape.py (research-simulation answers are not rewritten)",
    "regression_risk": "Low.",
-   "known_limitations": "(c) is effectively without visible effect today; it is listed because it is code that alters a model's words.",
+   "known_limitations": "(a) recognises a few English scaffolding phrases.",
    "locations": [
     {
      "file": "modules/core_answers.py",
@@ -696,10 +701,16 @@
     {
      "file": "modules/core_answers.py",
      "anchor": "def _repair_social_presence_answer("
-    },
+    }
+   ],
+   "gone": [
     {
      "file": "modules/core_answers.py",
      "anchor": "def _reduce_hedging("
+    },
+    {
+     "file": "modules/core_answers.py",
+     "anchor": "def _compress_response("
     }
    ]
   },
@@ -782,6 +793,38 @@
     {
      "file": "modules/core_pictures.py",
      "anchor": "self._require_content_rule(str(prompt or \"\"), kind=\"image\")"
+    }
+   ]
+  },
+  {
+   "id": "R-A22",
+   "name": "Quick turns sent without the conversation",
+   "category": "A",
+   "status": "changed",
+   "trigger": "A 'quick turn': with Auto Precision on (the default) nearly every chat message, and casual chat and short follow-ups.",
+   "effect": "Until 2026-11-25 the model got only the new message, under \"Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics.\" The owner's earlier instructions (\"from now on, answer in French\") were gone by the next message, and \"what about its economy?\" reached the model without what \"its\" was. Now a quick turn carries the recent conversation and the owner's saved facts and standing instructions; only the app's memory notes, files and research are left out. With 'By kind of message' a quick turn is the bare message, as before.",
+   "owner_requested": "No. The owner asked for the opposite: \"Distinguish instructions I deliberately give Cognitive Nexus\" and reliable instruction following.",
+   "evidence": "modules/core_prompts.py, build_chat_prompt; modules/response_planner.py, apply_auto_precision_settings. Found on 2026-11-25 by sending a two-turn conversation through the chat path and reading the prompt.",
+   "origin": "Earlier AI-written code (the quick path, 2026-07-02); its one line was reworded by the assistant on 2026-11-23 without noticing that it dropped the conversation.",
+   "technical_reason": "Speed: a shorter prompt starts answering sooner on a CPU. The model server keeps the start of the previous prompt, so most of the conversation does not have to be read again.",
+   "affected_workflows": "All chat, on the desktop and the phone.",
+   "default_state": "The conversation is kept (since 2026-11-25).",
+   "effective_state": "The conversation is kept.",
+   "alternatives": "'By kind of message': the bare message, faster to start, and earlier instructions are lost.",
+   "configurable": "Yes. Settings, Behaviour, 'Length and form of answers'. How many recent messages are kept: recent_message_limit (8).",
+   "owner_decision": "Pending review by the owner. Changed under the owner's directive (reliable instruction following).",
+   "tests": "tests/test_answer_shape.py (a quick turn keeps the conversation and the standing instructions; under By kind of message it does not); tests/test_nexus_core.py (the bare quick turn under By kind of message)",
+   "regression_risk": "Medium: longer prompts on quick turns; the first word can come later on the first message after the model is loaded.",
+   "known_limitations": "Older turns beyond the recent ones are summarised, not quoted. The app's memory notes, files and research still need a full turn.",
+   "decision_date": "",
+   "locations": [
+    {
+     "file": "modules/core_prompts.py",
+     "anchor": "bare_quick_turn = minimal_context and str(settings.get(\"_answer_shape\") or \"\") == \"kind\""
+    },
+    {
+     "file": "modules/response_planner.py",
+     "anchor": "effective[\"_minimal_context_for_turn\"] = bool(profile.get(\"minimal_context\", False)"
     }
    ]
   },
@@ -936,6 +979,34 @@
     {
      "file": "modules/image_gen.py",
      "anchor": "\"safety_checker\": None,"
+    }
+   ]
+  },
+  {
+   "id": "R-B06",
+   "name": "The model's own built-in system line",
+   "category": "B",
+   "status": "changed",
+   "trigger": "A local model whose Modelfile carries a SYSTEM line. dolphin3:8b: \"You are Dolphin, a helpful AI assistant.\"",
+   "effect": "Ollama uses it as the system message of any request without a system field. Until 2026-11-25 the app sent Ollama no system field at all: on a longer turn the app's system prompt was inside the prompt text, and on a quick turn (most messages) it was not sent, so the owner's behaviour text, persona and the content rule line never reached a local model, while the Behaviour panel showed them as sent. Now the app's system prompt is the system message of every chat turn and replaces the built-in line.",
+   "owner_requested": "No.",
+   "evidence": "modules/provider_router.py, _stream_ollama; the model's own line is in `ollama show dolphin3:8b --modelfile`. Found on 2026-11-25 by recording the request the app posted to Ollama.",
+   "origin": "The model's maker (the built-in line); the app's provider code (not sending the system field).",
+   "technical_reason": "None for not sending it. Ollama accepts a system field on /api/generate.",
+   "affected_workflows": "All chat with a local model, on the desktop and the phone.",
+   "default_state": "The app's system prompt is sent (since 2026-11-25).",
+   "effective_state": "The app's system prompt is sent.",
+   "alternatives": "None needed: the owner's behaviour text and persona are what the system prompt says.",
+   "configurable": "What it says is: Settings, Behaviour. That it is sent: no setting.",
+   "owner_decision": "Decided by the owner on 2026-11-23: \"Keep model-selection, system-prompt, temperature, and behavioral settings transparent and owner-configurable\" (restated 2026-11-25).",
+   "tests": "tests/test_answer_shape.py (the system field reaches Ollama; a local model without one gets the system prompt first; every chat turn sends it once)",
+   "regression_risk": "Low. Prompts are longer by the system prompt, which the model server keeps between turns.",
+   "known_limitations": "A summary, a check or another request the app makes without a system prompt still gets the model's own line.",
+   "decision_date": "2026-11-23",
+   "locations": [
+    {
+     "file": "modules/provider_router.py",
+     "anchor": "payload[\"system\"] = request.system_prompt"
     }
    ]
   },
@@ -2022,6 +2093,7 @@
   "modules/project_dashboard.py": "What the project dashboard shows: milestones from the audit ledger, task counts by status (including 'blocked' and 'waiting for approval'), bugs, test results, commits and GitHub's workflow runs. It reads and shows; it decides nothing (approvals are R-C01).",
   "modules/research_plan.py": "Decides which search results the model reads: results about another meaning of the question's words are dropped (lawn care for a question about cannabis), either because they carry words of that other meaning or because the model, asked about a result that names nothing of the meant sense, says it is about something else. A quality control on sources, not a limit on what may be asked or answered: the meaning is the asker's, and the judge is told only what the person means. The setting plan_web_search switches the planning and the judging off.",
   "tools/agent_benchmark.py": "A development tool. It measures or checks; it does not run in the app.",
+  "tools/answer_attribution.py": "Measures where a refusal, a redirect or a shortened answer comes from: the model alone, the exact request the app sent, and the answer the app showed. It changes nothing in the app and restricts nothing.",
   "tools/audit_ledger.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/behavior_check.py": "A development tool. It measures or checks; it does not run in the app.",
   "tools/check_repo_hygiene.py": "A development tool: keeps private data and secrets out of the repository. It does not run in the app.",

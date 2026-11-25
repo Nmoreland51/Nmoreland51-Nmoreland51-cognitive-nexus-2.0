@@ -267,7 +267,7 @@ class TestResponsePlanner(unittest.TestCase):
                     route_category="standard_conversation",
                     settings={
                         "response_mode": "auto",
-                        "auto_precision_mode": True,
+                        "auto_precision_mode": True, "answer_shape": "kind",
                         "verbosity_level": 3,
                         "reasoning_depth": 4,
                         "provider_order": ["ollama", "fallback"],
@@ -293,7 +293,7 @@ class TestResponsePlanner(unittest.TestCase):
             user_message="how are you?",
             messages=[{"role": "assistant", "content": "Old research about stable complexity."}],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
 
         policy = plan.diagnostics["social_presence"]
@@ -319,7 +319,7 @@ class TestResponsePlanner(unittest.TestCase):
             ],
             route_category="standard_conversation",
             settings={
-                "auto_precision_mode": True,
+                "auto_precision_mode": True, "answer_shape": "kind",
                 "provider_order": ["ollama"],
                 "selected_model": "llama3.2:3b",
                 "use_memory": True,
@@ -365,31 +365,31 @@ class TestResponsePlanner(unittest.TestCase):
             user_message="hello",
             messages=[],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
         simple = plan_response(
             user_message="Is 65 bpm a lot?",
             messages=[],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
         explanation = plan_response(
             user_message="Explain Ollama in one paragraph.",
             messages=[],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
         debugging = plan_response(
             user_message="Fix this import error: ModuleNotFoundError: core.model",
             messages=[],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
         planning = plan_response(
             user_message="What should I do next with this repo?",
             messages=[],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
 
         self.assertGreaterEqual(casual.max_tokens, 100)
@@ -408,7 +408,7 @@ class TestResponsePlanner(unittest.TestCase):
             user_message="sup hoe",
             messages=[],
             route_category="standard_conversation",
-            settings={"auto_precision_mode": True, "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
+            settings={"auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama"], "selected_model": "llama3.2:3b"},
         )
 
         self.assertEqual(plan.intent, "casual_chat")
@@ -424,7 +424,7 @@ class TestResponsePlanner(unittest.TestCase):
             route_category="standard_conversation",
             settings={
                 "response_mode": "auto",
-                "auto_precision_mode": True,
+                "auto_precision_mode": True, "answer_shape": "kind",
                 "verbosity_level": 1,
                 "reasoning_depth": 1,
                 "provider_order": ["ollama", "fallback"],
@@ -443,7 +443,7 @@ class TestResponsePlanner(unittest.TestCase):
             route_category="coding_development",
             settings={
                 "response_mode": "auto",
-                "auto_precision_mode": True,
+                "auto_precision_mode": True, "answer_shape": "kind",
                 "verbosity_level": 2,
                 "reasoning_depth": 2,
                 "provider_order": ["ollama", "fallback"],
@@ -564,7 +564,7 @@ class TestResponsePlanner(unittest.TestCase):
             route_category="standard_conversation",
             settings={
                 "response_mode": "auto",
-                "auto_precision_mode": True,
+                "auto_precision_mode": True, "answer_shape": "kind",
                 "verbosity_level": 1,
                 "reasoning_depth": 1,
                 "provider_order": ["ollama", "fallback"],
@@ -581,7 +581,7 @@ class TestResponsePlanner(unittest.TestCase):
         # Seen with the real model on 2026-11-23: "write a short story" came back as two
         # sentences, because every writing request with "short" in it was told "exactly one
         # option under 12 words".
-        settings = {"response_mode": "auto", "auto_precision_mode": True, "provider_order": ["ollama", "fallback"]}
+        settings = {"response_mode": "auto", "auto_precision_mode": True, "answer_shape": "kind", "provider_order": ["ollama", "fallback"]}
         for request in (
             "Write a short story in which an engineer builds a working time machine in her garage.",
             "Write a short love scene between a married couple in their thirties.",
@@ -663,7 +663,7 @@ class TestResponsePlanner(unittest.TestCase):
             route_category="standard_conversation",
             settings={
                 "response_mode": "auto",
-                "auto_precision_mode": True,
+                "auto_precision_mode": True, "answer_shape": "kind",
                 "verbosity_level": 1,
                 "reasoning_depth": 1,
                 "provider_order": ["ollama", "fallback"],
@@ -682,7 +682,7 @@ class TestResponsePlanner(unittest.TestCase):
             route_category="standard_conversation",
             settings={
                 "response_mode": "auto",
-                "auto_precision_mode": True,
+                "auto_precision_mode": True, "answer_shape": "kind",
                 "verbosity_level": 1,
                 "reasoning_depth": 1,
                 "provider_order": ["ollama", "fallback"],

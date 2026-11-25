@@ -85,9 +85,6 @@ You asked to be told about every limit the app has that you did not request. The
 | | Limit | Can you change it |
 |---|---|---|
 | R-A13 | The fixed part of the system prompt, and the accuracy checklist | Not as a setting. It is one tuple in the code (FIXED_RULES) and is printed in the app. |
-| R-A17 | Length and format rules added to each message | Yes. Sidebar: Auto Precision Mode, Advanced Overrides. |
-| R-A18 | Replies the app writes itself, without a model | No setting. |
-| R-A19 | Edits made to a model's answer after it is written | No setting. |
 | R-A20 | Memory notes and self-critique hints added to the prompt | Yes. Sidebar: Use adaptive memory. Memory tab: view and delete saved facts. |
 | R-A21 | Pictures: no minor shown nude or undressed, whatever the scene | No. It is not a setting. |
 | R-B03 | Anthropic: ask for the provider's own fallback when its classifier declines | Yes. Settings file: anthropic_refusal_fallback. |

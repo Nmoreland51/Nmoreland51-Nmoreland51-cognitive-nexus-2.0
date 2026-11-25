@@ -15,8 +15,10 @@ GENERIC_REFUSAL_TEXT = "I cannot fulfill requests that involve harm or illegal a
 
 
 class NexusCoreTests(unittest.TestCase):
-    def base_chat_settings(self, provider_order=None):
-        return {
+    def base_chat_settings(self, provider_order=None, answer_shape=None):
+        # answer_shape "kind": the per-kind length and format rules (the owner's "By kind of message").
+        extra = {"answer_shape": answer_shape} if answer_shape else {}
+        return extra | {
             "chat_profile": ChatProfile(enabled=False),
             "router_config": RouterConfig(default_model="fake-local-model", enabled=True),
             "provider_order": provider_order or ["ollama", "fallback"],
@@ -263,7 +265,7 @@ class NexusCoreTests(unittest.TestCase):
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
 
-        answer = core.generate_chat_response("What is Cognitive Nexus?", [], self.base_chat_settings())
+        answer = core.generate_chat_response("What is Cognitive Nexus?", [], self.base_chat_settings(answer_shape="kind"))
 
         self.assertEqual(answer, "Hello from the provider.")
         self.assertTrue(seen_prompts)
@@ -348,7 +350,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_knowledge_for_chat"] = True
         messages = [
             {"role": "user", "content": "Where is my USPS package?"},
@@ -396,7 +398,7 @@ class NexusCoreTests(unittest.TestCase):
 
         core.get_research_module = lambda: FailingResearchModule()  # type: ignore[method-assign]
         core.provider_router.stream = fake_stream  # type: ignore[method-assign]
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
         messages = [
@@ -452,7 +454,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
         settings["show_perf_timings"] = True
@@ -513,7 +515,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         messages = [
             {"role": "user", "content": "sup"},
             {"role": "assistant", "content": "How's it going?"},
@@ -598,7 +600,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
 
@@ -641,7 +643,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
 
@@ -684,7 +686,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
 
@@ -742,7 +744,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
         messages = [{"role": "assistant", "content": "We can polish the UI, run tests, or update docs."}]
@@ -788,7 +790,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["auto_precision_mode"] = False
         settings["use_memory"] = True
         settings["use_knowledge_for_chat"] = True
@@ -826,7 +828,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
 
         answer = core.generate_chat_response("do it", [], settings)
 
@@ -958,7 +960,7 @@ class NexusCoreTests(unittest.TestCase):
             (),
             {"available": True, "models": ["fake-local-model"], "name": "ollama"},
         )()
-        settings = self.base_chat_settings()
+        settings = self.base_chat_settings(answer_shape="kind")
         settings["use_knowledge_for_chat"] = True
 
         answer = core.generate_chat_response(

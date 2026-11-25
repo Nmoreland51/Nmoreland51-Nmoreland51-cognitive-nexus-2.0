@@ -349,9 +349,8 @@ def build_routed_prompt(
     chat_profile: ChatProfile,
     config: RouterConfig,
 ) -> str:
-    lines = [
-        base_system_prompt,
-        "",
+    lines = [base_system_prompt, ""] if base_system_prompt else []
+    lines += [
         f"Active route: {CATEGORY_LABELS.get(route.category, route.category)}",
         f"Route reason: {route.reason}",
     ]

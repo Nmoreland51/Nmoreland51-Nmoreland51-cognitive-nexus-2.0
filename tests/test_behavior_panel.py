@@ -21,7 +21,7 @@ def _panel_app():
     from modules.nexus_config import DEFAULT_CONFIG
 
     path = Path(os.environ["CN_TEST_BEHAVIOR_CONFIG"])
-    keys = ("behavior_text", "reality_check", "untrusted_content", "agent_autonomy")
+    keys = ("behavior_text", "answer_shape", "reality_check", "untrusted_content", "agent_autonomy")
 
     class Core:
         """Stands in for NexusCore: settings come from one file, as they do after a restart."""
@@ -89,6 +89,7 @@ def test_what_the_owner_saves_is_stored_and_is_in_the_very_next_prompt(saved):
     assert not app.exception
     assert json.loads(saved.read_text(encoding="utf-8")) == {
         "behavior_text": "Only haiku. Swear if you like.",
+        "answer_shape": "request",
         "reality_check": "off",
         "untrusted_content": "fence",
         "agent_autonomy": "publish_drafts",
@@ -97,6 +98,22 @@ def test_what_the_owner_saves_is_stored_and_is_in_the_very_next_prompt(saved):
     # The prompt shown is built from what was saved, as it will be after a restart.
     assert any("How the owner wants you to answer:\nOnly haiku. Swear if you like." in item.value for item in app.code)
     assert app.selectbox(key="behavior_reality_check").value == "off"
+
+
+def test_the_owner_chooses_who_decides_the_length_and_form_of_answers(saved):
+    app = AppTest.from_function(_panel_app, default_timeout=30).run()
+    assert app.selectbox(key="behavior_answer_shape").value == "request"
+    assert any("Length and form follow your message" in item.value for item in app.caption)
+    assert any("How it is sent: On every chat turn, as the model's system message" in item.value for item in app.caption)
+
+    app.selectbox(key="behavior_answer_shape").select("kind")
+    app.run()
+    app.button(key="behavior_save").click().run()
+
+    assert not app.exception
+    assert json.loads(saved.read_text(encoding="utf-8"))["answer_shape"] == "kind"
+    assert app.selectbox(key="behavior_answer_shape").value == "kind"
+    assert any("A quick message is sent without the earlier conversation" in item.value for item in app.caption)
 
 
 def test_the_default_text_can_be_restored_and_is_stored_as_no_text_of_my_own(saved):

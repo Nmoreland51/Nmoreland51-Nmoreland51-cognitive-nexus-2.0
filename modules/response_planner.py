@@ -10,6 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from modules.behavior_policy import REQUEST_REPLY_TOKENS, SHORT_REPLY_TOKENS
 from modules.data_stores import DATA_ROOT
 from modules.file_lock import locked, read_json
 from modules.file_utils import atomic_write_text
@@ -958,6 +959,27 @@ def plan_response(
     elif short_piece:
         instructions.append("Keep it short: about 120 to 180 words, and finish it.")
 
+    shape = "kind" if str(settings.get("answer_shape") or "") == "kind" else "request"
+    if shape == "request":
+        # The owner's setting "Length and form follow your message" (the default): none of the rules
+        # above is added. They are chosen from a guess at the kind of message, and with the real model
+        # they overrode what was asked ("Be detailed" got "Answer under 75 words", "reply with only yes
+        # or no" got "Answer in 1-3 short sentences"). What the owner set by hand still counts, and so
+        # does a length stated in the message (below).
+        instructions = []
+        formatting_style = "as the message asks"
+        owner_mode = "auto" if settings.get("auto_precision_mode", False) else manual_mode
+        if owner_mode == "short":
+            instructions.append("Keep the answer short unless the message asks for more.")
+            max_tokens = SHORT_REPLY_TOKENS
+        else:
+            if owner_mode == "deep":
+                instructions.append("Give a thorough, complete answer.")
+            max_tokens = REQUEST_REPLY_TOKENS
+        num_ctx = max(num_ctx, 4096)
+        min_chars = 0
+        max_chars = max(max_chars, max_tokens * 6)
+
     diagnostics = {
         "auto_precision_mode": bool(settings.get("auto_precision_mode", False)),
         "auto_precision_profile": auto_precision_profile(intent),
@@ -968,10 +990,13 @@ def plan_response(
         "context_policy": context_policy,
         "casual_followup": is_casual_followup_message(user_message),
         "topic_handling": topic_handling,
+        "answer_shape": shape,
     }
-    if intent == "casual_chat":
+    # The small-talk rules (stock phrases to avoid in the prompt, and taken out of the reply) belong
+    # to "By kind of message".
+    if intent == "casual_chat" and shape == "kind":
         diagnostics["social_presence"] = social_presence_policy(function)
-    if intent == "conversation_followup":
+    if intent == "conversation_followup" and shape == "kind":
         diagnostics["backchannel_continuity"] = backchannel_continuity_policy(function)
 
     # A length the user states outranks the budget of the kind of question. Before this, the

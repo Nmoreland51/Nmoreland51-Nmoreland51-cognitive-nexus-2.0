@@ -152,60 +152,8 @@ class AnswerFinishing:
         )
         cleaned_answer = audit.cleaned_answer
         
-        # Apply response compression for research simulation
-        if route_category == "research_simulation" and settings:
-            profile = settings.get("chat_profile")
-            if profile:
-                synthesis_confidence = getattr(profile, 'synthesis_confidence', 0.7)
-                corporate_penalty = getattr(profile, 'corporate_hedging_penalty', -0.5)
-                
-                # Compress based on personality - higher synthesis confidence = cleaner output
-                if synthesis_confidence > 0.8:
-                    cleaned_answer = self._compress_response(cleaned_answer, intensity="high")
-                elif synthesis_confidence > 0.6:
-                    cleaned_answer = self._compress_response(cleaned_answer, intensity="medium")
-                
-                # Reduce corporate hedging based on penalty
-                if corporate_penalty < -0.3:
-                    cleaned_answer = self._reduce_hedging(cleaned_answer)
-        
+        # The research-simulation route used to delete words such as "Maybe", "I think", "However," and
+        # "Note that" from the stored copy of the answer, and to collapse its paragraphs, depending on
+        # the persona's numbers. Removed on 2026-11-25 (register R-A19 c): the app does not rewrite a
+        # model's sentences.
         return cleaned_answer
-
-    def _compress_response(self, text: str, intensity: str = "medium") -> str:
-        """Compress response to prioritize synthesis over padding."""
-        if intensity == "high":
-            # Remove filler phrases and compress to core insights
-            fillers = [
-                r"\bI think\b", r"\bIn my opinion\b", r"\bIt seems\b", r"\bPerhaps\b",
-                r"\bMaybe\b", r"\bCould be\b", r"\bI'm not sure but\b", r"\bLet me clarify\b"
-            ]
-            for filler in fillers:
-                text = re.sub(filler, "", text, flags=re.I)
-            
-            # Compress multiple sentences into tighter chains
-            text = re.sub(r'(\w+)\.\s+(\w+)', r'\1. \2', text)  # Remove extra spaces
-            text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
-            
-        elif intensity == "medium":
-            # Moderate compression - remove obvious padding
-            text = re.sub(r'\bI need to clarify\b.*?\.', '.', text, flags=re.I)
-            text = re.sub(r'\bBefore proceeding\b.*?\.', '.', text, flags=re.I)
-        
-        return text.strip()
-
-    def _reduce_hedging(self, text: str) -> str:
-        """Reduce corporate-style hedging language."""
-        hedging_phrases = [
-            r"\bI should note that\b",
-            r"\bIt's important to mention\b", 
-            r"\bPlease be aware that\b",
-            r"\bKeep in mind that\b",
-            r"\bNote that\b",
-            r"\bHowever,\b",
-            r"\bThat said,\b"
-        ]
-        
-        for phrase in hedging_phrases:
-            text = re.sub(phrase, "", text, flags=re.I)
-        
-        return text.strip()

@@ -95,7 +95,8 @@ QUALITY_CHECKLIST = (
 # about which subjects may be discussed.
 PER_TURN_ADDITIONS = (
     "A line naming the kind of message (conversation, code, writing, research) and one sentence of style for it.",
-    "Length and format rules chosen by Auto Precision, or by your Response controls when it is off.",
+    "Length and form: by default nothing of the app's own; a length you state in your message is passed on. With "
+    "'By kind of message', the rules chosen by Auto Precision or by your Response controls when it is off.",
     "The reality-check note, unless that setting is off.",
     "Notes from the app's memory about your preferences, when memory is on.",
     "Passages from your files and saved pages, fenced as material, with a note saying what the fence means.",
@@ -105,6 +106,13 @@ PER_TURN_ADDITIONS = (
 REALITY_CHECK_MODES = ("label", "withhold", "off")
 UNTRUSTED_CONTENT_MODES = ("remove_and_fence", "fence", "off")
 AGENT_AUTONOMY_MODES = ("publishing_asks", "publish_drafts", "ask_first", "read_only")
+ANSWER_SHAPE_MODES = ("request", "kind")
+
+# Where a chat reply stops when the owner's message and settings ask for no particular length. Only
+# so that a runaway answer ends; the line under an answer says when it was reached.
+REQUEST_REPLY_TOKENS = 2048
+# The owner's Response controls set to "short" (Auto Precision off) under "request".
+SHORT_REPLY_TOKENS = 400
 
 REALITY_CHECK_HELP = {
     "label": "Answers in full. For questions about the real world it marks what is established, theoretical or invented. Fiction, role-play and what-ifs are written as asked.",
@@ -117,6 +125,21 @@ UNTRUSTED_CONTENT_HELP = {
     "remove_and_fence": "Sentences in web pages that address an AI model are removed, and outside text is fenced as material. Measured: planted instructions obeyed 0 of 12 times.",
     "fence": "Outside text is fenced as material, nothing is removed. Measured: 6 of 12 planted instructions obeyed. Marking alone does little with this model.",
     "off": "Outside text is pasted into the prompt as it is. Measured: 7 of 12 planted instructions obeyed.",
+}
+# How the system prompt reaches the model. Until 2026-11-25 a local model got it only inside the
+# prompt of a longer turn: on a quick turn (most messages) Ollama was sent no system prompt at all,
+# so the owner's behaviour text and persona never reached it and the model's own built-in line
+# ("You are Dolphin, a helpful AI assistant." for dolphin3) stayed in place.
+SYSTEM_PROMPT_DELIVERY = (
+    "On every chat turn, as the model's system message: Ollama's system field (it replaces the model's own built-in "
+    "system line), OpenAI's instructions, Anthropic's system. A local model without a system field gets it at the top "
+    "of the prompt."
+)
+
+ANSWER_SHAPE_HELP = {
+    # Measured with dolphin3:8b on 2026-11-25 (docs/benchmarks/attribution_dolphin3-8b.json).
+    "request": "Length and form follow your message, and every message is sent with the recent conversation and your standing instructions. The app adds no length or format rule of its own; a length or form you ask for is the only one. A reply stops at 2,048 tokens so that a runaway answer ends, and the line under the answer says when that happened.",
+    "kind": "The app sorts each message by kind (small talk, quick fact, explanation, plan, code) and adds a length and format rule and a reply limit for it: shorter, faster answers. It can misread a request: 'Be detailed' got 'Answer under 75 words', and 'reply with only yes or no' got 'Answer in 1-3 short sentences'. A quick message is sent without the earlier conversation, so 'from now on...' instructions and follow-ups such as 'what about its economy?' are lost, and small-talk replies have stock phrases taken out. This was the behaviour before 25 November 2026.",
 }
 AGENT_AUTONOMY_HELP = {
     "publishing_asks": "Edits, tests and commits on the task's own branch, and reading from GitHub, run unasked. Pushing a branch or opening a pull request asks once.",
@@ -134,6 +157,7 @@ class BehaviorPolicy:
     reality_check: str = "label"
     untrusted_content: str = "remove_and_fence"
     agent_autonomy: str = "publishing_asks"
+    answer_shape: str = "request"
 
     def to_settings(self) -> dict[str, str]:
         return asdict(self)
@@ -157,6 +181,7 @@ def policy_from(settings: dict[str, Any] | None) -> BehaviorPolicy:
         reality_check=_choice(settings.get("reality_check"), REALITY_CHECK_MODES, "label"),
         untrusted_content=_choice(settings.get("untrusted_content"), UNTRUSTED_CONTENT_MODES, "remove_and_fence"),
         agent_autonomy=_choice(settings.get("agent_autonomy"), AGENT_AUTONOMY_MODES, "publishing_asks"),
+        answer_shape=_choice(settings.get("answer_shape"), ANSWER_SHAPE_MODES, "request"),
     )
 
 
@@ -173,6 +198,7 @@ def apply_behavior_changes(config: dict[str, Any], changes: dict[str, Any]) -> d
         ("reality_check", REALITY_CHECK_MODES),
         ("untrusted_content", UNTRUSTED_CONTENT_MODES),
         ("agent_autonomy", AGENT_AUTONOMY_MODES),
+        ("answer_shape", ANSWER_SHAPE_MODES),
     ):
         if key in changes and changes[key] is not None:
             value = str(changes[key]).strip().lower()
@@ -813,7 +839,9 @@ def effective_policy(
         },
         "application": {
             "system_prompt": build_system_prompt(policy, profile),
+            "system_prompt_sent_as": SYSTEM_PROMPT_DELIVERY,
             "per_turn_additions": list(PER_TURN_ADDITIONS),
+            "answer_shape": ANSWER_SHAPE_HELP[policy.answer_shape],
             "content_rules": [CONTENT_RULE],
             "content_rule_check": (
                 "Applied to chat messages, knowledge questions, research queries and image prompts. A request that "

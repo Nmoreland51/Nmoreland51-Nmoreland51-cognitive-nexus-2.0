@@ -173,8 +173,8 @@ def test_no_speed_profile_sends_a_load_time_option_that_the_other_calls_do_not(m
 
 def test_the_compact_answer_rules_give_way_to_a_stated_length():
     core = NexusCore()
-    asked = plan_response(user_message=CASES["length"][3]["message"], messages=[], route_category="general_chat", settings={"auto_precision_mode": True})
-    unasked = plan_response(user_message="What is cerebral palsy?", messages=[], route_category="general_chat", settings={"auto_precision_mode": True})
+    asked = plan_response(user_message=CASES["length"][3]["message"], messages=[], route_category="general_chat", settings={"auto_precision_mode": True, "answer_shape": "kind"})
+    unasked = plan_response(user_message="What is cerebral palsy?", messages=[], route_category="general_chat", settings={"auto_precision_mode": True, "answer_shape": "kind"})
 
     assert "1-3 short sentences" not in core.build_planned_chat_prompt("Q", asked)
     assert "Write within that range" in core.build_planned_chat_prompt("Q", asked)

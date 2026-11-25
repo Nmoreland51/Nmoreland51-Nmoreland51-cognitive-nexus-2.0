@@ -92,6 +92,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # Owner-controlled behaviour (modules/behavior_policy.py). None means "the default text".
     "behavior_text": None,
     "reality_check": "label",
+    # Length and form of answers: "request" (follow the owner's message; the default since 2026-11-25)
+    # or "kind" (the app's per-kind rules, as before). modules/behavior_policy.py says what each does.
+    "answer_shape": "request",
     "untrusted_content": "remove_and_fence",
     "agent_autonomy": "publishing_asks",
     # What the coding agent may install for a task: "declared" (the repository's own requirement

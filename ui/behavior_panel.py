@@ -17,6 +17,8 @@ import streamlit as st
 from modules.behavior_policy import (
     AGENT_AUTONOMY_HELP,
     AGENT_AUTONOMY_MODES,
+    ANSWER_SHAPE_HELP,
+    ANSWER_SHAPE_MODES,
     DEFAULT_BEHAVIOR_TEXT,
     REALITY_CHECK_HELP,
     REALITY_CHECK_MODES,
@@ -28,11 +30,13 @@ from modules.behavior_policy import (
 from modules.nexus_config import save_runtime_config
 
 TEXT_KEY = "behavior_text_input"
+SHAPE_KEY = "behavior_answer_shape"
 REALITY_KEY = "behavior_reality_check"
 OUTSIDE_KEY = "behavior_untrusted_content"
 AGENT_KEY = "behavior_agent_autonomy"
 NOTICE_KEY = "behavior_notice"
 
+SHAPE_LABELS = {"request": "Follow my message", "kind": "By kind of message (shorter and faster)"}
 REALITY_LABELS = {"label": "Answer in full, label what is not real", "withhold": "Hold back detail on impossible things", "off": "Off"}
 OUTSIDE_LABELS = {
     "remove_and_fence": "Remove lines aimed at an AI, and mark the rest as material",
@@ -62,6 +66,7 @@ def _save_clicked(core: Any, after_save: Callable[[], None] | None) -> None:
         {
             # The default is stored as "no text of my own", so an improved default reaches the owner later.
             "behavior_text": None if text == DEFAULT_BEHAVIOR_TEXT else text,
+            "answer_shape": st.session_state.get(SHAPE_KEY),
             "reality_check": st.session_state.get(REALITY_KEY),
             "untrusted_content": st.session_state.get(OUTSIDE_KEY),
             "agent_autonomy": st.session_state.get(AGENT_KEY),
@@ -108,6 +113,15 @@ def render_behavior_panel(
         disabled=read_only,
         help="Sent to the model with every message, as your instructions. Clear it to say nothing about tone or topics.",
     )
+    shape = st.selectbox(
+        "Length and form of answers",
+        list(ANSWER_SHAPE_MODES),
+        index=ANSWER_SHAPE_MODES.index(policy.answer_shape),
+        format_func=lambda value: SHAPE_LABELS[value],
+        key=SHAPE_KEY,
+        disabled=read_only,
+    )
+    st.caption(ANSWER_SHAPE_HELP[shape])
     reality = st.selectbox(
         "Reality check",
         list(REALITY_CHECK_MODES),
@@ -144,6 +158,7 @@ def render_behavior_panel(
     with st.expander("Everything the app adds to your prompt", expanded=False):
         st.markdown("The whole system prompt, word for word. There is no other, hidden one.")
         st.code(application["system_prompt"], language=None)
+        st.caption(f"How it is sent: {application['system_prompt_sent_as']}")
         st.markdown(f"**Content rules of the app: {len(application['content_rules'])}**")
         for rule in application["content_rules"]:
             st.write(rule)

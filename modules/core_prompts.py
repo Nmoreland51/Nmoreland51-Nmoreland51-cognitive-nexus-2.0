@@ -16,7 +16,6 @@ from modules.context_manager import (
     estimate_tokens as estimate_context_tokens,
     load_user_fact_records,
 )
-from modules.internal_prompts import chat_system_prompt
 from modules.response_planner import (
     ResponsePlan,
     is_casual_chat_message,
@@ -220,15 +219,24 @@ class PromptBuilding:
 
         profile = settings.get("chat_profile")
         minimal_context = bool(settings.get("_minimal_context_for_turn", False))
-        if minimal_context:
-            # Who the assistant is and how it should sound is said once, in the system prompt, by the
-            # owner's text. This line only keeps a quick turn from dragging in old material.
+        # A quick turn leaves out the app's memory notes, files and research. Under the owner's default
+        # ("Length and form follow your message") it keeps the recent conversation and the owner's saved
+        # facts and standing instructions: they are the owner's own words. Until 2026-11-25 a quick turn
+        # (most messages) sent the model only the new message, under "Do not bring in old chat", so "from
+        # now on, answer in French" was gone by the next message and "what about its economy?" had no "it".
+        # Under "By kind of message" a quick turn is still the bare message, as before.
+        bare_quick_turn = minimal_context and str(settings.get("_answer_shape") or "") == "kind"
+        # The system prompt (chat_system_prompt: the owner's behaviour text and persona, the one content
+        # rule, the fixed part) is not part of this prompt. It is sent once, as the model's system
+        # message (ProviderRequest.system_prompt), on every turn.
+        if bare_quick_turn:
             routed_system = "Answer only the current message. Do not bring in old chat, files, memory, research or unrelated topics."
+        elif minimal_context:
+            routed_system = ""
         else:
-            base_prompt = chat_system_prompt(profile, {**self.config, **settings})
             routed_system = build_routed_prompt(
                 user_message=user_message,
-                base_system_prompt=base_prompt,
+                base_system_prompt="",
                 history_prompt="",
                 route=route_decision,
                 chat_profile=profile,
@@ -236,7 +244,7 @@ class PromptBuilding:
             )
         epistemic_instruction = str(settings.get("_epistemic_instruction") or "")
         if epistemic_instruction:
-            routed_system = f"{routed_system}\n\n{epistemic_instruction}"
+            routed_system = "\n\n".join(part for part in (routed_system, epistemic_instruction) if part)
         memory_context = "" if minimal_context else str(settings.get("_memory_context_override") or "")
         if not memory_context and not minimal_context:
             memory_context, _ = self._memory_context(user_message, messages, bool(settings.get("use_memory")))
@@ -262,7 +270,7 @@ class PromptBuilding:
                 top_k=int(settings.get("knowledge_top_k", 3)),
             )
         self.last_retrieval = retrieval_meta
-        if minimal_context:
+        if bare_quick_turn:
             immediate_previous = ""
             immediate_previous_user = ""
             if settings.get("_include_immediate_previous_assistant"):
@@ -297,22 +305,18 @@ class PromptBuilding:
             )
             self.last_trust_audit = {}
             return context.prompt, context
-        context_messages = [] if minimal_context else messages
-        user_facts = [] if minimal_context else load_user_fact_records()
-        recent_message_limit = 0 if minimal_context else int(settings.get("recent_message_limit") or self.config.get("recent_message_limit", 8))
+        # A full turn, or a quick turn that keeps the conversation (no memory notes, files or research).
+        recent_message_limit = int(settings.get("recent_message_limit") or self.config.get("recent_message_limit", 8))
         context = build_context_bundle(
             user_message=user_message,
-            messages=context_messages,
+            messages=messages,
             system_prompt=routed_system,
             route_label=CATEGORY_LABELS.get(route_decision.category, route_decision.category),
             route_reason=route_decision.reason,
             memory_context=memory_context,
             retrieved_context=retrieved_context,
-            user_facts=user_facts,
-            max_context_chars=min(
-                int(settings.get("max_context_chars") or self.config.get("max_context_chars", 12000)),
-                1800 if minimal_context else 12000,
-            ),
+            user_facts=load_user_fact_records(),
+            max_context_chars=min(int(settings.get("max_context_chars") or self.config.get("max_context_chars", 12000)), 12000),
             recent_message_limit=recent_message_limit,
             max_prompt_tokens=settings.get("_max_prompt_tokens"),
         )
@@ -332,7 +336,9 @@ class PromptBuilding:
             "project_planning": "Start with '1.'. Give exactly 3 short concrete steps, each under 10 words, with no preamble.",
             "opinion_rating": "Start with Score or Verdict, then a compact reason and next upgrade.",
         }
-        if plan.intent in compact_rules and not plan.diagnostics.get("requested_words"):
+        # These rules belong to the owner's "By kind of message" (answer_shape "kind"). By default the
+        # length and form follow the owner's message, and none of them is added.
+        if plan.intent in compact_rules and not plan.diagnostics.get("requested_words") and plan.diagnostics.get("answer_shape") == "kind":
             base = prompt.rstrip()
             if base.endswith("Final answer:"):
                 base = base[: -len("Final answer:")].rstrip()

@@ -484,7 +484,8 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             return
 
         epistemic_start = time.perf_counter()
-        reality_check = policy_from({**self.config, **settings}).reality_check
+        owner_policy = policy_from({**self.config, **settings})
+        reality_check = owner_policy.reality_check
         if (
             reality_check != "off"
             and bool(settings.get("enable_reality_first_reasoning", self.config.get("enable_reality_first_reasoning", True)))
@@ -509,7 +510,8 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             messages=messages,
             route_category="web_research" if bloodhound_query else route_decision.category,
             route_reason="bloodhound_search_detected" if bloodhound_query else route_decision.reason,
-            settings=settings,
+            # Whether the app adds length and format rules of its own is the owner's setting.
+            settings={**settings, "answer_shape": owner_policy.answer_shape},
         )
         timings["planner_ms"] = _elapsed_ms(plan_start)
         self.last_response_plan = plan.to_dict()
@@ -550,7 +552,10 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             "backchannel_acknowledgment",
         }
 
-        if plan.intent == "opinion_rating" and pragmatic_function == "risk_assessment":
+        # Two replies the app writes itself instead of asking the model ("am I cooked?", and a bare "do it"
+        # with nothing before it). They belong to "By kind of message"; by default the model answers.
+        by_kind = plan.diagnostics.get("answer_shape") == "kind"
+        if by_kind and plan.intent == "opinion_rating" and pragmatic_function == "risk_assessment":
             answer = "Maybe, but I need the situation first. Tell me what happened and I'll give you the blunt read."
             verification = verify_response(answer, tool_confirmed=True)
             completion = validate_response_against_plan(answer, plan)
@@ -582,7 +587,8 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             return
 
         if (
-            plan.intent in {"casual_followup", "conversation_followup"}
+            by_kind
+            and plan.intent in {"casual_followup", "conversation_followup"}
             and pragmatic_function in followup_functions
             and not self._immediate_previous_assistant(messages)
         ):
@@ -830,6 +836,7 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             return
 
         prompt_settings = dict(settings)
+        prompt_settings["_answer_shape"] = str(plan.diagnostics.get("answer_shape") or "request")
         prompt_settings["_memory_context_override"] = memory_context
         if epistemic is not None:
             prompt_settings["_epistemic_instruction"] = epistemic.constraints.instruction
@@ -863,21 +870,28 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
         options = dict(route_decision.generation_options or {})
         options["num_predict"] = int(plan.max_tokens)
         options["num_ctx"] = int(plan.num_ctx)
-        if plan.mode == "short":
-            options["temperature"] = min(float(options.get("temperature", 0.7)), 0.7)
-        elif plan.mode in {"deep", "research"}:
-            options["temperature"] = max(float(options.get("temperature", 0.75)), 0.8)
-        if plan.intent == "simple_fact":
-            # A short factual answer should not depend on chance. Measured: "What is 7 times 6?"
-            # came back 84 once in three at the chat's usual 0.35 to 0.7. Writing keeps its temperature.
-            options["temperature"] = min(float(options.get("temperature", 0.7)), 0.1)
+        # With the owner's "By kind of message" the plan also moves the temperature. Otherwise the
+        # route's temperature (the owner's, in Advanced Overrides) is used as it is.
+        if plan.diagnostics.get("answer_shape") == "kind":
+            if plan.mode == "short":
+                options["temperature"] = min(float(options.get("temperature", 0.7)), 0.7)
+            elif plan.mode in {"deep", "research"}:
+                options["temperature"] = max(float(options.get("temperature", 0.75)), 0.8)
+            if plan.intent == "simple_fact":
+                # A short factual answer should not depend on chance. Measured: "What is 7 times 6?"
+                # came back 84 once in three at the chat's usual 0.35 to 0.7. Writing keeps its temperature.
+                options["temperature"] = min(float(options.get("temperature", 0.7)), 0.1)
         options = self._apply_throughput_profile(options, settings, plan)
         # Decide the model's window first, then pack the prompt to what that window leaves for
         # it. The answer rules are added after packing, so their size is taken off the allowance.
         budget = self._context_budget(route_decision.model or settings.get("selected_model") or "", options, settings, plan)
+        # Sent as the model's system message on every turn (see modules/core_prompts.py), so its size
+        # comes off what the rest of the prompt may use.
+        system_prompt = chat_system_prompt(profile, {**self.config, **settings})
         if budget is not None:
             rules_tokens = estimate_context_tokens(self.build_planned_chat_prompt("", plan))
-            prompt_settings["_max_prompt_tokens"] = max(256, budget.prompt_tokens - rules_tokens)
+            system_tokens = estimate_context_tokens(system_prompt)
+            prompt_settings["_max_prompt_tokens"] = max(256, budget.prompt_tokens - rules_tokens - system_tokens)
             options["num_ctx"] = budget.num_ctx
             options["num_predict"] = budget.reply_tokens
         prompt, context = self.build_chat_prompt(
@@ -907,7 +921,7 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             settings,
             options,
             model=route_decision.model or settings.get("selected_model") or "",
-            system_prompt=chat_system_prompt(profile, {**self.config, **settings}),
+            system_prompt=system_prompt,
         )
         self.last_prompt = {"system": request.system_prompt, "prompt": prompt, "model": request.model}
         if context.retrieved_context and not self._has_ready_model_provider(request.provider_order):

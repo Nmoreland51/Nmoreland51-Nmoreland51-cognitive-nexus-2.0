@@ -745,6 +745,12 @@ class ProviderRouter:
             "stream": True,
             "keep_alive": str(self.config.get("ollama_keep_alive", OLLAMA_DEFAULT_KEEP_ALIVE)),
         }
+        if request.system_prompt:
+            # The app's system prompt (the owner's behaviour text and persona, the one content rule,
+            # the fixed part) is the model's system message, and replaces the model's own built-in
+            # line. Until 2026-11-25 it was not sent to Ollama at all: a quick turn reached a local
+            # model with none of the owner's text, under "You are Dolphin, a helpful AI assistant."
+            payload["system"] = request.system_prompt
         if request.response_schema:
             payload["format"] = request.response_schema
         options = dict(request.options or {})
@@ -753,7 +759,8 @@ class ProviderRouter:
         options.setdefault("num_predict", int(request.max_tokens or 512))
         # Pick a window that holds this prompt and its reply. A prompt longer than the window is
         # cut by the model server without any error, starting with the instructions.
-        prompt_estimate = int(estimate_tokens(request.prompt) * self._token_correction.get(model, 1.0))
+        counted = f"{request.system_prompt}\n\n{request.prompt}" if request.system_prompt else request.prompt
+        prompt_estimate = int(estimate_tokens(counted) * self._token_correction.get(model, 1.0))
         num_ctx, prompt_fits = window_for_prompt(
             prompt_estimate,
             int(options["num_predict"]),
@@ -822,7 +829,7 @@ class ProviderRouter:
                 if eval_count > 0 and eval_duration > 0:
                     tokens_per_second = eval_count / (eval_duration / 1_000_000_000)
                 self._window_in_use[model] = num_ctx
-                self._learn_from_prompt(model, request.prompt, prompt_eval_count, prompt_eval_duration, prompt_fits)
+                self._learn_from_prompt(model, counted, prompt_eval_count, prompt_eval_duration, prompt_fits)
                 self._last_ollama_throughput = {
                     "eval_count": eval_count,
                     "eval_duration_ns": eval_duration,
@@ -997,6 +1004,8 @@ class ProviderRouter:
 
             self._hf_pipeline = pipeline("text-generation", model=info.models[0])
         prompt = _prompt_with_schema(request)
+        if request.system_prompt:  # a plain text-generation pipeline has no system message
+            prompt = f"{request.system_prompt}\n\n{prompt}"
         result = self._hf_pipeline(
             prompt,
             max_new_tokens=int(request.max_tokens or request.options.get("num_predict", 256)),
