@@ -25,6 +25,7 @@ from modules.behavior_policy import (
     check_content_rule,
     effective_policy,
     looks_like_model_refusal,
+    looks_like_partial_refusal,
     policy_from,
 )
 from modules.event_log import record_event
@@ -1148,6 +1149,7 @@ class NexusCore(ModelCalls, PromptBuilding, AnswerFinishing, ResearchServices, P
             "model_note": str(provider_meta.get("model_note") or ""),
             # A label only: the answer is shown exactly as the model wrote it.
             "declined_by_model": looks_like_model_refusal(provider_result.text),
+            "partly_declined_by_model": looks_like_partial_refusal(provider_result.text),
             "retrieval": retrieval_meta,
             "sources": source_count,
             "throughput": {

@@ -61,6 +61,8 @@ def answer_rows(last_provider: dict[str, Any] | None, last_rule: dict[str, Any] 
         rows.append({"What": "Providers tried", "Value": ", ".join(f"{item.get('provider')} ({'ok' if item.get('success') else 'failed'})" for item in attempts)})
     if meta.get("declined_by_model"):
         rows.append({"What": "Refusal", "Value": "the model declined (its own refusal, not the app's)"})
+    elif meta.get("partly_declined_by_model"):
+        rows.append({"What": "Refusal", "Value": "the model declined part of the request (its own, not the app's)"})
     rule = dict(last_rule or {})
     if rule.get("stage"):
         rows.append({"What": "Content rule", "Value": RULE_STAGES.get(str(rule["stage"]), str(rule["stage"]))})

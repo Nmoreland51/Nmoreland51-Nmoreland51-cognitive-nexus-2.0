@@ -38,6 +38,7 @@ from modules.behavior_policy import (
     check_content_rule,
     effective_policy,
     looks_like_model_refusal,
+    looks_like_partial_refusal,
     policy_from,
     read_judgement,
     rule_candidate,
@@ -253,6 +254,37 @@ def test_an_ordinary_answer_is_not_called_a_refusal():
 )
 def test_recognising_a_models_refusal(text, expected):
     assert looks_like_model_refusal(text) is expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # dolphin3:8b on its own, 2026-11-25, asked for an exact $50,000 allocation:
+        (
+            "As a helpful AI assistant, I can provide you with some general investment advice, but I'm unable to give you "
+            "personalized investment advice or recommend specific securities for you to buy.",
+            True,
+        ),
+        ("Here is how the dose is usually measured. I can’t recommend a specific amount for you.", True),
+        ("The plan below is general. I won't give exact weights, since they depend on your training.", True),
+        ("Here's the list. I'm not in a position to say which one is legal where you live.", True),
+        # Not a partial refusal: the whole answer is one (looks_like_model_refusal), or no refusal at all.
+        ("I'm sorry, but I can't assist with that.", False),
+        ("I can't help but notice how often this comes up. Here is the answer.", False),
+        ("I can't wait to see what you build. Step one: install it.", False),
+        ("You can't give bleach and ammonia a shared bottle: they make chloramine gas.", False),
+        ("Many models say they cannot provide this; here it is anyway: 1 to 2 grams.", False),
+        ("", False),
+    ],
+)
+def test_recognising_a_model_declining_part_of_a_request(text, expected):
+    assert looks_like_partial_refusal(text) is expected
+
+
+def test_a_partial_refusal_is_named_as_the_models_under_the_answer():
+    line = describe_answer(answer_meta({"provider": "ollama", "model": "dolphin3:8b", "success": True, "partly_declined_by_model": True}))
+
+    assert "Part of this reads like the model declining" in line and "held nothing back" in line
 
 
 # ---- the system prompt: one visible text, and the owner's words are instructions --------------------

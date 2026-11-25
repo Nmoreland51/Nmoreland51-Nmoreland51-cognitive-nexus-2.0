@@ -2,22 +2,21 @@
 
     python tools/answer_attribution.py --model dolphin3:8b --save docs/benchmarks/attribution_dolphin3-8b.json --texts answers.json
 
-For each request in tests/fixtures/attribution_check.json the same model is asked three ways, with the
-same temperature and a fixed seed, so that the only difference is what the app does:
+For each request in tests/fixtures/attribution_check.json the same model is asked, with a fixed seed:
 
-  direct     the request alone, posted straight to Ollama (/api/generate, as `ollama run` would: the
-             model's own built-in system line applies, nothing of the app's)
-  nexus      the exact request the app posted for this message (prompt, options, everything), posted
-             again straight to Ollama
+  direct     the request alone, posted straight to Ollama (/api/generate) with the model's own settings, as
+             `ollama run` would: its built-in system line, its default temperature, nothing of the app's.
+             It does not depend on the app, so the direct answers of one run can be reused for another
+             version of the app (--direct-from)
+  received   what the model sent back for the exact request the app posted (recorded while the app runs)
   displayed  what the app showed: its own chat path (NexusCore.stream_chat_response), joined the way the
              chat tab joins it. `stored` is the copy the chat tab saves (normalize_assistant_response)
-
-While the app runs, its request and the text Ollama streams back (`received`) are recorded. With a
-fixed seed `nexus` should equal `received`; the row says whether it did, so a hidden difference
-between what the app says it sends and what it sends cannot go unseen.
+  nexus      (unless --no-replay) the app's exact request posted again straight to Ollama, to check that
+             it reproduces `received`. Measured on 2026-11-25: often not word for word, because the model
+             server is not deterministic at a fixed seed once its cache differs; compare lengths and refusals.
 
 Reading a row:
-  direct  vs nexus      what the app's prompt changed: the length, the form, a refusal
+  direct  vs received   what the app's prompt changed: the length, the form, a refusal
   received vs displayed what the app changed after the model wrote it
   stopped_by_app        the app answered or stopped the request itself (its one content rule, or a built-in reply)
 
@@ -128,18 +127,16 @@ def generate(base_url: str, payload: dict[str, Any], timeout: float = 1800.0, se
     }
 
 
-def direct_payload(model: str, text: str, app_payload: dict[str, Any] | None, seed: int = SEED) -> dict[str, Any]:
-    """The request alone, with the app's temperature and context window (so the model is not reloaded) and the same seed."""
+DIRECT_NUM_CTX = 4096
 
-    app_options = dict((app_payload or {}).get("options") or {})
-    options: dict[str, Any] = {"seed": seed, "num_predict": DIRECT_GUARD_TOKENS}
-    for key in ("temperature", "num_ctx", "top_p", "top_k", "repeat_penalty"):
-        if key in app_options:
-            options[key] = app_options[key]
-    payload: dict[str, Any] = {"model": model, "prompt": text, "options": options}
-    if app_payload and app_payload.get("keep_alive"):
-        payload["keep_alive"] = app_payload["keep_alive"]
-    return payload
+
+def direct_payload(model: str, text: str, seed: int = SEED) -> dict[str, Any]:
+    """The request alone, with the model's own settings, as `ollama run` would: only a seed, a context window and a stop for a runaway answer.
+
+    Nothing comes from the app, so the answers are the same baseline for every version of it.
+    """
+
+    return {"model": model, "prompt": text, "options": {"seed": seed, "num_ctx": DIRECT_NUM_CTX, "num_predict": DIRECT_GUARD_TOKENS}}
 
 
 def _words(text: str) -> int:
@@ -213,7 +210,7 @@ def check_one(core: Any, prompt: dict[str, Any], settings: dict[str, Any], *, mo
         row["nexus_equals_received"] = again["text"].strip() == chat["received"].strip()
         texts["nexus"] = again["text"]
     if direct is None:
-        alone = generate(base_url, direct_payload(model, prompt["text"], chat["payload"]), session=session)
+        alone = generate(base_url, direct_payload(model, prompt["text"]), session=session)
         direct = describe(alone["text"], alone["done_reason"], keep)
         direct["seconds"] = alone["seconds"]
         texts["direct"] = alone["text"]

@@ -929,9 +929,9 @@
    "category": "B",
    "status": "active",
    "trigger": "Every answer.",
-   "effect": "Under each answer: which provider and model wrote it, whether the prompt left the machine, and, when the answer opens like a refusal, \"This reads like a refusal by the model; the app passed your message on unchanged and did not block it.\" The answer itself is never changed.",
+   "effect": "Under each answer: which provider and model wrote it, whether the prompt left the machine, and, when the answer opens like a refusal, \"This reads like a refusal by the model; the app passed your message on unchanged and did not block it.\" Since 2026-11-25 also, when the model answers but says it will not give part of what was asked (\"I'm unable to give you personalized investment advice\"), \"Part of this reads like the model declining to give something; the app passed your message on unchanged and held nothing back.\" The answer itself is never changed.",
    "owner_requested": "Yes.",
-   "evidence": "Directive: expose \"configured policy\", \"effective application behavior\" and \"external provider constraints\" separately.",
+   "evidence": "modules/behavior_policy.py: looks_like_model_refusal, looks_like_partial_refusal; modules/answer_meta.py. Measured on 2026-11-25 over 143 real answers (docs/benchmarks/attribution_dolphin3-8b.json and configurations_coding_agents.json): the first marked qwen2.5-coder's two refusals and nothing else; the second marked dolphin3:8b's one partial refusal and nothing else.",
    "origin": "The answer line was written during the audit work; the refusal note on 2026-11-23.",
    "technical_reason": "So that a model's refusal is never mistaken for a rule of the app.",
    "affected_workflows": "Chat.",
@@ -940,9 +940,9 @@
    "alternatives": "None needed.",
    "configurable": "Hidden in Demo Safe Mode.",
    "owner_decision": "Decided by the owner on 2026-11-23: \"Keep model-provider limitations separate from Cognitive Nexus's own configurable behavior.\"",
-   "tests": "tests/test_owner_control.py: test_a_refusal_by_the_model_is_shown_unchanged_and_named_as_the_models, test_an_ordinary_answer_is_not_called_a_refusal, test_recognising_a_models_refusal",
+   "tests": "tests/test_owner_control.py (recognising a refusal, and a partial one; the note under the answer)",
    "regression_risk": "Low.",
-   "known_limitations": "The note is made by matching the opening words of the answer, in English. A refusal phrased differently is not marked, and a rare ordinary answer could be.",
+   "known_limitations": "Both notes match English wording. The partial one was written after seeing its one real example; on the 143 answers it raised no false alarm, but it has not been tried on refusals it was not written from. Warnings (\"may be against the law\", \"consult a professional\") are not refusals and are not marked.",
    "locations": [
     {
      "file": "modules/behavior_policy.py",

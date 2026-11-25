@@ -344,8 +344,8 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/behavior_policy.py:359` — `_CREATIVE = re.compile(`
 - **Where:** `modules/behavior_policy.py:481` — `JUDGE_EXAMPLES_A = """`
 - **Where:** `modules/behavior_policy.py:502` — `JUDGE_EXAMPLES_B = """`
-- **Where:** `modules/nexus_core.py:357` — `rule = self.content_rule(user_message, settings, recent_turns)`
-- **Where:** `modules/nexus_core.py:308` — `def _require_content_rule(`
+- **Where:** `modules/nexus_core.py:358` — `rule = self.content_rule(user_message, settings, recent_turns)`
+- **Where:** `modules/nexus_core.py:309` — `def _require_content_rule(`
 - **Where:** `modules/event_log.py:33` — `"content_rule",`
 - **Where:** `agent/toolcall.py:285` — `decision = check_content_rule(request, "", judge, "text")`
 - **Where:** `modules/behavior_policy.py:455` — `def history_counts(message: str, recent: str) -> bool:`
@@ -481,9 +481,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-A18 · Replies the app writes itself, without a model · changed
 
-- **Where:** `modules/nexus_core.py:151` — `def _direct_response_instruction(`
-- **Where:** `modules/nexus_core.py:614` — `"provider": "local_followup_clarification",`
-- **Where:** `modules/nexus_core.py:578` — `"provider": "local_fast_path",`
+- **Where:** `modules/nexus_core.py:152` — `def _direct_response_instruction(`
+- **Where:** `modules/nexus_core.py:615` — `"provider": "local_followup_clarification",`
+- **Where:** `modules/nexus_core.py:579` — `"provider": "local_fast_path",`
 - **Trigger:** (a) "say exactly: ...": the text is returned as given. (b) "what can you do": the greeting. (c) A memory command ("remember that..."). Only with 'Length and form of answers: By kind of message': (d) a bare follow-up such as "do it" with nothing before it: "I can do that, but what should I continue?"; (e) "am I cooked?" and similar: "Maybe, but I need the situation first...".
 - **Effect:** A fixed short reply is shown and the line under it says "Built-in reply, no model used". None of these is a refusal or depends on the subject. Since 2026-11-25 (d) and (e) go to the model unless the owner chose 'By kind of message'.
 - **Owner requested:** No.
@@ -597,7 +597,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-B01 · A local model answers the way it was trained · active
 
-- **Where:** `modules/behavior_policy.py:798` — `def provider_constraints(`
+- **Where:** `modules/behavior_policy.py:821` — `def provider_constraints(`
 - **Trigger:** Any request answered by an Ollama or local Transformers model.
 - **Effect:** The app passes the request on unchanged. Whether the model declines something is the model's own behaviour; dolphin3:8b, the model in use, is trained to decline little.
 - **Owner requested:** The owner chose the model (dolphin3:8b) and asked that model limits be kept apart from the app's.
@@ -619,7 +619,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-B02 · A hosted model applies its provider's policies · active
 
 - **Where:** `modules/provider_router.py:992` — `if stop_reason == "refusal":`
-- **Where:** `modules/behavior_policy.py:807` — `applies its own usage policies and may refuse or cut off an answer`
+- **Where:** `modules/behavior_policy.py:830` — `applies its own usage policies and may refuse or cut off an answer`
 - **Trigger:** A request sent to OpenAI or Anthropic (a cloud provider first in the order, or cloud fallback allowed).
 - **Effect:** The provider may refuse or cut off an answer. When Anthropic's API reports a refusal the app shows "Claude declined this request (category: ...)" as the reason; it never writes an answer of its own in its place.
 - **Owner requested:** The owner asked that this be disclosed, not hidden.
@@ -663,11 +663,11 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-B04 · The answer line says who answered and who declined · active
 
 - **Where:** `modules/behavior_policy.py:789` — `def looks_like_model_refusal(`
-- **Where:** `modules/answer_meta.py:183` — `This reads like a refusal by`
+- **Where:** `modules/answer_meta.py:186` — `This reads like a refusal by`
 - **Trigger:** Every answer.
-- **Effect:** Under each answer: which provider and model wrote it, whether the prompt left the machine, and, when the answer opens like a refusal, "This reads like a refusal by the model; the app passed your message on unchanged and did not block it." The answer itself is never changed.
+- **Effect:** Under each answer: which provider and model wrote it, whether the prompt left the machine, and, when the answer opens like a refusal, "This reads like a refusal by the model; the app passed your message on unchanged and did not block it." Since 2026-11-25 also, when the model answers but says it will not give part of what was asked ("I'm unable to give you personalized investment advice"), "Part of this reads like the model declining to give something; the app passed your message on unchanged and held nothing back." The answer itself is never changed.
 - **Owner requested:** Yes.
-- **Evidence:** Directive: expose "configured policy", "effective application behavior" and "external provider constraints" separately.
+- **Evidence:** modules/behavior_policy.py: looks_like_model_refusal, looks_like_partial_refusal; modules/answer_meta.py. Measured on 2026-11-25 over 143 real answers (docs/benchmarks/attribution_dolphin3-8b.json and configurations_coding_agents.json): the first marked qwen2.5-coder's two refusals and nothing else; the second marked dolphin3:8b's one partial refusal and nothing else.
 - **Origin:** The answer line was written during the audit work; the refusal note on 2026-11-23.
 - **Technical reason:** So that a model's refusal is never mistaken for a rule of the app.
 - **Affected workflows:** Chat.
@@ -677,9 +677,9 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Can the owner change it?:** Hidden in Demo Safe Mode.
 - **Owner decision:** Decided by the owner on 2026-11-23: "Keep model-provider limitations separate from Cognitive Nexus's own configurable behavior."
 - **Decision date:** 2026-11-23
-- **Tests:** tests/test_owner_control.py: test_a_refusal_by_the_model_is_shown_unchanged_and_named_as_the_models, test_an_ordinary_answer_is_not_called_a_refusal, test_recognising_a_models_refusal
+- **Tests:** tests/test_owner_control.py (recognising a refusal, and a partial one; the note under the answer)
 - **Regression risk:** Low.
-- **Known limitations:** The note is made by matching the opening words of the answer, in English. A refusal phrased differently is not marked, and a rare ordinary answer could be.
+- **Known limitations:** Both notes match English wording. The partial one was written after seeing its one real example; on the 143 answers it raised no false alarm, but it has not been tried on refusals it was not written from. Warnings ("may be against the law", "consult a professional") are not refusals and are not marked.
 - **Reviewer:** Claude (the assistant doing this work), 2026-11-23. Not yet reviewed by a second person.
 
 ### R-B05 · The image model's built-in content checker is not loaded · active
@@ -1100,12 +1100,12 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `modules/nexus_config.py:227` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
-- **Where:** `modules/nexus_core.py:305` — `record_event("content_rule",`
+- **Where:** `modules/nexus_core.py:306` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
 - **Where:** `modules/data_stores.py:233` — `holds_credentials=True,`
 - **Where:** `modules/accounts.py:145` — `def _dpapi(data: bytes, *, protect: bool) -> bytes:`
 - **Where:** `modules/redaction.py:90` — `def redact(text: str) -> str:`
-- **Where:** `modules/nexus_core.py:110` — `redaction.install_log_redaction()`
+- **Where:** `modules/nexus_core.py:111` — `redaction.install_log_redaction()`
 - **Trigger:** Saving settings; linking an account; publishing to GitHub; recording events; writing the log file or the answer checks; saving a picture's metadata or a ComfyUI picture; making a backup, an export or a snapshot.
 - **Effect:** Settings whose name contains "key" are not written to the settings file. A credential the owner chooses to store goes into one file only, the linked accounts (R-C08): encrypted for the Windows user on Windows, readable by the user only elsewhere, never shown again after it was typed. That file is left out of every backup, export and snapshot, cannot be asked for by name, and an archive that contains one is refused on restore. The GitHub token travels in Git's environment configuration and is not written to any record of an action. Events about accounts record the service and the permissions, never the secret. The event recorded when the content rule stops a request holds the stage, not the message. Everything the app writes to its log file, its event log and its answer checks, and the metadata saved with pictures (including the workflow text a ComfyUI picture carries inside it), passes through modules/redaction.py first: text shaped like a key or token, a password or key in a web address, the value of an Authorization header, and this machine's own secrets (secret-named environment variables, and credentials the app has read this session) become "[redacted: ...]". The owner's chat, the prompts sent to the model and the answers are not changed (item 110).
 - **Owner requested:** Yes (owner's test OC-T15).
@@ -1235,7 +1235,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
-- **Where:** `modules/nexus_core.py:497` — `reality_check != "off"`
+- **Where:** `modules/nexus_core.py:498` — `reality_check != "off"`
 - **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
@@ -1456,7 +1456,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/accounts.py` | 13 | R-C08, R-D08 | - |
 | `modules/answer_meta.py` | 8 | R-A04, R-B04 | - |
 | `modules/answer_resolution.py` | 1 | R-E04 | - |
-| `modules/behavior_policy.py` | 56 | R-A11, R-A12, R-A13, R-A14, R-A15, R-A21, R-B01, R-B02, R-B04 | - |
+| `modules/behavior_policy.py` | 62 | R-A11, R-A12, R-A13, R-A14, R-A15, R-A21, R-B01, R-B02, R-B04 | - |
 | `modules/chat_profile.py` | 5 | R-A08, R-A15, R-A16 | - |
 | `modules/chunking.py` | 1 | - | The keyword "protected" in a list of programming-language keywords used to split code files. |
 | `modules/context_manager.py` | 6 | R-A20, R-D01, R-D02 | - |
@@ -1471,7 +1471,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `modules/image_gen.py` | 2 | R-B05 | - |
 | `modules/ingest.py` | 1 | R-D10 | - |
 | `modules/nexus_config.py` | 2 | R-A14, R-B03, R-C01, R-C07, R-D01, R-D08, R-E01, R-F05 | - |
-| `modules/nexus_core.py` | 28 | R-A04, R-A05, R-A12, R-A18, R-D08, R-E01 | - |
+| `modules/nexus_core.py` | 30 | R-A04, R-A05, R-A12, R-A18, R-D08, R-E01 | - |
 | `modules/profile_store.py` | 1 | - | A comment about error handling when forgetting a fact. |
 | `modules/project_dashboard.py` | 3 | - | What the project dashboard shows: milestones from the audit ledger, task counts by status (including 'blocked' and 'waiting for approval'), bugs, test results, commits and GitHub's workflow runs. It reads and shows; it decides nothing (approvals are R-C01). |
 | `modules/provider_router.py` | 5 | R-B02, R-B03, R-B06, R-C08, R-D09 | - |
@@ -1483,7 +1483,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `nexus_router.py` | 1 | R-A08, R-A09, R-A10 | - |
 | `search/bloodhound_search.py` | 4 | R-D01 | - |
 | `tools/agent_benchmark.py` | 4 | - | A development tool. It measures or checks; it does not run in the app. |
-| `tools/answer_attribution.py` | 13 | - | Measures where a refusal, a redirect or a shortened answer comes from: the model alone, the exact request the app sent, and the answer the app showed. It changes nothing in the app and restricts nothing. |
+| `tools/answer_attribution.py` | 14 | - | Measures where a refusal, a redirect or a shortened answer comes from: the model alone, the exact request the app sent, and the answer the app showed. It changes nothing in the app and restricts nothing. |
 | `tools/audit_ledger.py` | 4 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/behavior_check.py` | 12 | - | A development tool. It measures or checks; it does not run in the app. |
 | `tools/check_repo_hygiene.py` | 1 | - | A development tool: keeps private data and secrets out of the repository. It does not run in the app. |
@@ -1497,7 +1497,7 @@ Every Python source file outside the folders listed below, and the settings file
 | `tools/tool_choice_benchmark.py` | 4 | - | Measures which tool a model picks, with the tools' sources replaced by a fixture. The rules it shows at work are in agent/toolcall.py (R-D11, R-D04). |
 | `ui/accounts_panel.py` | 1 | - | Settings, Linked accounts: shows each account and records what the owner allows. The rule itself is in modules/accounts.py (R-C08). |
 | `ui/agent_panel.py` | 23 | - | The Agent tab: shows tasks, requests for approval and the action history, and records what the owner decides. The rules themselves are in agent/approvals.py (R-C01). |
-| `ui/answer_diagnostics.py` | 3 | - | Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none. |
+| `ui/answer_diagnostics.py` | 4 | - | Diagnostics table of how the last answer was made, including the content rule's stage. It shows decisions made elsewhere (R-A12); it makes none. |
 | `ui/behavior_panel.py` | 13 | R-F03 | - |
 | `ui/dashboard_panel.py` | 1 | - | The project dashboard in the Agent tab: shows what modules/project_dashboard.py reads, including how many actions wait for approval. It decides nothing. |
 | `ui/diagnostics_tab.py` | 2 | - | The Diagnostics tab: shows the last content-rule check and counts of problems by kind. It shows decisions made elsewhere (R-A12); it makes none. |

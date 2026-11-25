@@ -139,8 +139,8 @@ SYSTEM_PROMPT_DELIVERY = (
 
 ANSWER_SHAPE_HELP = {
     # Measured with dolphin3:8b on 2026-11-25 (docs/benchmarks/attribution_dolphin3-8b.json).
-    "request": "Length and form follow your message, and every message is sent with the recent conversation and your standing instructions. The app adds no length or format rule of its own; a length or form you ask for is the only one. A reply stops at 2,048 tokens so that a runaway answer ends, and the line under the answer says when that happened.",
-    "kind": "The app sorts each message by kind (small talk, quick fact, explanation, plan, code) and adds a length and format rule and a reply limit for it: shorter, faster answers. It can misread a request: 'Be detailed' got 'Answer under 75 words', and 'reply with only yes or no' got 'Answer in 1-3 short sentences'. A quick message is sent without the earlier conversation, so 'from now on...' instructions and follow-ups such as 'what about its economy?' are lost, and small-talk replies have stock phrases taken out. This was the behaviour before 25 November 2026.",
+    "request": "Length and form follow your message, and every message is sent with the recent conversation and your standing instructions. The app adds no length or format rule of its own; a length or form you ask for is the only one. A reply stops at 2,048 tokens so that a runaway answer ends, and the line under the answer says when that happened. Fuller answers take longer: measured on 27 requests, the middle answer was 243 words in 86 s, against 111 words in 42 s with 'By kind of message' (the model alone wrote 271).",
+    "kind": "The app sorts each message by kind (small talk, quick fact, explanation, plan, code) and adds a length and format rule and a reply limit for it: shorter, faster answers. Measured on 27 requests, 13 came back less than half as long as the model writes on its own and 3 were cut off. It can misread a request: 'Be detailed' got 'Answer under 75 words', and 'reply with only yes or no' got 'Answer in 1-3 short sentences'. A quick message is sent without the earlier conversation, so 'from now on...' instructions and follow-ups such as 'what about its economy?' are lost, and small-talk replies have stock phrases taken out. This was the behaviour before 25 November 2026.",
 }
 UNGROUNDED_HELP = {
     "offer": "The answer is shown at once. When it used no sources and the app rates it low or speculative, two choices appear under it: look the question up on the web and answer again, or have another installed model answer it. Nothing is sent anywhere unless you choose the web lookup.",
@@ -793,6 +793,29 @@ def looks_like_model_refusal(answer: str) -> bool:
     """
 
     return bool(_REFUSAL.match((answer or "").strip()[:200]))
+
+
+# The model saying, anywhere in an answer, that it will not give part of what was asked: "I can provide some
+# general investment advice, but I'm unable to give you personalized ..." (dolphin3:8b on its own, 2026-11-25),
+# "I can't recommend specific stocks". Generic grammar, not subjects: "I" + unable / can't / won't + a verb of
+# giving. "I can't help but notice" and "I can't wait" are not it.
+_GIVING = r"(?:give|provide|offer|recommend|share|supply|endorse|answer|advise|help you with|assist (?:you )?with)\b"
+_PARTIAL_REFUSAL = re.compile(
+    rf"\bI(?:['’]m| am) (?:not able|unable) to {_GIVING}"
+    rf"|\bI (?:can(?:['’]|no)?t|cannot|won['’]t|will not) {_GIVING}"
+    r"|\bI(?:['’]m| am) not (?:allowed|permitted|in a position) to\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_partial_refusal(answer: str) -> bool:
+    """True when an answer that does not open as a refusal still says the model will not give part of what was asked.
+
+    Like looks_like_model_refusal, used only to tell the owner where a gap in an answer came from.
+    """
+
+    text = answer or ""
+    return bool(text.strip()) and not looks_like_model_refusal(text) and bool(_PARTIAL_REFUSAL.search(text))
 
 
 def provider_constraints(provider: str, model: str = "") -> dict[str, str]:

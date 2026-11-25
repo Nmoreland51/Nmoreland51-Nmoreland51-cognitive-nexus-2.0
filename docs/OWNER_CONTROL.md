@@ -295,9 +295,21 @@ exact prompt that was sent.
   stopped, the three settings for outside text, the agent on seeded bugs, settings surviving a restart in
   the running app. On 2026-11-25: what the app sends to Ollama (recorded and replayed), the coding-agents
   question in four configurations, and the shortening and yes-or-no examples above.
-- **Measured before the 2026-11-25 changes on two requests only**: the full set of 27 in
-  `tests/fixtures/attribution_check.json` was cut off after two by a restart; the planner's rules were
-  measured for all of its requests without a model.
+- **Before and after the 2026-11-25 changes, with the real model** (`docs/benchmarks/attribution_dolphin3-8b.json`,
+  27 requests from `tests/fixtures/attribution_check.json`, six of them written before any change and not used
+  to design one):
+
+  | | The model alone | The app before | The app after |
+  |---|---|---|---|
+  | Middle answer length | 271 words | 111 words | 243 words |
+  | Cut off by the app's reply limit | | 3 | 0 |
+  | Less than half as long as the model alone | | 13 of 27 | 1 of 27 |
+  | Middle time through the app | | 42 s | 86 s |
+  | Stopped by the app | | 0 | 0 |
+  | Refusals, read from the answers | one partial (an exact investment allocation) | none | none |
+
+  In every answer, before and after, what was shown is the model's reply word for word, with the app's notes
+  added after it. The cost of fuller answers is time: on this CPU the middle answer took twice as long.
 - **Verified with stand-ins only**: hosted providers (recorded response shapes, no live call) and GitHub
   (a real push to a local remote, real HTTP to a local stand-in for the API).
 - **Not run**: anything on the phone.

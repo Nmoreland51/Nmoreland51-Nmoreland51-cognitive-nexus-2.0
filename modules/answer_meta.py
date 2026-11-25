@@ -83,6 +83,9 @@ def answer_meta(provider_result: dict[str, Any] | None) -> dict[str, Any]:
     if result.get("declined_by_model") and answered:
         # The answer opens like a refusal. It is the model's own: the app sent the request on unchanged.
         meta["declined_by_model"] = True
+    elif result.get("partly_declined_by_model") and answered:
+        # The model answered, but says it will not give part of what was asked. Also the model's own.
+        meta["partly_declined_by_model"] = True
     if provider == "content_rule":
         meta["content_rule"] = True
     note = str(result.get("model_note") or "").strip()
@@ -181,6 +184,9 @@ def describe_answer(meta: dict[str, Any] | None) -> str:
         # Where a refusal came from. The app has no topic filter, so this one is the model's.
         whose = f"{CLOUD_MODEL_PROVIDERS[model_provider]}'s model" if model_provider in CLOUD_MODEL_PROVIDERS else "the model"
         line += f". This reads like a refusal by {whose}; the app passed your message on unchanged and did not block it."
+    elif meta.get("partly_declined_by_model"):
+        whose = f"{CLOUD_MODEL_PROVIDERS[model_provider]}'s model" if model_provider in CLOUD_MODEL_PROVIDERS else "the model"
+        line += f". Part of this reads like {whose} declining to give something; the app passed your message on unchanged and held nothing back."
     skipped = meta.get("skipped_cloud") or []
     if skipped and not answered:
         line += f" ({', '.join(CLOUD_MODEL_PROVIDERS.get(name, name) for name in skipped)} is set up but cloud fallback is off.)"
