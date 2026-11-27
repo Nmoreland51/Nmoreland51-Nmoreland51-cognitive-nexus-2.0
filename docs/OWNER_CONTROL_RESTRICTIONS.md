@@ -393,7 +393,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `modules/behavior_policy.py:35` — `DEFAULT_BEHAVIOR_TEXT = (`
 - **Where:** `modules/behavior_policy.py:196` — `def apply_behavior_changes(`
-- **Where:** `modules/nexus_config.py:93` — `"behavior_text": None,`
+- **Where:** `modules/nexus_config.py:96` — `"behavior_text": None,`
 - **Trigger:** Every chat turn.
 - **Effect:** The owner's own text is sent as instructions under "How the owner wants you to answer". The default says to answer directly and completely, without warnings or moral commentary, and to treat adult subjects, drugs, money and politics like any other subject.
 - **Owner requested:** Yes.
@@ -641,7 +641,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 ### R-B03 · Anthropic: ask for the provider's own fallback when its classifier declines · active
 
 - **Where:** `modules/provider_router.py:970` — `if self.config.get("anthropic_refusal_fallback", True):`
-- **Where:** `modules/nexus_config.py:91` — `"anthropic_refusal_fallback": True,`
+- **Where:** `modules/nexus_config.py:94` — `"anthropic_refusal_fallback": True,`
 - **Where:** `config/nexus_config.json:13` — `"anthropic_refusal_fallback": true`
 - **Trigger:** A request to Anthropic with the setting anthropic_refusal_fallback on.
 - **Effect:** The request asks Anthropic to retry on its default model when a safety classifier declines the first one. If that also declines, the refusal is reported (R-B02).
@@ -730,7 +730,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 - **Where:** `agent/approvals.py:36` — `AUTONOMY: dict[str, tuple[str, tuple[str, ...]]] = {`
 - **Where:** `agent/approvals.py:62` — `def decide(self, tool: str, effect: str) -> str:`
-- **Where:** `modules/nexus_config.py:102` — `"agent_autonomy": "publishing_asks",`
+- **Where:** `modules/nexus_config.py:105` — `"agent_autonomy": "publishing_asks",`
 - **Trigger:** Every action the agent takes. Each tool declares what it can affect: read, write, execute, network, external.
 - **Effect:** Default "publishing_asks": reading, editing, running tests, committing to the task's own branch and reading from GitHub run without asking; pushing a branch or opening a pull request asks once. Other choices: publish drafts unasked, ask before every change, read only.
 - **Owner requested:** Yes: autonomous development with owner-controlled permissions, and no unnecessary approval gates.
@@ -860,7 +860,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `agent/environment.py:118` — `def changed_since_start(`
 - **Where:** `agent/coder.py:809` — `def install_what_is_missing(`
 - **Where:** `agent/tools.py:328` — `Packages are installed with setup_environment`
-- **Where:** `modules/nexus_config.py:105` — `"agent_package_policy": "declared",`
+- **Where:** `modules/nexus_config.py:108` — `"agent_package_policy": "declared",`
 - **Trigger:** A task's tests cannot import a package, or the agent calls setup_environment.
 - **Effect:** The task gets a virtual environment of its own, created and used inside the sandbox. Under the default policy ('declared') only the repository's own requirement files are installed, as they were before the task started, from the package index only, and only as ready-built packages, so nothing from a package runs in order to install it. A requirement file the task itself wrote or changed is refused, as are lines pointing at URLs, version-control repositories or other indexes. With the policy 'off' nothing is installed and the task is handed to a person with the name of the missing package.
 - **Owner requested:** In general terms: the audit asked for a package installation policy (item 058). The default was not put to the owner.
@@ -940,7 +940,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `modules/web_research.py:627` — `def _fenced_context(`
 - **Where:** `modules/reality_research_agent.py:859` — `fence_untrusted(cleaned, 'passage')`
 - **Where:** `search/bloodhound_search.py:568` — `fence_untrusted("\n\n".join(cleaned), "search results")`
-- **Where:** `modules/nexus_config.py:101` — `"untrusted_content": "remove_and_fence",`
+- **Where:** `modules/nexus_config.py:104` — `"untrusted_content": "remove_and_fence",`
 - **Trigger:** Web pages, search results, passages from uploaded and saved documents, and earlier answers that were built from them, when they are put into a prompt.
 - **Effect:** The text is placed between [BEGIN UNTRUSTED ...] and [END UNTRUSTED ...] markers that it cannot forge, with a note that it is information and not instruction. In the default setting, sentences in web pages that address an AI ("ignore previous instructions") are also left out, and the count is shown.
 - **Owner requested:** Yes, for outside text.
@@ -1098,7 +1098,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-D08 · Keys and tokens stay out of the settings file, the logs, picture metadata, backups and the sandbox · active
 
-- **Where:** `modules/nexus_config.py:227` — `if "key" not in key.lower()`
+- **Where:** `modules/nexus_config.py:230` — `if "key" not in key.lower()`
 - **Where:** `agent/github.py:39` — `TOKEN_VARIABLES = ("COGNITIVE_NEXUS_GITHUB_TOKEN", "GITHUB_TOKEN")`
 - **Where:** `modules/nexus_core.py:306` — `record_event("content_rule",`
 - **Where:** `modules/backup.py:132` — `hold credentials and are never copied into a backup, an export or a snapshot`
@@ -1236,7 +1236,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 - **Where:** `core/reasoning/generation_constraints.py:63` — `"Reality check (labels only):\n"`
 - **Where:** `core/reasoning/generation_constraints.py:103` — `- Do not provide step-by-step instructions, component lists`
 - **Where:** `modules/nexus_core.py:498` — `reality_check != "off"`
-- **Where:** `modules/nexus_config.py:94` — `"reality_check": "label",`
+- **Where:** `modules/nexus_config.py:97` — `"reality_check": "label",`
 - **Trigger:** Chat messages about things the app's classifier judges impossible, fictional, theoretical or unverified (a time machine, perpetual motion, a wormhole prototype).
 - **Effect:** Default "label": a note asks the model to answer in full and say what is established, theoretical or invented; fiction, role-play and what-ifs are written as asked. "withhold" is the earlier behaviour: the model is told not to give step-by-step detail for such things. "off": nothing is added.
 - **Owner requested:** The owner asked that fact-checking not suppress clearly marked fiction (OC-T13) and was asked which behaviour to use; no answer.
@@ -1322,7 +1322,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F01 · Auto Precision disables the manual answer controls · active
 
-- **Where:** `ui/sidebar.py:238` — `manual_disabled = bool(auto_precision_mode)`
+- **Where:** `ui/sidebar.py:262` — `manual_disabled = bool(auto_precision_mode)`
 - **Trigger:** Auto Precision Mode on (the default).
 - **Effect:** The controls under Advanced Overrides (memory, knowledge, web, router, response mode, verbosity) are greyed out and chosen per message instead. The Behaviour settings are not affected.
 - **Owner requested:** No.
@@ -1406,7 +1406,7 @@ Every mechanism in this repository that restricts, shapes or gates what Cognitiv
 
 ### R-F05 · Tor (.onion) search is off by default · active
 
-- **Where:** `modules/nexus_config.py:131` — `"enable_onion_search": False,`
+- **Where:** `modules/nexus_config.py:134` — `"enable_onion_search": False,`
 - **Trigger:** Bloodhound search.
 - **Effect:** Onion sites are searched only when the setting is on and a Tor proxy runs on this machine.
 - **Owner requested:** No.

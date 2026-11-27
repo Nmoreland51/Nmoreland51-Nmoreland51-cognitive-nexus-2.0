@@ -37,6 +37,18 @@ class AppControlsTests(unittest.TestCase):
         self.assertFalse(app.is_demo_safe({"demo_safe_mode": False}))
         self.assertFalse(app.is_demo_safe({}))
 
+    def test_the_owners_saved_chat_model_wins_over_a_newly_installed_one(self):
+        from modules.nexus_config import DEFAULT_CONFIG
+        from ui.sidebar import choose_chat_model
+
+        # Ollama lists the newest model first; qwen2.5-coder:7b was installed after dolphin3:8b.
+        installed = ["qwen2.5-coder:7b", "dolphin3:8b"]
+        self.assertEqual(DEFAULT_CONFIG["chat_model"], "dolphin3:8b")
+        self.assertEqual(choose_chat_model(installed, DEFAULT_CONFIG["chat_model"], "fast"), "dolphin3:8b")
+        self.assertEqual(choose_chat_model(installed, "qwen2.5-coder:7b"), "qwen2.5-coder:7b")
+        # A saved model that is not installed falls back to the app's guess.
+        self.assertEqual(choose_chat_model(["llama3.2:3b"], "dolphin3:8b"), "llama3.2:3b")
+
     def test_get_chat_model_prefers_blackhills_when_installed(self):
         model = app.get_chat_model(
             [

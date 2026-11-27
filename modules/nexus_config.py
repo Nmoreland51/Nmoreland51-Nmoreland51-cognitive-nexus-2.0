@@ -83,6 +83,9 @@ def current_model_id(model: str, today: date | None = None) -> tuple[str, str]:
 DEFAULT_CONFIG: dict[str, Any] = {
     "provider_order": ["ollama", "openai", "anthropic", "huggingface_local", "fallback"],
     "ollama_url": "http://localhost:11434",
+    # The local chat model. The owner kept dolphin3:8b (2026-11-23); a model picked in the sidebar is saved
+    # here. Used when installed, so installing another model does not change it.
+    "chat_model": "dolphin3:8b",
     "openai_model": "gpt-4.1-mini",
     "anthropic_model": DEFAULT_ANTHROPIC_MODEL,
     # How much thinking Claude does before answering: low, medium, high, xhigh or max.

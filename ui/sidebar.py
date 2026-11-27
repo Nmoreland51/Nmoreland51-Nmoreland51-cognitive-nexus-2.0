@@ -65,6 +65,29 @@ FAST_MODEL_HINTS = (
 )
 
 
+CHAT_MODEL_KEY = "sidebar_chat_model"
+
+
+def choose_chat_model(models: list[str], saved: str, throughput_mode: str = "balanced") -> str:
+    """The owner's saved chat model when it is installed; otherwise the app's guess.
+
+    Until 2026-11-26 there was no saved choice: the guess ran on every start, and a model installed later
+    could take over (qwen2.5-coder:7b, downloaded for one comparison, became the chat model because Ollama
+    lists the newest model first).
+    """
+
+    return saved if saved and saved in models else get_chat_model(models, throughput_mode)
+
+
+def _save_chat_model() -> None:
+    choice = str(st.session_state.get(CHAT_MODEL_KEY) or "")
+    if not choice:
+        return
+    core = get_nexus_core()
+    save_runtime_config({**core.config, "chat_model": choice})
+    core.refresh_config()
+
+
 def get_chat_model(models: list[str], throughput_mode: str = "balanced") -> str:
     if throughput_mode in {"fast", "turbo"}:
         non_embedding = [model for model in models if "embed" not in model.lower()]
@@ -156,9 +179,10 @@ def render_sidebar(
 
         selected_model = None
         if status.models:
-            default_model = get_chat_model(status.models, throughput_mode)
+            default_model = choose_chat_model(status.models, str(get_nexus_core().config.get("chat_model") or ""), throughput_mode)
             default_index = status.models.index(default_model) if default_model in status.models else 0
-            selected_model = st.selectbox("Chat model", status.models, index=default_index)
+            # The choice is saved, so it survives a restart and a newly installed model does not replace it.
+            selected_model = st.selectbox("Chat model", status.models, index=default_index, key=CHAT_MODEL_KEY, on_change=_save_chat_model)
             warm_chat_model(selected_model)
             model_check = get_nexus_core().provider_router.verification("ollama", selected_model)
             st.caption(model_check_caption(model_check))
